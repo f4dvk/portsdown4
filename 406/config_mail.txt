@@ -1,0 +1,4 @@
+smtp_serveur=smtp.gmail.com:587
+utilisateur=toto@gmail.com
+password=mot_de_passe_mail
+destinataires=lea@free.fr,luc@orange.fr

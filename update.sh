@@ -62,12 +62,12 @@ GIT_SRC_FILE=".portsdown_gitsrc"
 if [ -e ${GIT_SRC_FILE} ]; then
   GIT_SRC=$(</home/pi/${GIT_SRC_FILE})
 else
-  GIT_SRC="BritishAmateurTelevisionClub"
+  GIT_SRC="f4dvk"
 fi
 
 ## If previous version was Dev (davecrump), load production by default
 if [ "$GIT_SRC" == "davecrump" ]; then
-  GIT_SRC="BritishAmateurTelevisionClub"
+  GIT_SRC="f4dvk"
 fi
 
 if [ "$1" == "-d" ]; then
@@ -75,7 +75,7 @@ if [ "$1" == "-d" ]; then
   GIT_SRC="davecrump"
 fi
 
-if [ "$GIT_SRC" == "BritishAmateurTelevisionClub" ]; then
+if [ "$GIT_SRC" == "f4dvk" ]; then
   echo "Updating to latest Production Portsdown RPi 4 build";
 elif [ "$GIT_SRC" == "davecrump" ]; then
   echo "Updating to latest development Portsdown RPi 4 build";
@@ -177,7 +177,7 @@ fi
 
 sudo apt -y remove vlc*
 sudo apt -y remove libvlc*
-sudo apt -y remove vlc-data 
+sudo apt -y remove vlc-data
 
 
 sudo dpkg --configure -a                            # Make sure that all the packages are properly configured
@@ -249,6 +249,16 @@ sudo apt-get -y install libairspy-dev                                   # For Ai
 sudo apt-get -y install expect                                          # For unattended installs
 sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
 
+sudo apt-get install -y nodejs npm         # streaming audio
+
+if [ ! $(find /usr/bin -name ffmpeg2) ]; then
+  sudo apt-get install -y ffmpeg
+  sudo cp /usr/bin/ffmpeg /usr/bin/ffmpeg2
+fi
+if [ ! $(find /usr/bin -name aplay2) ]; then
+  sudo cp /usr/bin/aplay /usr/bin/aplay2
+fi
+
 # -----------Update LimeSuite if required -------------
 
 if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
@@ -282,9 +292,9 @@ if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
   cd LimeSuite/udev-rules
   chmod +x install.sh
   sudo /home/pi/LimeSuite/udev-rules/install.sh
-  cd /home/pi	
+  cd /home/pi
 
-  # Record the LimeSuite Version	
+  # Record the LimeSuite Version
   echo "9c983d8" >/home/pi/LimeSuite/commit_tag.txt
 
   # Download the LimeSDR Mini firmware/gateware versions
@@ -293,12 +303,12 @@ if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
   echo "----- Downloading LimeSDR Mini Firmware versions -----"
   echo "------------------------------------------------------"
 
-  # Current LimeSDR Mini V1 Version from LimeSuite 22.09 
+  # Current LimeSDR Mini V1 Version from LimeSuite 22.09
   mkdir -p /home/pi/.local/share/LimeSuite/images/22.09/
   wget https://downloads.myriadrf.org/project/limesuite/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd -O \
                /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd
 
-  # Current LimeSDR Mini V2 Version from LimeSuite 22.09 
+  # Current LimeSDR Mini V2 Version from LimeSuite 22.09
   wget https://downloads.myriadrf.org/project/limesuite/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit -O \
                  /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit
 
@@ -333,6 +343,8 @@ unzip -o master.zip
 cp -f -r portsdown4-master/bin rpidatv
 cp -f -r portsdown4-master/scripts rpidatv
 cp -f -r portsdown4-master/src rpidatv
+cp -f -r portsdown4-master/406 rpidatv
+cp -f -r portsdown4-master/server rpidatv
 rm -f rpidatv/video/*.jpg
 cp -f -r portsdown4-master/video rpidatv
 cp -f -r portsdown4-master/version_history.txt rpidatv/version_history.txt
@@ -356,7 +368,22 @@ cd /home/pi/rpidatv/src/gui
 #make clean
 make
 sudo make install
+
+echo
+echo "-----------------------------------------------"
+echo "------- Update RTL-SDR Drivers and Apps -------"
+echo "-----------------------------------------------"
 cd /home/pi
+sudo rm -r rtl-sdr
+wget https://github.com/f4dvk/rtl-sdr/archive/master.zip
+unzip master.zip
+mv rtl-sdr-master rtl-sdr
+rm master.zip
+
+# Compile and install rtl-sdr
+cd rtl-sdr/ && mkdir build && cd build
+cmake ../ -DINSTALL_UDEV_RULES=ON
+make && sudo make install && sudo ldconfig
 
 # Update limesdr_toolbox
 echo "Updating limesdr_toolbox"
@@ -381,7 +408,7 @@ cp dvb2iq /home/pi/rpidatv/bin/
 
 #Make limesdr_toolbox
 cd /home/pi/rpidatv/src/limesdr_toolbox/
-make 
+make
 cp limesdr_send /home/pi/rpidatv/bin/
 cp limesdr_dump /home/pi/rpidatv/bin/
 cp limesdr_stopchannel /home/pi/rpidatv/bin/
@@ -612,7 +639,7 @@ cp -f -r "$PATHUBACKUP"/portsdown_locators.txt "$PATHSCRIPT"/portsdown_locators.
 cp -f -r "$PATHUBACKUP"/rx_presets.txt "$PATHSCRIPT"/rx_presets.txt
 
 # Restore the user's original stream presets
-cp -f -r "$PATHUBACKUP"/stream_presets.txt "$PATHSCRIPT"/stream_presets.txt 
+cp -f -r "$PATHUBACKUP"/stream_presets.txt "$PATHSCRIPT"/stream_presets.txt
 
 # Restore the user's original Jetson configuration
 cp -f -r "$PATHUBACKUP"/jetson_config.txt "$PATHSCRIPT"/jetson_config.txt
@@ -636,8 +663,8 @@ cp -f -r "$PATHUBACKUP"/rtlsdrview_config.txt /home/pi/rpidatv/src/rtlsdrview/rt
 cp -f -r "$PATHUBACKUP"/plutoview_config.txt /home/pi/rpidatv/src/plutoview/plutoview_config.txt
 
 # Restore the user's original Contest Codes
-cp -f -r "$PATHUBACKUP"/portsdown_C_codes.txt "$PATHSCRIPT"/portsdown_C_codes.txt 
- 
+cp -f -r "$PATHUBACKUP"/portsdown_C_codes.txt "$PATHSCRIPT"/portsdown_C_codes.txt
+
 # Restore the user's original User Button scripts
 cp -f -r "$PATHUBACKUP"/user_button1.sh "$PATHSCRIPT"/user_button1.sh
 cp -f -r "$PATHUBACKUP"/user_button2.sh "$PATHSCRIPT"/user_button2.sh
@@ -660,7 +687,7 @@ if ! grep -q micgain "$PATHSCRIPT"/portsdown_config.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "micgain=26" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
@@ -669,7 +696,7 @@ if ! grep -q udpoutport "$PATHSCRIPT"/portsdown_config.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "udpoutport=10000" >> "$PATHSCRIPT"/portsdown_config.txt
   echo "udpinport=10000" >> "$PATHSCRIPT"/portsdown_config.txt
   echo "guard=32" >> "$PATHSCRIPT"/portsdown_config.txt
@@ -680,7 +707,7 @@ if ! grep -q qam= "$PATHSCRIPT"/portsdown_config.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "qam=qpsk" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
@@ -689,7 +716,7 @@ if ! grep -q tstimeout "$PATHSCRIPT"/longmynd_config.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/longmynd_config.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "tstimeout=5000" >> "$PATHSCRIPT"/longmynd_config.txt
   echo "tstimeout1=10000" >> "$PATHSCRIPT"/longmynd_config.txt
   echo "scanwidth=50" >> "$PATHSCRIPT"/longmynd_config.txt
@@ -704,7 +731,7 @@ if ! grep -q adf4153ref /home/pi/rpidatv/src/siggen/siggenconfig.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' /home/pi/rpidatv/src/siggen/siggenconfig.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "adf4153ref=20000000" >> /home/pi/rpidatv/src/siggen/siggenconfig.txt
 fi
 
@@ -713,7 +740,7 @@ if ! grep -q slopoints /home/pi/rpidatv/src/siggen/siggencal.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' /home/pi/rpidatv/src/siggen/siggencal.txt
-  # Add the new entries and a new line 
+  # Add the new entries and a new line
   echo "slopoints=2" >> /home/pi/rpidatv/src/siggen/siggencal.txt
   echo "slofreq1=10000000000" >> /home/pi/rpidatv/src/siggen/siggencal.txt
   echo "slolev1=140" >> /home/pi/rpidatv/src/siggen/siggencal.txt
@@ -731,7 +758,7 @@ if ! grep -q ad9850ref /home/pi/rpidatv/src/siggen/siggenconfig.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' /home/pi/rpidatv/src/siggen/siggenconfig.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "ad9850ref=120000000" >> /home/pi/rpidatv/src/siggen/siggenconfig.txt
 fi
 
@@ -740,7 +767,7 @@ if ! grep -q limerfeport= "$PATHSCRIPT"/portsdown_config.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "limerfeport=txrx" >> "$PATHSCRIPT"/portsdown_config.txt
   echo "limerferxatt=0" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
@@ -750,7 +777,7 @@ if ! grep -q picam= "$PATHSCRIPT"/portsdown_config.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "picam=normal" >> "$PATHSCRIPT"/portsdown_config.txt
   echo "vlcvolume=256" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
@@ -760,7 +787,7 @@ if ! grep -q webcontrol= "$PATHSCRIPT"/portsdown_config.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
-  # Add the new entry and a new line 
+  # Add the new entry and a new line
   echo "webcontrol=disabled" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
@@ -770,7 +797,7 @@ if ! grep -q langstone= "$PATHSCRIPT"/portsdown_config.txt; then
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
   # Add the new entry and a new line
-  if [ -d  /home/pi/Langstone ]; then                 
+  if [ -d  /home/pi/Langstone ]; then
     # Langstone V1 already installed
     echo "langstone=v1pluto" >> "$PATHSCRIPT"/portsdown_config.txt
   else
@@ -783,7 +810,7 @@ if ! grep -q d0label= "$PATHSCRIPT"/portsdown_presets.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_presets.txt
-  # Add the new entries to the end 
+  # Add the new entries to the end
   cat "$PATHSCRIPT"/configs/add_portsdown_presets.txt >> "$PATHSCRIPT"/portsdown_presets.txt
 fi
 
@@ -792,7 +819,7 @@ if ! grep -q t8lo= "$PATHSCRIPT"/rx_presets.txt; then
   # File needs updating
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/rx_presets.txt
-  # Add the new entries to the end 
+  # Add the new entries to the end
   cat "$PATHSCRIPT"/configs/add_rx_presets.txt >> "$PATHSCRIPT"/rx_presets.txt
 fi
 
@@ -800,6 +827,21 @@ fi
 if ! grep -q site1d0numbers= "$PATHSCRIPT"/portsdown_C_codes.txt; then
   # File needs updating
   cp "$PATHSCRIPT"/configs/portsdown_C_codes.txt.factory "$PATHSCRIPT"/portsdown_C_codes.txt
+fi
+
+# Streaming audio source: https://github.com/JoJoBond/3LAS
+
+if [ ! -d "/home/pi/rpidatv/server/node_modules" ];then
+  cd /home/pi/rpidatv/server/
+  npm install ws wrtc
+  chmod ug+x stream.sh
+  cd /home/pi
+fi
+
+cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
+
+if ! grep -q snd-aloop /etc/modules; then
+  sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules
 fi
 
 # Configure the nginx web server
@@ -819,6 +861,25 @@ cp /home/pi/rpidatv/scripts/latest_version.txt /home/pi/rpidatv/scripts/installe
 
 # Save (overwrite) the git source used
 echo "${GIT_SRC}" > /home/pi/${GIT_SRC_FILE}
+
+# Installation décodage 406
+cd /home/pi/rpidatv/406
+./install.sh
+
+# installation de hostapd et dnsmasq
+dpkg -l | grep hostapd >/dev/null 2>/dev/null
+if [ $? != 0 ]; then
+  sudo apt-get -f -y install hostapd
+  sudo systemctl disable hostapd
+  sudo service hostapd stop
+fi
+
+dpkg -l | grep dnsmasq >/dev/null 2>/dev/null
+if [ $? != 0 ]; then
+  sudo apt-get -f -y install dnsmasq
+  sudo systemctl disable dnsmasq
+  sudo service dnsmasq stop
+fi
 
 # Reboot
 DisplayRebootMsg "Step 10 of 10\nRebooting\n\nUpdate Complete"

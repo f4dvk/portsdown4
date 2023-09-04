@@ -1,3 +1,6 @@
+202309040
+Ajout Sarsat, audio web, hotspot
+
 202308240
 Install Open SSL and Websockets
 Add robust scheduler for Meteor Beacon RX
@@ -70,7 +73,7 @@ Set Band Bit 7 high when Pluto BandViewer is in use
 
 202301300
 Add Jetson H265 encoding from Blackmagic ATEM Mini Pro USB
-Add Blackmagic ATEM Mini Pro USB viewing to Portsdown HDMI Viewer 
+Add Blackmagic ATEM Mini Pro USB viewing to Portsdown HDMI Viewer
 
 202301141
 Separate Jetson TX scripts from RPi TX Scripts
@@ -366,7 +369,7 @@ Use Raspios Buster Lite 2020-08-20 for new builds
 202009130
 Add LKV373A HDMI input for Pluto and streaming outputs
 Add LKV373A HDMI monitor
-Change IPTS monitor to use VLC 
+Change IPTS monitor to use VLC
 
 202009010
 Correct Pluto PTT
@@ -631,9 +634,9 @@ Enable stream set-up and selection from Menu 3
 201809050
 Update dtblob.bin and RPi Version file to prevent shutdown hang
 Set swapoff before shutdown or reboot to prevent shutdown hang
-Install random number tools to prevent wget hang on checking for update 
+Install random number tools to prevent wget hang on checking for update
 Bugfix stream display after info screen selection
-Do not update kernel until mmal and IL bugs are fixed 
+Do not update kernel until mmal and IL bugs are fixed
 
 201807290
 Introduce Stream to Video appliance with "Stream Valid" signal
@@ -739,7 +742,7 @@ Introduces attenuator and transverter switching
 Introduces stored preset configurations
 Initialises spi GPIO ports on GUI start-up
 Corrects ADF4351 and Attenuator spi timing to improve reliability
-Corrects FileTS failure to cease transmitting 
+Corrects FileTS failure to cease transmitting
 Adds partial support (Video only) for Logitech C525 and C270 Webcams
 
 201801220
@@ -772,7 +775,7 @@ Adds Switchable 480p Output in CAMMPEG-2 and ANALOGMPEG-2
 Moves Caption and Adds Locator if 480p selected
 Fixes "Oversize test cards in Carousel"
 Enables IPTS input to DATV Express Output
-Disables option to turn the Viewfinder Off 
+Disables option to turn the Viewfinder Off
 
 201711270
 Adds CARDMPEG-2 and CAMHDMPEG-2 modes
@@ -841,7 +844,7 @@ Adds an audio switching option in the touchscreen, but not the functionality
 201706301
 Clears the Contest numbers when contest mode is deselected on the touchscreen
 Adds an audio switching option in the menu, but not the functionality
-Adds an auto option for the usb video device name, but not the functionality 
+Adds an auto option for the usb video device name, but not the functionality
 Adds numeric entry for all PIDs in the menu, but not the functionality
 Includes the F-M testrig software in the core build
 Implements some beta functionality
@@ -879,7 +882,7 @@ Added routine software upgrade to install and upgrade scripts
 Removed the need for a user decision about kernel update on install
 Tidied IPTS Input mode so that it can be used
 Added Contest Number TX facility for Console control (not touchscreen yet)
-Added facility for future German language menus. 
+Added facility for future German language menus.
 
 201703060
 Added capability to configure Frequency and SR presets for LCD display
@@ -895,7 +898,7 @@ Added streaming from PiCam with sound to BATC Streamer
 Added streaming from PiCam with sound to any other FMLE streamer
 Optimised MPEG-2 with sound from PiCam for IQ and DATV Express outputs
 Optimised H264 (no sound) from Analog for IQ and DATV Express outputs
-Added option to not display viewfinder on LCD (saves CPU capacity) 
+Added option to not display viewfinder on LCD (saves CPU capacity)
 
 201702110
 Bug fix for update of DATV Express
@@ -921,7 +924,7 @@ Implemented automated install of development versions if requested with -d and -
 Corrected a bug in the upgrade script that did not enable the new ADF4351 functionality
 
 201701270
-Changed ADF4351 control so that the reference frequency and power for each 
+Changed ADF4351 control so that the reference frequency and power for each
 band could be set from the advanced setup menu.
 Ensured that band switching was activated at switch-on and frequency change.
 Corrected the carrier and null-test mode selections.

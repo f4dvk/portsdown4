@@ -34,8 +34,8 @@ Rewitten by Dave, G8GKQ
 #include <ctype.h>
 #include <math.h>
 #include <wiringPi.h>
-#include <sys/stat.h> 
-#include <sys/types.h> 
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <lime/LimeSuite.h>
 #include <lime/limeRFE.h>
@@ -59,6 +59,9 @@ Rewitten by Dave, G8GKQ
 #define PATH_JCONFIG "/home/pi/rpidatv/scripts/jetson_config.txt"
 #define PATH_LMCONFIG "/home/pi/rpidatv/scripts/longmynd_config.txt"
 #define PATH_LIME_CAL "/home/pi/rpidatv/scripts/limecalfreq.txt"
+#define PATH_406CONFIG "/home/pi/rpidatv/406/config.txt"
+#define PATH_HOTSPOTCONFIG "/home/pi/rpidatv/scripts/hotspot_config.txt"
+#define PATH_WIFIGET "/home/pi/rpidatv/scripts/wifi_get.txt"
 #define PATH_C_NUMBERS "/home/pi/rpidatv/scripts/portsdown_C_codes.txt"
 #define PATH_BV_CONFIG "/home/pi/rpidatv/src/bandview/bandview_config.txt"
 #define PATH_AS_CONFIG "/home/pi/rpidatv/src/airspyview/airspyview_config.txt"
@@ -70,6 +73,8 @@ Rewitten by Dave, G8GKQ
 #define deg2rad(DEG) ((DEG)*((PI)/(180.0)))
 #define rad2deg(RAD) ((RAD)*180/PI)
 #define DELIM "."
+
+char PATH_SCRIPT_DECODER_1[45];
 
 char ImageFolder[63]="/home/pi/rpidatv/image/";
 
@@ -104,8 +109,10 @@ color_t DBlue = {.r = 0  , .g = 0  , .b = 64 };
 color_t Grey  = {.r = 127, .g = 127, .b = 127};
 color_t Red   = {.r = 255, .g = 0  , .b = 0  };
 color_t Black = {.r = 0  , .g = 0  , .b = 0  };
+color_t Orange = {.r = 248, .g = 185, .b = 4  };
+color_t Rose  = {.r = 255 , .g = 105 , .b = 180};
 
-#define MAX_BUTTON 690
+#define MAX_BUTTON 990
 int IndexButtonInArray=0;
 button_t ButtonArray[MAX_BUTTON];
 #define TIME_ANTI_BOUNCE 500
@@ -156,7 +163,7 @@ int debug_level = 0; // 0 minimum, 1 medium, 2 max
 int MicLevel = 26;   // 1 to 30.  default 26
 
 char ScreenState[255] = "NormalMenu";  // NormalMenu SpecialMenu TXwithMenu TXwithImage RXwithImage VideoOut SnapView VideoView Snap SigGen
-char MenuTitle[50][127];
+char MenuTitle[90][127];
 
 // Band details to be over-written by values from from portsdown_config.txt:
 char TabBand[16][3] = {"d1", "d2", "d3", "d4", "d5", "t1", "t2", "t3", "t4", "t0", "t5", "t6", "t7", "t8", "d0", "d6"};
@@ -228,7 +235,7 @@ int ImageRange = 5;         // Number of Test Cards
 
 // Test Card switching variables
 int CurrentTestCard = 0;   // Test Card F
-char TestCardName[12][63] = {"tcfm", "tcc", "pm5544", "75cb", "11g"}; 
+char TestCardName[12][63] = {"tcfm", "tcc", "pm5544", "75cb", "11g"};
 char TestCardTitle[12][63];
 
 // RTL FM Parameters. [0] is current
@@ -273,8 +280,8 @@ char LMRXmode[10];          // sat or terr
 char LMRXaudio[15];         // rpi or usb
 char LMRXvolts[7];          // off, v or h
 char RXmod[7];              // DVB-S or DVB-T
-bool VLCResetRequest = false; // Set on touchsscreen request for VLC to be reset  
-int  CurrentVLCVolume = 256;  // Read from config file                   
+bool VLCResetRequest = false; // Set on touchsscreen request for VLC to be reset
+int  CurrentVLCVolume = 256;  // Read from config file
 
 // LongMynd RX Received Parameters for display
 
@@ -326,7 +333,7 @@ bool AwaitingContestNumberViewSeln = false;
 float LimeCalFreq = 0;    // -2 cal never, -1 = cal every time, 0 = cal next time, freq = no cal if no change
 int LimeRFEState = 0;     // 0 = disabled, 1 = enabled
 int LimeRFEPort  = 1;     // 1 = txrx, 2 = tx, 3 = 30MHz
-int LimeRFERXAtt = 0;     // 0-7 representing 0-14dB 
+int LimeRFERXAtt = 0;     // 0-7 representing 0-14dB
 int LimeNETMicroDet = 0;  // 0 = Not detected, 1 = detected.  Tested on entry to Lime Config menu
 int LimeRFEMode = 0;      // 0 is RX , 1 is TX
 rfe_dev_t* rfe = NULL;    // handle for LimeRFE
@@ -371,7 +378,7 @@ pthread_t thbutton;         //
 pthread_t thview;           //
 pthread_t thwait3;          //  Used to count 3 seconds for WebCam reset after transmit
 pthread_t thwebclick;       //  Listens for mouse clicks from web interface
-pthread_t thtouchscreen;    //  listens to the touchscreen   
+pthread_t thtouchscreen;    //  listens to the touchscreen
 pthread_t thrfe15;          //  Turns LimeRFE on after 15 seconds
 pthread_t thbuttonFileVLC;  //  Handles touches during VLC play from file
 
@@ -523,6 +530,7 @@ int SelectFromList(int CurrentSelection, char ListEntry[100][63], int ListLength
 int CheckWifiEnabled();
 int CheckWifiConnection(char Network_SSID[63]);
 void WiFiConfig(int NoButton);
+void HotspotConfig();
 void GreyOut1();
 void GreyOutReset11();
 void GreyOut11();
@@ -744,6 +752,8 @@ void Define_Menu46();
 void Start_Highlights_Menu46();
 void Define_Menu47();
 void Start_Highlights_Menu47();
+void Define_Menu57();
+void Start_Highlights_Menu57();
 void Define_Menu41();
 
 // **************************************************************************** //
@@ -775,7 +785,7 @@ void GetConfigParam(char *PathConfigFile, char *Param, char *Value)
   {
     usleep(100000);           // Pause to let screen initialise
     setBackColour(0, 0, 0);   // Overwrite Portsdown Logo
-    MsgBox4("Error: Config File not found:", PathConfigFile, "Restore manually or by factory reset", 
+    MsgBox4("Error: Config File not found:", PathConfigFile, "Restore manually or by factory reset",
             "Touch Screen to Continue");
     wait_touch();
     strcpy(Value, " ");
@@ -809,13 +819,13 @@ void GetConfigParam(char *PathConfigFile, char *Param, char *Value)
   fclose(fp);
 
   if (strlen(Value) == 0)  // Display error if parameter undefined
-  {  
+  {
     usleep(100000);           // Pause to let screen initialise
     setBackColour(0, 0, 0);   // Overwrite Portsdown Logo
 
     snprintf(ErrorMessage1, 63, "Error: Undefined parameter %s in file:", Param);
 
-    MsgBox4(ErrorMessage1, PathConfigFile, "Restore manually or by factory reset", 
+    MsgBox4(ErrorMessage1, PathConfigFile, "Restore manually or by factory reset",
             "Touch Screen to Continue");
     wait_touch();
   }
@@ -851,7 +861,7 @@ void SetConfigParam(char *PathConfigFile, char *Param, char *Value)
   {
     setBackColour(0, 0, 0);   // Overwrite Portsdown Logo
     snprintf(ErrorMessage1, 63, "Error: Parameter %s in file:", Param);
-    MsgBox4(ErrorMessage1, PathConfigFile, "Would have no value. Try again.", 
+    MsgBox4(ErrorMessage1, PathConfigFile, "Would have no value. Try again.",
             "Touch Screen to Continue");
     wait_touch();
     return;
@@ -902,7 +912,7 @@ void SetConfigParam(char *PathConfigFile, char *Param, char *Value)
 void strcpyn(char *outstring, char *instring, int n)
 {
   //printf("\ninstring= -%s-, instring length = %d, desired length = %d\n", instring, strlen(instring), strnlen(instring, n));
-  
+
   n = strnlen(instring, n);
   int i;
   for (i = 0; i < n; i = i + 1)
@@ -917,7 +927,7 @@ void strcpyn(char *outstring, char *instring, int n)
   //for (i = 0; i < n; i = i + 1)
   //{
   //  printf("i = %d output character = %c\n", i, outstring[i]);
-  //}  
+  //}
   //printf("i = %d output character = %c\n", n, outstring[n]);
   //printf("i = %d output character = %c\n", (n + 1), outstring[n + 1]);
 
@@ -1286,7 +1296,7 @@ int CheckJetson()
   FILE *fp;
   char response[127];
   char pingcommand[127];
-  
+
   strcpy(pingcommand, "timeout 0.1 ping ");
   GetConfigParam(PATH_JCONFIG, "jetsonip", response);
   strcat(pingcommand, response);
@@ -1326,70 +1336,70 @@ int CheckJetson()
 *******************************************************************************/
 
 /* return 1 if string contain only digits, else return 0 */
-int valid_digit(char *ip_str) 
-{ 
-  while (*ip_str) 
-  { 
+int valid_digit(char *ip_str)
+{
+  while (*ip_str)
+  {
     if (*ip_str >= '0' && *ip_str <= '9')
-    { 
-      ++ip_str; 
+    {
+      ++ip_str;
     }
     else
     {
-      return 0; 
+      return 0;
     }
-  } 
-  return 1; 
-} 
+  }
+  return 1;
+}
 
-int is_valid_ip(char *ip_str) 
-{ 
-  int num, dots = 0; 
-  char *ptr; 
-  
-  if (ip_str == NULL) 
+int is_valid_ip(char *ip_str)
+{
+  int num, dots = 0;
+  char *ptr;
+
+  if (ip_str == NULL)
   {
-    return 0; 
+    return 0;
   }
 
-  ptr = strtok(ip_str, DELIM); 
-  if (ptr == NULL) 
+  ptr = strtok(ip_str, DELIM);
+  if (ptr == NULL)
   {
-    return 0; 
+    return 0;
   }
-  
+
   while (ptr)
-  { 
+  {
     // after parsing string, it must contain only digits
-    if (!valid_digit(ptr)) 
+    if (!valid_digit(ptr))
     {
-      return 0; 
-    }  
-    num = atoi(ptr); 
-  
+      return 0;
+    }
+    num = atoi(ptr);
+
     // check for valid numbers
     if (num >= 0 && num <= 255)
-    { 
+    {
       // parse remaining string
-      ptr = strtok(NULL, DELIM); 
+      ptr = strtok(NULL, DELIM);
       if (ptr != NULL)
       {
-        ++dots; 
+        ++dots;
       }
     }
     else
     {
-      return 0; 
+      return 0;
     }
   }
 
   // valid IP string must contain 3 dots
   if (dots != 3)
-  { 
+  {
     return 0;
   }
   return 1;
-} 
+}
 
 /***************************************************************************//**
  * @brief Displays a splash screen with update progress
@@ -1412,7 +1422,7 @@ void DisplayUpdateMsg(char* Version, char* Step)
   strcat(LinuxCommand, "\"Updating Portsdown Software\\nTo ");
   strcat(LinuxCommand, Version);
   strcat(LinuxCommand, " Version\" ");
- 
+
   strcat(LinuxCommand, "-gravity Center -pointsize 50 -annotate 0 \"");
   strcat(LinuxCommand, Step);
   strcat(LinuxCommand, "\\n\\nPlease wait\" ");
@@ -1437,7 +1447,7 @@ void DisplayUpdateMsg(char* Version, char* Step)
 /***************************************************************************//**
  * @brief checks whether software update available
  *
- * @param 
+ * @param
  *
  * @return void
 *******************************************************************************/
@@ -1554,7 +1564,7 @@ void ExecuteUpdate(int NoButton)
       strcpy(Step, "Step 2 of 10\\nLoading Update Script\\n\\nXX--------");
       DisplayUpdateMsg("Latest Portsdown 4", Step);
 
-      strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");   
+      strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");
       system(LinuxCommand);
       system("reset");
       exit(132);  // Pass control back to scheduler
@@ -1586,7 +1596,7 @@ void ExecuteUpdate(int NoButton)
       strcpy(Step, "Step 2 of 10\\nLoading Update Script\\n\\nXX--------");
       DisplayUpdateMsg("Development", Step);
 
-      strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");   
+      strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");
       system(LinuxCommand);
       system("reset");
       exit(133);  // Pass control back to scheduler for Dev Load
@@ -1860,7 +1870,7 @@ void ReadModeInput(char coding[256], char vsource[256])
       strcpy(vsource, "RPi Camera");
       strcpy(CurrentSource, TabSource[0]); // Pi Cam
       SetConfigParam(PATH_PCONFIG, "modeinput", "DESKTOP");
-    } 
+    }
     if (strcmp(ModeInput, "JPC") == 0)
     {
       strcpy(vsource, "Screen");
@@ -1872,22 +1882,22 @@ void ReadModeInput(char coding[256], char vsource[256])
       strcpy(vsource, "Webcam");
       strcpy(CurrentSource, TabSource[6]); // Webcam
       SetConfigParam(PATH_PCONFIG, "modeinput", "WEBCAMH264");
-    }      
+    }
     if (strcmp(ModeInput, "JCARD") == 0)
     {
       strcpy(vsource, "Static Test Card F");
       strcpy(CurrentSource, TabSource[3]); // TestCard
       SetConfigParam(PATH_PCONFIG, "modeinput", "CARDH264");
-    }      
+    }
   }
 
-  if (strcmp(ModeInput, "CAMH264") == 0) 
+  if (strcmp(ModeInput, "CAMH264") == 0)
   {
     strcpy(coding, "H264");
     strcpy(vsource, "RPi Camera");
     strcpy(CurrentEncoding, "H264");
     strcpy(CurrentSource, TabSource[0]); // Pi Cam
-  } 
+  }
   else if (strcmp(ModeInput, "ANALOGCAM") == 0)
   {
     strcpy(coding, "H264");
@@ -2096,31 +2106,31 @@ void ReadModeInput(char coding[256], char vsource[256])
     strcpy(coding, CurrentEncoding);
 
     // Read ModeInput from Config and set
-    if (strcmp(ModeInput, "JHDMI") == 0) 
+    if (strcmp(ModeInput, "JHDMI") == 0)
     {
       strcpy(vsource, "Jetson HDMI");
       strcpy(CurrentSource, "HDMI");
-    }      
+    }
     if (strcmp(ModeInput, "JCAM") == 0)
     {
       strcpy(vsource, "Jetson Pi Camera");
       strcpy(CurrentSource, "Pi Cam");
-    }      
+    }
     if (strcmp(ModeInput, "JPC") == 0)
     {
       strcpy(vsource, "Jetson PC Input");
       strcpy(CurrentSource, "PC");
-    }      
+    }
     if (strcmp(ModeInput, "JWEBCAM") == 0)
     {
       strcpy(vsource, "Jetson Webcam");
       strcpy(CurrentSource, "Webcam");
-    }      
+    }
     if (strcmp(ModeInput, "JCARD") == 0)
     {
       strcpy(vsource, "Jetson Test Card");
       strcpy(CurrentSource, "TestCard");
-    }      
+    }
   }
 }
 
@@ -2142,56 +2152,56 @@ void ReadModeOutput(char Moutput[256])
   strcpy(CurrentModeOP, ModeOutput);
   strcpy(Moutput, "notset");
 
-  if (strcmp(ModeOutput, "DATVEXPRESS") == 0) 
+  if (strcmp(ModeOutput, "DATVEXPRESS") == 0)
   {
     strcpy(Moutput, "DATV Express DVB-S");
     strcpy(CurrentModeOPtext, TabModeOPtext[2]);
-  } 
-  else if (strcmp(ModeOutput, "LIMEUSB") == 0) 
+  }
+  else if (strcmp(ModeOutput, "LIMEUSB") == 0)
   {
     strcpy(Moutput, "LimeSDR USB");
     strcpy(CurrentModeOPtext, TabModeOPtext[3]);
-  } 
-  else if (strcmp(ModeOutput, "LIMEMINI") == 0) 
+  }
+  else if (strcmp(ModeOutput, "LIMEMINI") == 0)
   {
     strcpy(Moutput, "LimeSDR Mini");
     strcpy(CurrentModeOPtext, TabModeOPtext[8]);
-  } 
-  else if (strcmp(ModeOutput, "STREAMER") == 0) 
+  }
+  else if (strcmp(ModeOutput, "STREAMER") == 0)
   {
     strcpy(Moutput, "BATC Streaming");
     strcpy(CurrentModeOPtext, TabModeOPtext[4]);
-  } 
-  else if (strcmp(ModeOutput, "COMPVID") == 0) 
+  }
+  else if (strcmp(ModeOutput, "COMPVID") == 0)
   {
     strcpy(Moutput, "Composite Video");
     strcpy(CurrentModeOPtext, TabModeOPtext[5]);
-  } 
-  else if (strcmp(ModeOutput, "IP") == 0) 
+  }
+  else if (strcmp(ModeOutput, "IP") == 0)
   {
     strcpy(Moutput, "IP Stream");
     strcpy(CurrentModeOPtext, TabModeOPtext[7]);
-  } 
-  else if (strcmp(ModeOutput, "JLIME") == 0) 
+  }
+  else if (strcmp(ModeOutput, "JLIME") == 0)
   {
     strcpy(Moutput, "Jetson with Lime");
     strcpy(CurrentModeOPtext, TabModeOPtext[9]);
-  } 
-  else if (strcmp(ModeOutput, "JEXPRESS") == 0) 
+  }
+  else if (strcmp(ModeOutput, "JEXPRESS") == 0)
   {
     strcpy(Moutput, "Jetson with DATV Express");
     strcpy(CurrentModeOPtext, TabModeOPtext[10]);
-  } 
-  else if (strcmp(ModeOutput, "LIMEDVB") == 0) 
+  }
+  else if (strcmp(ModeOutput, "LIMEDVB") == 0)
   {
     strcpy(Moutput, "LimeSDR Mini with custom DVB FW");
     strcpy(CurrentModeOPtext, TabModeOPtext[12]);
-  } 
-  else if (strcmp(ModeOutput, "PLUTO") == 0) 
+  }
+  else if (strcmp(ModeOutput, "PLUTO") == 0)
   {
     strcpy(Moutput, "Pluto");
     strcpy(CurrentModeOPtext, TabModeOPtext[13]);
-  } 
+  }
   else  // Possibly Ugly or IQ, so set to Lime Mini
   {
     strcpy(Moutput, "LimeSDR Mini");
@@ -2251,7 +2261,7 @@ void ReadModeOutput(char Moutput[256])
 
 int file_exist (char *filename)
 {
-  if (access(filename, R_OK) == 0) 
+  if (access(filename, R_OK) == 0)
   {
     // file exists
     return 0;
@@ -2265,7 +2275,7 @@ int file_exist (char *filename)
 
 /***************************************************************************//**
  * @brief Reads the EasyCap modes from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2279,7 +2289,7 @@ void ReadModeEasyCap()
 
 /***************************************************************************//**
  * @brief Reads the PiCam Orientation from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2292,7 +2302,7 @@ void ReadPiCamOrientation()
 
 /***************************************************************************//**
  * @brief Reads the Caption State from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2304,7 +2314,7 @@ void ReadCaptionState()
 }
 /***************************************************************************//**
  * @brief Reads the TestCard State from testcard_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2338,7 +2348,7 @@ void ReadTestCardState()
 
 /***************************************************************************//**
  * @brief Reads the Audio State from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2351,7 +2361,7 @@ void ReadAudioState()
 
 /***************************************************************************//**
  * @brief Reads the VLC Volume from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2375,7 +2385,7 @@ void ReadVLCVolume()
 
 /***************************************************************************//**
  * @brief Reads webcontrol state from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2402,7 +2412,7 @@ void ReadWebControl()
 
 /***************************************************************************//**
  * @brief Reads the current Attenuator from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2416,7 +2426,7 @@ void ReadAttenState()
 /***************************************************************************//**
  * @brief Reads the current band from portsdown_config.txt
  * and checks and rewrites it if required
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2501,7 +2511,7 @@ void ReadBand()
 
 /***************************************************************************//**
  * @brief Reads all 16 band details from portsdown_presets.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2517,7 +2527,7 @@ void ReadBandDetails()
     strcat(Param, "label");
     GetConfigParam(PATH_PPRESETS, Param, Value);
     strcpy(TabBandLabel[i], Value);
-    
+
     strcpy(Param, TabBand[i]);
     strcat(Param, "attenlevel");
     GetConfigParam(PATH_PPRESETS, Param, Value);
@@ -2558,7 +2568,7 @@ void ReadBandDetails()
 
 /***************************************************************************//**
  * @brief Reads the current Call, Locator and PIDs from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2595,7 +2605,7 @@ void ReadCallLocPID()
 
 /***************************************************************************//**
  * @brief Reads the Langstone parameters from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2621,7 +2631,7 @@ void ReadLangstone()
 
 /***************************************************************************//**
  * @brief Reads the TS Config parameters from portsdown_config.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2651,7 +2661,7 @@ void ReadTSConfig()
 
 /***************************************************************************//**
  * @brief Reads the current ADF Ref Freqs from portsdown_presets.txt
- *        
+ *
  * @param nil
  *
  * @return void
@@ -2820,7 +2830,7 @@ int CalcTSBitrate()
       //printf("Calculated DVB-S2 bitrate is: %s", Value);
     }
     pclose(fp);
-    return atoi(Value);  
+    return atoi(Value);
   }
 
   if (strcmp(CurrentTXMode, "DVB-S") == 0)
@@ -2830,7 +2840,7 @@ int CalcTSBitrate()
     if ((fec == 1) || (fec == 2) || (fec == 3) || (fec == 5) || (fec ==7))  // valid FEC
     {
       Bitrate = Bitrate *  2 * fec *    188 ;       // top line
-      Bitrate = Bitrate /  ((fec + 1) * 204);       // bottom line    
+      Bitrate = Bitrate /  ((fec + 1) * 204);       // bottom line
     }
     else
     {
@@ -2875,13 +2885,13 @@ int CalcTSBitrate()
     if ((fec == 1) || (fec == 2) || (fec == 3) || (fec == 5) || (fec ==7))  // valid FEC
     {
       Bitrate = Bitrate *  423 * fec * BitsPerSymbol * guard;       // top line
-      Bitrate = Bitrate / (544 * (fec + 1)       *   (guard + 1));  // bottom line    
+      Bitrate = Bitrate / (544 * (fec + 1)       *   (guard + 1));  // bottom line
     }
     else
     {
       return -1;
     }
-  } 
+  }
   return (int)Bitrate;
 }
 
@@ -3044,7 +3054,7 @@ void GetUSBVidDev(char VidDevName[256])
     else
     {
       // printf("This time response was %s\n", response_line);
-      
+
       if (strcmp(WebcamName, response_line) != 0) // If they don't match
       {
         strcpy(VidDevName, response_line);
@@ -3107,7 +3117,7 @@ int CheckCamLink4K()
  *         1 = webcam detected
  *         2 = shell returned unexpected exit status
 *******************************************************************************/
- 
+
 int DetectLogitechWebcam()
 {
   char shell_command[255];
@@ -3126,8 +3136,8 @@ int DetectLogitechWebcam()
   {
     //printf("Logitech: webcam not detected\n");
     return 0;
-  } 
-  else 
+  }
+  else
   {
     //printf("Logitech: unexpected exit status %d\n", WEXITSTATUS(r));
     return 2;
@@ -3441,7 +3451,7 @@ void ReadPresets()
 
 /***************************************************************************//**
  * @brief Checks for the presence of an RTL-SDR
- *        
+ *
  * @param None
  *
  * @return 0 if present, 1 if not present
@@ -3480,7 +3490,7 @@ int CheckRTL()
 
 /***************************************************************************//**
  * @brief Checks for the presence of an FTDI Device
- *        
+ *
  * @param None
  *
  * @return 0 if present, 1 if not present
@@ -3519,7 +3529,7 @@ int CheckFTDI()
 
 /***************************************************************************//**
  * @brief Uses keyboard to ask for a new Mic Gain setting
- *        
+ *
  * @param none
  *
  * @return void.  Sets global int RTLgain[0] in range 0 - 50
@@ -3530,7 +3540,7 @@ void ChangeMicGain()
   char RequestText[64];
   char InitText[64];
 
-  //Define request string 
+  //Define request string
   strcpy(RequestText, "Enter new Mic gain setting 1 (min) to 30 (max):");
   snprintf(InitText, 3, "%d", MicLevel);
 
@@ -3551,7 +3561,7 @@ void ChangeMicGain()
 
 /***************************************************************************//**
  * @brief Saves RTL-FM Freq, Mode, squelch and label
- *        
+ *
  * @param Preset button number 0-9, but not 4
  *
  * @return void
@@ -3624,7 +3634,7 @@ void SaveRTLPreset(int PresetButton)
 
 /***************************************************************************//**
  * @brief Loads RTL-FM Freq, Mode, squelch and label from in-use variables
- *        
+ *
  * @param Preset button number 0-9, but not 4
  *
  * @return void
@@ -3651,7 +3661,7 @@ void RecallRTLPreset(int PresetButton)
 
 /***************************************************************************//**
  * @brief Uses keyboard to ask for a new RTL-FM frequency
- *        
+ *
  * @param none
  *
  * @return void.  Sets global RTLfreq[0]
@@ -3662,7 +3672,7 @@ void ChangeRTLFreq()
   char RequestText[64];
   char InitText[64];
 
-  //Define request string 
+  //Define request string
   strcpy(RequestText, "Enter new frequency in MHz:");
   strcpy(InitText, RTLfreq[0]);
 
@@ -3679,7 +3689,7 @@ void ChangeRTLFreq()
 
 /***************************************************************************//**
  * @brief Uses keyboard to ask for a new RTL-FM Squelch setting
- *        
+ *
  * @param none
  *
  * @return void.  Sets global int RTLsquelch[0] in range 0 - 1000
@@ -3690,7 +3700,7 @@ void ChangeRTLSquelch()
   char RequestText[64];
   char InitText[64];
 
-  //Define request string 
+  //Define request string
   strcpy(RequestText, "Enter new squelch setting 0 (off) to 1000 (fully on):");
   snprintf(InitText, 4, "%d", RTLsquelch[0]);
 
@@ -3707,7 +3717,7 @@ void ChangeRTLSquelch()
 
 /***************************************************************************//**
  * @brief Uses keyboard to ask for a new RTL-FM Gain setting
- *        
+ *
  * @param none
  *
  * @return void.  Sets global int RTLgain[0] in range 0 - 50
@@ -3718,7 +3728,7 @@ void ChangeRTLGain()
   char RequestText[64];
   char InitText[64];
 
-  //Define request string 
+  //Define request string
   strcpy(RequestText, "Enter new gain setting 0 (min) to 50 (max):");
   snprintf(InitText, 3, "%d", RTLgain[0]);
 
@@ -3735,7 +3745,7 @@ void ChangeRTLGain()
 
 /***************************************************************************//**
  * @brief Uses keyboard to ask for a new RTL-FM ppm setting
- *        
+ *
  * @param none
  *
  * @return void.  Sets global int RTLppm in range -1000 - 1000
@@ -3748,7 +3758,7 @@ void ChangeRTLppm()
   char Value[15];
   char Param[15];
 
-  //Define request string 
+  //Define request string
   strcpy(RequestText, "Enter new ppm setting -1000 to 1000:");
   snprintf(InitText, 4, "%d", RTLppm);
 
@@ -3777,7 +3787,7 @@ void ChangeRTLppm()
  *         1 = LimeNET Micro detected
  *         2 = shell returned unexpected exit status
 *******************************************************************************/
- 
+
 int DetectLimeNETMicro()
 {
   int r;
@@ -3793,8 +3803,8 @@ int DetectLimeNETMicro()
   {
     // printf("LimeNET Micro not detected\n");
     return 0;
-  } 
-  else 
+  }
+  else
   {
     // printf("LimeNET Micro unexpected exit status %d\n", r);
     return 2;
@@ -3955,7 +3965,7 @@ void ReadLMRXPresets()
 
   // UDP output IP address:
   GetConfigParam(PATH_LMCONFIG, "udpip", LMRXudpip);
-  
+
   // UDP output port:
   GetConfigParam(PATH_LMCONFIG, "udpport", LMRXudpport);
 
@@ -4050,7 +4060,7 @@ void ChangeLMRXIP()
     //snprintf(InitText, 17, "%s", LMRXIP);
     strcpyn(InitText, LMRXIP, 17);
     Keyboard(RequestText, InitText, 17);
-  
+
     strcpy(LMRXIPCopy, KeyboardReturn);
     if(is_valid_ip(LMRXIPCopy) == 1)
     {
@@ -4080,7 +4090,7 @@ void ChangeLMRXPort()
     //snprintf(InitText, 10, "%s", LMRXPort);
     strcpyn(InitText, LMRXPort, 10);
     Keyboard(RequestText, InitText, 10);
-  
+
     if(strlen(KeyboardReturn) > 0)
     {
       IsValid = TRUE;
@@ -4109,7 +4119,7 @@ void ChangeLMRXOffset()
     //snprintf(InitText, 10, "%s", LMRXOffset);
     strcpyn(InitText, LMRXOffset, 10);
     Keyboard(RequestText, InitText, 10);
-  
+
     if((atoi(KeyboardReturn) > 1000000) && (atoi(KeyboardReturn) < 76000000))
     {
       IsValid = TRUE;
@@ -4145,7 +4155,7 @@ void ChangeLMTST()
   {
     strcpyn(InitText, LMTST, 10);
     Keyboard(RequestText, InitText, 10);
-  
+
     if (((atoi(KeyboardReturn) >= 500) && (atoi(KeyboardReturn) <= 60000)) || (atoi(KeyboardReturn) == -1))
     {
       IsValid = TRUE;
@@ -4187,7 +4197,7 @@ void ChangeLMSW()
   {
     strcpyn(InitText, LMSW, 10);
     Keyboard(RequestText, InitText, 10);
-  
+
     if((atoi(KeyboardReturn) >= 10) && (atoi(KeyboardReturn) <= 500))
     {
       IsValid = TRUE;
@@ -4263,10 +4273,37 @@ void AutosetLMRXOffset()
   LMRX(5);
 }
 
+void ChangeSarsatFreq()
+{
+  char RequestText[64];
+  char InitText[64];
+  bool IsValid = FALSE;
+  char Sarsatlow[10];
+
+  GetConfigParam(PATH_406CONFIG, "low", Sarsatlow);
+
+  while (IsValid == FALSE)
+  {
+    strcpy(RequestText, "Fréquence en MHz");
+    strcpyn(InitText, Sarsatlow, 8);
+    Keyboard(RequestText, Sarsatlow, 8);
+
+    if((atoi(KeyboardReturn) >= 24) && (atoi(KeyboardReturn) <= 1766))
+    {
+      IsValid = TRUE;
+    }
+  }
+
+  printf("Fréquence %s MHz\n", KeyboardReturn);
+
+  // Save offset to Config File
+  SetConfigParam(PATH_406CONFIG, "low", KeyboardReturn);
+  SetConfigParam(PATH_406CONFIG, "high", KeyboardReturn);
+}
 
 /***************************************************************************//**
  * @brief Saves Current LeanDVB Config to file as Preset 0
- *        
+ *
  * @param nil
  *
  * @return void
@@ -4284,7 +4321,7 @@ void SaveCurrentRX()
 
   snprintf(Param, 15, "rx%dlabel", index);              // Label
   SetConfigParam(PATH_RXPRESETS, Param, RXlabel[0]);
-    
+
   snprintf(Param, 15, "rx%dsr", index);                 // SR
   snprintf(Value, 5, "%d", RXsr[0]);
   SetConfigParam(PATH_RXPRESETS, Param, Value);
@@ -4326,7 +4363,7 @@ void SaveCurrentRX()
 /***************************************************************************//**
  * @brief Sets the RTLmode after a button press
  *
- * @param NoButton = button pressed in range 10 - 14  
+ * @param NoButton = button pressed in range 10 - 14
  *
  * @return void. Works on the global variable RTLmode[0]
 *******************************************************************************/
@@ -4358,14 +4395,14 @@ void SelectRTLmode(int NoButton)
  *
  * @param nil.  Works on Globals
  *
- * @return void. 
+ * @return void.
 *******************************************************************************/
 
 void RTLstart()
 {
   char fragment[31];
   char fragment11[12];
-  
+
   if(RTLdetected == 1)
   {
     char rtlcall[255];
@@ -4382,7 +4419,7 @@ void RTLstart()
       GetPiAudioCard(card);
       IQAvailable = 0;     // Set flag to say transmit unavailable
     }
-    strcpy(rtlcall, "(rtl_fm");
+    strcpy(rtlcall, "bash -c '(rtl_fm");
     snprintf(fragment, 12, " -M %s", RTLmode[0]);  // -M mode
     strcat(rtlcall, fragment);
     strcpyn(fragment11, RTLfreq[0], 11);
@@ -4407,24 +4444,21 @@ void RTLstart()
     strcat(rtlcall, fragment);
     strcpy(fragment, " -E pad"); // -E pad so that aplay does not crash
     strcat(rtlcall, fragment);
-    strcat(rtlcall, " | aplay -D plughw:");
-    strcat(rtlcall, card);
-    if (strcmp(RTLmode[0], "am") == 0)
+		if ((strcmp(RTLmode[0], "am") == 0) || (strcmp(RTLmode[0], "fm") == 0))
     {
-      strcat(rtlcall, ",0 -f S16_LE -r12) &"); // 12 KHz for AM
-    }
-    if (strcmp(RTLmode[0], "fm") == 0)
-    {
-      strcat(rtlcall, ",0 -f S16_LE -r12) &"); // 12 KHz for FM
+      strcat(rtlcall, " | sox -t raw -r 12k -e s -b 16 -c 1 - -t wav - 2>/dev/null");
     }
     if (strcmp(RTLmode[0], "wbfm") == 0)
     {
-      strcat(rtlcall, ",0 -f S16_LE -r32) &"); // 32 KHz for WBFM
+      strcat(rtlcall, " | sox -t raw -r 32k -e s -b 16 -c 1 - -t wav - 2>/dev/null");
     }
     if ((strcmp(RTLmode[0], "usb") == 0) || (strcmp(RTLmode[0], "lsb") == 0))
     {
-      strcat(rtlcall, ",0 -f S16_LE -r6) &"); // 6 KHz for SSB
+      strcat(rtlcall, " | sox -t raw -r 6k -e s -b 16 -c 1 - -t wav - 2>/dev/null");
     }
+    strcat(rtlcall, " | tee >(aplay2 -q -D plughw:Loopback,0,2) >(aplay -q -D plughw:");
+    strcat(rtlcall, card);
+		strcat(rtlcall, ",0) >/dev/null) &'");
     printf("RTL_FM called with: %s\n", rtlcall);
     system(rtlcall);
   }
@@ -4440,7 +4474,7 @@ void RTLstart()
  *
  * @param nil
  *
- * @return void. 
+ * @return void.
 *******************************************************************************/
 
 void RTLstop()
@@ -4517,7 +4551,7 @@ void ReadStreamPresets()
 /***************************************************************************//**
  * @brief Checks whether the DATV Express is connected
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -4549,7 +4583,7 @@ int CheckExpressConnect()
 /***************************************************************************//**
  * @brief Checks whether the DATV Express Server is Running
  *
- * @param 
+ * @param
  *
  * @return 0 if running, 1 if not running
 *******************************************************************************/
@@ -4582,7 +4616,7 @@ int CheckExpressRunning()
 /***************************************************************************//**
  * @brief Called to start the DATV Express Server
  *
- * @param 
+ * @param
  *
  * @return 0 if running OK, 1 if not running
 *******************************************************************************/
@@ -4643,7 +4677,7 @@ int StartExpressServer()
  *         1 = USB Audio not detected
  *         2 = shell returned unexpected exit status
 *******************************************************************************/
- 
+
 int DetectUSBAudio()
 {
   char shell_command[255];
@@ -4662,8 +4696,8 @@ int DetectUSBAudio()
   {
     //printf("USB Audio not detected\n");
     return 1;
-  } 
-  else 
+  }
+  else
   {
     //printf("USB Audio: unexpected exit status %d\n", WEXITSTATUS(r));
     return 2;
@@ -4702,7 +4736,7 @@ void CheckExpress()
 /***************************************************************************//**
  * @brief Checks whether an Airspy is connected
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -4735,7 +4769,7 @@ int CheckAirspyConnect()
 /***************************************************************************//**
  * @brief Checks whether a Lime Mini (V1 or V2) is connected
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -4767,7 +4801,7 @@ int CheckLimeMiniConnect()
 /***************************************************************************//**
  * @brief Checks whether a Lime Mini V2 is connected
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent (or V1)
 *******************************************************************************/
@@ -4799,7 +4833,7 @@ int CheckLimeMiniV2Connect()
 /***************************************************************************//**
  * @brief Checks whether a Lime USB is connected
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -4831,7 +4865,7 @@ int CheckLimeUSBConnect()
 /***************************************************************************//**
  * @brief Checks whether a Pluto is connected
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -4869,7 +4903,7 @@ int CheckPlutoConnect()
 /***************************************************************************//**
  * @brief Checks whether a Pluto is connected on the IP address in the Config File
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -4913,7 +4947,7 @@ int CheckPlutoIPConnect()
 /***************************************************************************//**
  * @brief Checks whether a Pluto is connected to USB
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -4963,7 +4997,7 @@ int GetPlutoXO()
   if (fp == NULL) {
     printf("Failed to run command\n" );
     pclose(fp);
-    
+
     exit(1);
   }
 
@@ -4981,7 +5015,7 @@ int GetPlutoXO()
       }
       else // This means that it has not been set, so return 40 MHz.
       {
-        XO = 40000000; 
+        XO = 40000000;
       }
     }
   }
@@ -5012,7 +5046,7 @@ int GetPlutoAD()
   if (fp == NULL) {
     printf("Failed to run command\n" );
     pclose(fp);
-    
+
     exit(1);
   }
 
@@ -5030,7 +5064,7 @@ int GetPlutoAD()
       }
       else // This means that it has not been set, so return 40 MHz.
       {
-        AD = 0; 
+        AD = 0;
       }
     }
   }
@@ -5090,7 +5124,7 @@ int GetPlutoCPU()
 /***************************************************************************//**
  * @brief Checks whether a Pluto is connected if selected on the IP address
  *        and displays error message if not
- * @param 
+ * @param
  *
  * @return void
 *******************************************************************************/
@@ -5111,7 +5145,7 @@ void CheckPlutoReady()
 /***************************************************************************//**
  * @brief Checks whether a Lime Mini or Lime USB is connected if selected
  *        and displays error message if not
- * @param 
+ * @param
  *
  * @return void
 *******************************************************************************/
@@ -5153,8 +5187,8 @@ void CheckLimeReady()
 
 /***************************************************************************//**
  * @brief Displays Info about a connected Lime
- *        
- * @param 
+ *
+ * @param
  *
  * @return void
 *******************************************************************************/
@@ -5202,8 +5236,8 @@ void LimeInfo()
 
 /***************************************************************************//**
  * @brief Returns Lime Gateware Revision
- *        
- * @param 
+ *
+ * @param
  *
  * @return int Lime Gateware revision 26, 27 or 28
 *******************************************************************************/
@@ -5246,8 +5280,8 @@ int LimeGWRev()
 
 /***************************************************************************//**
  * @brief Returns Lime Gateware Version
- *        
- * @param 
+ *
+ * @param
  *
  * @return int Lime Gateware Version 1?
 *******************************************************************************/
@@ -5290,8 +5324,8 @@ int LimeGWVer()
 
 /***************************************************************************//**
  * @brief Returns Lime Firmware Version
- *        
- * @param 
+ *
+ * @param
  *
  * @return int Lime Firmware version 5?
 *******************************************************************************/
@@ -5334,8 +5368,8 @@ int LimeFWVer()
 
 /***************************************************************************//**
  * @brief Returns Lime Hardware version
- *        
- * @param 
+ *
+ * @param
  *
  * @return int Lime Hardware version 1 or 2
 *******************************************************************************/
@@ -5378,8 +5412,8 @@ int LimeHWVer()
 
 /***************************************************************************//**
  * @brief Checks Lime Mini version and runs LimeQuickTest
- *        
- * @param 
+ *
+ * @param
  *
  * @return null, but output is displayed
 *******************************************************************************/
@@ -5631,8 +5665,8 @@ void LimeMiniTest()
 
 /***************************************************************************//**
  * @brief Displays Info about the installed LimeUtil
- *        
- * @param 
+ *
+ * @param
  *
  * @return void
 *******************************************************************************/
@@ -5680,7 +5714,7 @@ void LimeUtilInfo()
 /***************************************************************************//**
  * @brief Checks whether an SDRPlay SDR is connected
  *
- * @param 
+ * @param
  *
  * @return 0 if present, 1 if absent
 *******************************************************************************/
@@ -5721,8 +5755,8 @@ void ClearMenuMessage()
 
 /***************************************************************************//**
  * @brief Monitors touchscreen during VLC play.  Waits for touch
- *        Controls volume, snap and sets FinishedButton = 0 at end  
- *        
+ *        Controls volume, snap and sets FinishedButton = 0 at end
+ *
  * @param nil
  *
  * @return void
@@ -5768,8 +5802,8 @@ void *WaitButtonFileVLC(void * arg)
 
 /***************************************************************************//**
  * @brief Plays a video for file explorer until screen is touched
- *        while FinishedButton == 1  
- *        
+ *        while FinishedButton == 1
+ *
  * @param char *VideoPath, char *VideoFile - file path and name
  *
  * @return void
@@ -5806,7 +5840,7 @@ void ShowVideoFile(char *VideoPath, char *VideoFile)
 
 /***************************************************************************//**
  * @brief Displays an image for file explorer until screen is touched
- *        
+ *
  * @param char *TextPath, char *TextFile - file path and name
  *
  * @return void
@@ -5837,7 +5871,7 @@ void ShowImageFile(char *ImagePath, char *ImageFile)
 
 /***************************************************************************//**
  * @brief Displays up to 100 lines of text using the SelectFormList function
- *        
+ *
  * @param char *TextPath, char *TextFile - file path and name
  *
  * @return void
@@ -5882,7 +5916,7 @@ void ListText(char *TextPath, char *TextFile)
 
 
 /***************************************************************************//**
- * @brief Handles button presses from the file menu 
+ * @brief Handles button presses from the file menu
  *        and acts on buttons 0 (copy), 1 (paste) and 5 (Explorer)
  * @param int NoButton
  *
@@ -5936,7 +5970,7 @@ void FileOperation(int NoButton)
         strcpy(MenuText[1], CurrentPathSelection);
         strcpy(MenuText[2], CurrentFileSelection);
       }
-      else if ((strlen(CurrentPathSelection) >= 63 ) && (strlen(CurrentPathSelection) < 127 ))  // path on 2 lines                                                              
+      else if ((strlen(CurrentPathSelection) >= 63 ) && (strlen(CurrentPathSelection) < 127 ))  // path on 2 lines
       {
         strcpyn(MenuText[1], CurrentPathSelection, 63);
         strcpy(MenuText[2], CurrentPathSelection + 63);
@@ -5983,7 +6017,7 @@ void FileOperation(int NoButton)
           {
             strcpy(MenuText[1], NewPathSelection);
           }
-          else if ((strlen(NewPathSelection) >= 63 ) && (strlen(NewPathSelection) < 127 ))  // path on 2 lines                                                              
+          else if ((strlen(NewPathSelection) >= 63 ) && (strlen(NewPathSelection) < 127 ))  // path on 2 lines
           {
             strcpyn(MenuText[1], NewPathSelection, 63);
             strcpy(MenuText[2], NewPathSelection + 63);
@@ -6040,7 +6074,7 @@ void FileOperation(int NoButton)
           strcpy(MenuText[1], CurrentPathSelection);
           strcpy(MenuText[2], KeyboardReturn);
         }
-        else if ((strlen(CurrentPathSelection) >= 63 ) && (strlen(CurrentPathSelection) < 127 ))  // path on 2 lines                                                              
+        else if ((strlen(CurrentPathSelection) >= 63 ) && (strlen(CurrentPathSelection) < 127 ))  // path on 2 lines
         {
           strcpyn(MenuText[1], CurrentPathSelection, 63);
           strcpy(MenuText[2], CurrentPathSelection + 63);
@@ -6065,7 +6099,7 @@ void FileOperation(int NoButton)
       break;
 
     case 5:                                                                                // File Explorer
-      
+
       ClearMenuMessage();
 
       response = SelectFileUsingList(CurrentPathSelection, CurrentFileSelection, NewPathSelection, NewFileSelection, 0);
@@ -6166,9 +6200,9 @@ void FileOperation(int NoButton)
 
 
 /***************************************************************************//**
- * @brief Uses the "SelectFromList" dialogue to display a list of 
+ * @brief Uses the "SelectFromList" dialogue to display a list of
  * connected USB devices as shown by lsusb.  Truncates names to 63 chars.
- *        
+ *
  * @param nil
  *
  * @return void
@@ -6212,7 +6246,7 @@ void ListUSBDevices()
 
 /***************************************************************************//**
  * @brief Stops the graphics system and displays the Portdown Logo
- *        
+ *
  * @param nil
  *
  * @return void
@@ -6229,8 +6263,8 @@ void DisplayLogo()
 void TransformTouchMap(int x, int y)
 {
   // This function takes the raw (0 - 4095 on each axis) touch data x and y
-  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX 
-  // and scaledY 
+  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX
+  // and scaledY
 
   int shiftX, shiftY;
   double factorX, factorY;
@@ -6585,7 +6619,7 @@ void DrawButton(int ButtonIndex)
   strcpy(label, Button->Status[Button->NoStatus].Text);
 
   // Draw the basic button
-  rectangle(Button->x, Button->y + 1, Button->w, Button->h, 
+  rectangle(Button->x, Button->y + 1, Button->w, Button->h,
     Button->Status[Button->NoStatus].Color.r,
     Button->Status[Button->NoStatus].Color.g,
     Button->Status[Button->NoStatus].Color.b);
@@ -6595,13 +6629,13 @@ void DrawButton(int ButtonIndex)
   setBackColour(Button->Status[Button->NoStatus].Color.r,
                 Button->Status[Button->NoStatus].Color.g,
                 Button->Status[Button->NoStatus].Color.b);
-  
+
   if (label[0] == '\0')  // Deal with empty string
   {
     strcpy(label, " ");
   }
 
-  // Separate button text into 2 lines if required  
+  // Separate button text into 2 lines if required
   char find = '^';                                  // Line separator is ^
   const char *ptr = strchr(label, find);            // pointer to ^ in string
 
@@ -6612,9 +6646,9 @@ void DrawButton(int ButtonIndex)
     snprintf(line2, strlen(label) - index, label + index + 1);  // and after ^
 
     // Display the text on the button
-    TextMid2(Button->x+Button->w/2, Button->y+Button->h*11/16, line1, &font_dejavu_sans_20);	
-    TextMid2(Button->x+Button->w/2, Button->y+Button->h*3/16, line2, &font_dejavu_sans_20);	
-  
+    TextMid2(Button->x+Button->w/2, Button->y+Button->h*11/16, line1, &font_dejavu_sans_20);
+    TextMid2(Button->x+Button->w/2, Button->y+Button->h*3/16, line2, &font_dejavu_sans_20);
+
     // Draw green overlay half-button.  Menu 1, 2 lines and Button status = 0 only
     if ((CurrentMenu == 1) && (Button->NoStatus == 0))
     {
@@ -6628,7 +6662,7 @@ void DrawButton(int ButtonIndex)
       setBackColour(Button->Status[1].Color.r,
                     Button->Status[1].Color.g,
                     Button->Status[1].Color.b);
-      TextMid2(Button->x+Button->w/2, Button->y+Button->h*3/16, line2, &font_dejavu_sans_20);	
+      TextMid2(Button->x+Button->w/2, Button->y+Button->h*3/16, line2, &font_dejavu_sans_20);
     }
   }
   else                                              // One line only
@@ -6828,7 +6862,7 @@ int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure)
 
       if((*rawX != -1) && (*rawY != -1) && (StartTouch == 1))  // 1a
       {
-        printf("7 inch Touchscreen Touch Event: rawX = %d, rawY = %d, rawPressure = %d\n", 
+        printf("7 inch Touchscreen Touch Event: rawX = %d, rawY = %d, rawPressure = %d\n",
                 *rawX, *rawY, *rawPressure);
         return 1;
       }
@@ -6841,7 +6875,7 @@ int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure)
     rb = read(fd, ev, sizeof(struct input_event) * 64);
 
     if (awaitingtouchstart == true)
-    {    
+    {
       *rawX = -1;
       *rawY = -1;
       touchfinished = false;
@@ -6898,7 +6932,7 @@ int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure)
 
       if((*rawX != -1) && (*rawY != -1) && (touchfinished == true))  // 1a
       {
-        printf("DFRobot Touch Event: rawX = %d, rawY = %d, rawPressure = %d\n", 
+        printf("DFRobot Touch Event: rawX = %d, rawY = %d, rawPressure = %d\n",
                 *rawX, *rawY, *rawPressure);
         awaitingtouchstart = true;
         touchfinished = false;
@@ -7125,7 +7159,7 @@ void UpdateWindow()
   {
     setBackColour(0, 0, 0);
   }
-  
+
   if ((CurrentMenu != 38) && (CurrentMenu != 41)) // If not yes/no or the keyboard
   {
     clearScreen();
@@ -7140,6 +7174,11 @@ void UpdateWindow()
   if ((CurrentMenu >= 42) && (CurrentMenu <= 47))  // 15-button menus
   {
     rectangle(10, 12, wscreen - 18, hscreen * 3 / 6 + 12, 127, 127, 127);
+  }
+
+  if (CurrentMenu >= 50)
+  {
+    rectangle(10, 12, wscreen - 18, hscreen * 2 / 6 + 12, 127, 127, 127);
   }
 
   // Draw each button in turn
@@ -7238,7 +7277,7 @@ void ApplyTXConfig()
       strcpy(ModeInput, "FILETS");
     }
 
-    if ((strcmp(CurrentEncoding, "IPTS in") != 0) 
+    if ((strcmp(CurrentEncoding, "IPTS in") != 0)
     &&  (strcmp(CurrentEncoding, "TS File") != 0))     // Only check if not IPTS, or not TS File input
     {
       if (strcmp(CurrentEncoding, "MPEG-2") == 0)
@@ -7333,7 +7372,7 @@ void ApplyTXConfig()
         else
         {
 //          strcpy(CurrentFormat, "4:3");
-        }        
+        }
       }
 //      if (strcmp(CurrentFormat, "4:3") == 0)
       {
@@ -7692,7 +7731,7 @@ void EnforceValidFEC()
   {
     if ((fec < 30) || (fec == 35))
     {
-      if((fec == 1) || (fec == 2) || (fec == 3) || (fec == 14) || (fec == 13) 
+      if((fec == 1) || (fec == 2) || (fec == 3) || (fec == 14) || (fec == 13)
         || (fec == 12) || (fec == 35) || (fec == 23))   // 1/3, 1/4, 1/2, 2/3, 3/4 or 3/5
       {
         fec = 34;        // 3/4
@@ -7728,7 +7767,7 @@ void EnforceValidFEC()
  * @return (int) total number of file entries in directory
 *******************************************************************************/
 
-int ListFilestoArray(char *Path, int FirstFile, int LastFile, char FileArray[101][255], char FileTypeArray[101][2]) 
+int ListFilestoArray(char *Path, int FirstFile, int LastFile, char FileArray[101][255], char FileTypeArray[101][2])
 {
   int i;
   FILE *fp;
@@ -8040,7 +8079,7 @@ int SelectFileUsingList(char *InitialPath, char *InitialFile, char *SelectedPath
  * @param (int) CurrentSelection:  -1 list only, selection not possible
  *                                 0  No current selection, returns 0
  *                                 1 - 100 initial selection for highlighting
- *        char ListEntry[101][63]: [0] is title 
+ *        char ListEntry[101][63]: [0] is title
  *                                 [1] - [100] are list entries
  *        int ListLength:          Number of entries to display
  *
@@ -8103,7 +8142,7 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
   }
 
   linepitch = (14 * txtht) / 10;  // 32
-  
+
   if (ListLength < 1)
   {
     PageCount = 1;
@@ -8180,7 +8219,7 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
     }
 
     // Draw the basic button
-    rectangle(Button1X, ButtonY, ButtonWidth, ButtonHeight, 
+    rectangle(Button1X, ButtonY, ButtonWidth, ButtonHeight,
               Button1_Color.r,
               Button1_Color.g,
               Button1_Color.b);
@@ -8190,12 +8229,12 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
     setBackColour(Button1_Color.r,
                 Button1_Color.g,
                 Button1_Color.b);
-  
+
     TextMid2(Button1X + ButtonWidth / 2, ButtonY + ButtonHeight / 2, Button1Caption, &font_dejavu_sans_20);
 
     if( CurrentSelection != -1)  // Draw Cancel and Select Buttons
     {
-      rectangle(Button2X, ButtonY, ButtonWidth, ButtonHeight, 
+      rectangle(Button2X, ButtonY, ButtonWidth, ButtonHeight,
                 Button2_Color.r,
                 Button2_Color.g,
                 Button2_Color.b);
@@ -8205,10 +8244,10 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
       setBackColour(Button2_Color.r,
                     Button2_Color.g,
                     Button2_Color.b);
-  
+
       TextMid2(Button2X + ButtonWidth / 2, ButtonY + ButtonHeight / 2, Button2Caption, &font_dejavu_sans_20);
 
-      rectangle(Button3X, ButtonY, ButtonWidth, ButtonHeight, 
+      rectangle(Button3X, ButtonY, ButtonWidth, ButtonHeight,
                 Button3_Color.r,
                 Button3_Color.g,
                 Button3_Color.b);
@@ -8218,12 +8257,12 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
       setBackColour(Button3_Color.r,
                     Button3_Color.g,
                     Button3_Color.b);
-  
+
       TextMid2(Button3X + ButtonWidth / 2, ButtonY + ButtonHeight / 2, Button3Caption, &font_dejavu_sans_20);
     }
     else  // Draw Exit Button
     {
-      rectangle(Button5X, ButtonY, ButtonWidth, ButtonHeight, 
+      rectangle(Button5X, ButtonY, ButtonWidth, ButtonHeight,
                 Button5_Color.r,
                 Button5_Color.g,
                 Button5_Color.b);
@@ -8233,11 +8272,11 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
       setBackColour(Button5_Color.r,
                     Button5_Color.g,
                     Button5_Color.b);
-  
+
       TextMid2(Button5X + ButtonWidth / 2, ButtonY + ButtonHeight / 2, Button5Caption, &font_dejavu_sans_20);
     }
 
-    rectangle(Button4X, ButtonY, ButtonWidth, ButtonHeight, 
+    rectangle(Button4X, ButtonY, ButtonWidth, ButtonHeight,
               Button4_Color.r,
               Button4_Color.g,
               Button4_Color.b);
@@ -8247,7 +8286,7 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
     setBackColour(Button4_Color.r,
                   Button4_Color.g,
                   Button4_Color.b);
-  
+
     TextMid2(Button4X + ButtonWidth / 2, ButtonY + ButtonHeight / 2, Button4Caption, &font_dejavu_sans_20);
 
     printf("List displayed and waiting for touch\n");
@@ -8395,12 +8434,19 @@ void WiFiConfig(int NoButton)
   char SystemCommand[255];
   char Network_SSID[63];
   char wlan0IPAddress[255];
+  char Hotspot[10];
 
   strcpy(ListEntry[0], "Empty List Title");
+
+  GetConfigParam(PATH_HOTSPOTCONFIG,"hotspot",Hotspot);
 
   switch (NoButton)
   {
     case 5:                               //
+      if (strcmp(Hotspot, "on") == 0)
+      {
+        system("/home/pi/rpidatv/scripts/hotspot_stop.sh");
+      }
       strcpy(ListEntry[0], "WiFi Networks Detected:");
       CurrentSelection = -1;
       j = 0;
@@ -8425,7 +8471,7 @@ void WiFiConfig(int NoButton)
 
           response_line[strlen(response_line) - 2] = '\0';  // Remove trailing " and CR
 
-          if (strlen(response_line) == 27) 
+          if (strlen(response_line) == 27)
           {
             strcpy(ListEntry[j], "Hidden Network");
           }
@@ -8434,7 +8480,7 @@ void WiFiConfig(int NoButton)
             strcpy(ListEntry[j], "Hidden Network");
           }
           else
-          { 
+          {
             strcpy(ListEntry[j], response_line + 27);
           }
           //printf("%s\n", ListEntry[j]);
@@ -8450,6 +8496,10 @@ void WiFiConfig(int NoButton)
       break;
 
     case 6:                               //
+      if (strcmp(Hotspot, "on") == 0)
+      {
+        system("/home/pi/rpidatv/scripts/hotspot_stop.sh");
+      }
       strcpy(ListEntry[0], "Select one of these WiFi Networks:");
       CurrentSelection = 0;
       j = 0;
@@ -8474,7 +8524,7 @@ void WiFiConfig(int NoButton)
 
           response_line[strlen(response_line) - 2] = '\0';  // Remove trailing " and CR
 
-          if (strlen(response_line) == 27) 
+          if (strlen(response_line) == 27)
           {
             strcpy(ListEntry[j], "Hidden Network");
           }
@@ -8483,7 +8533,7 @@ void WiFiConfig(int NoButton)
             strcpy(ListEntry[j], "Hidden Network");
           }
           else
-          { 
+          {
             strcpy(ListEntry[j], response_line + 27);
           }
           //printf("%s\n", ListEntry[j]);
@@ -8558,45 +8608,30 @@ void WiFiConfig(int NoButton)
       break;
 
     case 9:                                                                                 // Reset Wifi
+      if (strcmp(Hotspot, "off") == 0)
+      {
+        system("sudo ifconfig wlan0 down >/dev/null 2>/dev/null");                            // First, Disable it
+        system("sudo raspi-config nonint do_wifi_country GB>/dev/null 2>/dev/null");          // Make sure country is set
 
-      system("sudo ifconfig wlan0 down >/dev/null 2>/dev/null");                            // First, Disable it
-      system("sudo raspi-config nonint do_wifi_country GB>/dev/null 2>/dev/null");          // Make sure country is set
+        system("sudo rm /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>/dev/null");     // Delete Config
 
-      system("sudo rm /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>/dev/null");     // Delete Config
-
-      system("sudo cp ~/rpidatv/scripts/configs/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>/dev/null");
+        system("sudo cp ~/rpidatv/scripts/configs/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>/dev/null");
                                                                                             // Copy in new config
 
-      system("sudo chown root /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>/dev/null");
+        system("sudo chown root /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>/dev/null");
                                                                                             // and set ownership
 
-      system("sudo ifconfig wlan0 up >/dev/null 2>/dev/null");                              // Enable it
-      system("rm ~/.wifi_off >/dev/null 2>/dev/null");                                      // Enable at start-up
-      system("wpa_cli -i wlan0 reconfigure >/dev/null 2>/dev/null");                        // Load the config
-      usleep (1000000);                                                                     // Pause
-      system("sudo rfkill unblock 0 >/dev/null 2>/dev/null");                               // Unblock the RF
+        system("sudo ifconfig wlan0 up >/dev/null 2>/dev/null");                              // Enable it
+        system("rm ~/.wifi_off >/dev/null 2>/dev/null");                                      // Enable at start-up
+        system("wpa_cli -i wlan0 reconfigure >/dev/null 2>/dev/null");                        // Load the config
+        usleep (1000000);                                                                     // Pause
+        system("sudo rfkill unblock 0 >/dev/null 2>/dev/null");                               // Unblock the RF
+      }
       break;
 
-    case 1:                               //
-  CurrentSelection = 11;
-  ListLength = 12;
-
-  strcpy(ListEntry[0], "List Title");
-  strcpy(ListEntry[1], "List Entry 1");
-  strcpy(ListEntry[2], "List Entry 2");
-  strcpy(ListEntry[3], "List Entry 3");
-  strcpy(ListEntry[4], "List Entry 4");
-  strcpy(ListEntry[5], "List Entry 5");
-  strcpy(ListEntry[6], "List Entry 6");
-  strcpy(ListEntry[7], "List Entry 7");
-  strcpy(ListEntry[8], "List Entry 8");
-  strcpy(ListEntry[9], "List Entry 9");
-  strcpy(ListEntry[10], "List Entry 10");
-  strcpy(ListEntry[11], "List Entry 11");
-  strcpy(ListEntry[12], "List Entry 12");
-
-   
-      SelectFromList(CurrentSelection, ListEntry, ListLength);
+    case 1:                               // hotspot
+      printf("Hotspot Config\n");
+      HotspotConfig();
       break;
   }
 }
@@ -8656,7 +8691,7 @@ void GreyOut1()
         SetButtonStatus(ButtonNumber(CurrentMenu, 7), 2); // Grey Audio
       }
       // Grey out Caption Button if not MPEG-2 or Streamer or test card
-      if ((strcmp(CurrentEncoding, "MPEG-2") != 0) 
+      if ((strcmp(CurrentEncoding, "MPEG-2") != 0)
         && (strcmp(CurrentModeOP, "STREAMER") != 0)
         && (strcmp(CurrentSource, "TestCard") != 0))
       {
@@ -8693,10 +8728,10 @@ void GreyOut1()
       }
 
       // If not DATV Express, Lime, JLIME or Pluto then Grey out Device Level
-      if ((strcmp(CurrentModeOP, "DATVEXPRESS") != 0) 
-        && (strcmp(CurrentModeOP, "PLUTO") != 0) 
-        && (strcmp(CurrentModeOP, TabModeOP[3]) != 0) 
-        && (strcmp(CurrentModeOP, TabModeOP[8]) != 0) 
+      if ((strcmp(CurrentModeOP, "DATVEXPRESS") != 0)
+        && (strcmp(CurrentModeOP, "PLUTO") != 0)
+        && (strcmp(CurrentModeOP, TabModeOP[3]) != 0)
+        && (strcmp(CurrentModeOP, TabModeOP[8]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[9]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[12]) != 0))
       {
@@ -8977,9 +9012,9 @@ void SelectInGroupOnMenu(int Menu, int StartButton, int StopButton, int NumberBu
   int StopButtonAll;
   int NumberButtonAll;
 
-  StartButtonAll = ButtonNumber(Menu, StartButton); 
-  StopButtonAll = ButtonNumber(Menu, StopButton); 
-  NumberButtonAll = ButtonNumber(Menu, NumberButton); 
+  StartButtonAll = ButtonNumber(Menu, StartButton);
+  StopButtonAll = ButtonNumber(Menu, StopButton);
+  NumberButtonAll = ButtonNumber(Menu, NumberButton);
   for(i = StartButtonAll ; i <= StopButtonAll ; i++)
   {
     if(i == NumberButtonAll)
@@ -9054,12 +9089,12 @@ void SelectEncoding(int NoButton)  // Encoding
 
   // Encoding is stored as modeinput, so deal with IPTS in and TS File first
 
-  if (NoButton == 8)       // IPTS in 
+  if (NoButton == 8)       // IPTS in
   {
     SetConfigParam(PATH_PCONFIG, "modeinput", "IPTSIN");
     strcpy(CurrentEncoding, "IPTS in");
   }
-  else if (NoButton == 9) // TS File  
+  else if (NoButton == 9) // TS File
   {
     SetConfigParam(PATH_PCONFIG, "modeinput", "FILETS");
     strcpy(CurrentEncoding, "TS File");
@@ -9143,7 +9178,7 @@ void SelectSource(int NoButton)  // Video Source
   if (NoButton == 13)  // HDMI Selected
   {
     SetConfigParam(PATH_PCONFIG, "modeinput", "HDMI");
-  } 
+  }
   ApplyTXConfig();
   printf("Current Source afer ApplyTXConfig in SelectSource is %s\n",  CurrentSource);
 }
@@ -9186,7 +9221,7 @@ void SelectFreq(int NoButton)  //Frequency
   }
   else                    // Lean DVB Receive frequency
   {
-    strcpy(RXfreq[0], freqtxt);              
+    strcpy(RXfreq[0], freqtxt);
     SetConfigParam(PATH_RXPRESETS, "rx0frequency", RXfreq[0]);
   }
 }
@@ -9457,7 +9492,7 @@ void ChangeTestCard(int NoButton)  // Change Test Card Selection
     CurrentTestCard = 0;
     strcpy(CurrentCaptionState, "on");
     SetConfigParam(PATH_PCONFIG, "caption", "on");
-  }  
+  }
 }
 
 void SelectSTD(int NoButton)  // PAL or NTSC
@@ -9693,7 +9728,7 @@ void ChangeBandDetails(int NoButton)
 
   snprintf(Value, 30, "%d", RFEState);
   RFEState = -1;
-  while ((RFEState < 0 ) || (RFEState > 1) || (strlen(KeyboardReturn) < 1))  
+  while ((RFEState < 0 ) || (RFEState > 1) || (strlen(KeyboardReturn) < 1))
   {
     snprintf(Prompt, 63, "Lime RFE Enable for %s. 0=off, 1=on:", TabBandLabel[band]);
     Keyboard(Prompt, Value, 6);
@@ -9725,7 +9760,7 @@ void ChangeBandDetails(int NoButton)
   }
   snprintf(Value, 30, "%d", RFEPort);
   RFEPort = 0;
-  while ((RFEPort < 1 ) || (RFEPort > 2) || (strlen(KeyboardReturn) < 1))  
+  while ((RFEPort < 1 ) || (RFEPort > 2) || (strlen(KeyboardReturn) < 1))
   {
     snprintf(Prompt, 63, "LimeRFE Tx Port for %s Band. 1=txrx, 2=tx:", TabBandLabel[band]);
     Keyboard(Prompt, Value, 6);
@@ -9740,7 +9775,7 @@ void ChangeBandDetails(int NoButton)
   else
   {
     strcpy(Value, "tx");
-  }  
+  }
   SetConfigParam(PATH_PPRESETS ,Param, Value);
 
   // Lime RFE Attenuator Level
@@ -9750,7 +9785,7 @@ void ChangeBandDetails(int NoButton)
   RFEAtt=atoi(Value);
   snprintf(Value, 30, "%d", RFEAtt * 2);
   RFEAtt= - 1;
-  while ((RFEAtt < 0) || (RFEAtt > 14) || (strlen(KeyboardReturn) < 1))  
+  while ((RFEAtt < 0) || (RFEAtt > 14) || (strlen(KeyboardReturn) < 1))
   {
     snprintf(Prompt, 63, "Set LimeRFE Rx Atten for %s. 0-14 (dB):", TabBandLabel[band]);
     Keyboard(Prompt, Value, 6);
@@ -9871,14 +9906,14 @@ void DoFreqChange()
     SetConfigParam(PATH_PCONFIG, "band", Value);
   }
 
-  // CurrentBand now holds the in-use band 
+  // CurrentBand now holds the in-use band
 
   // Read each Band value in turn from PPresets
   // Then set Current variables and
   // write correct values to portsdown_config.txt
 
   // Set the Modulation in portsdown_config.txt
-  strcpy(Param,"modulation");    
+  strcpy(Param,"modulation");
   SetConfigParam(PATH_PCONFIG, Param, CurrentTXMode);
 
   // Band Label
@@ -9888,7 +9923,7 @@ void DoFreqChange()
 
   strcpy(Param, "labelofband");
   SetConfigParam(PATH_PCONFIG, Param, Value);
-  
+
   // Attenuator Level
   strcpy(Param, TabBand[CurrentBand]);
   strcat(Param, "attenlevel");
@@ -9898,12 +9933,12 @@ void DoFreqChange()
 
   strcpy(Param, "attenlevel");
   SetConfigParam(PATH_PCONFIG ,Param, Value);
-  
+
   // Express Level
   strcpy(Param, TabBand[CurrentBand]);
   strcat(Param, "explevel");
   GetConfigParam(PATH_PPRESETS, Param, Value);
- 
+
   TabBandExpLevel[CurrentBand] = atoi(Value);
 
   strcpy(Param, "explevel");
@@ -9913,7 +9948,7 @@ void DoFreqChange()
   strcpy(Param, TabBand[CurrentBand]);
   strcat(Param, "expports");
   GetConfigParam(PATH_PPRESETS, Param, Value);
- 
+
   TabBandExpPorts[CurrentBand] = atoi(Value);
 
   strcpy(Param, "expports");
@@ -9923,7 +9958,7 @@ void DoFreqChange()
   strcpy(Param, TabBand[CurrentBand]);
   strcat(Param, "limegain");
   GetConfigParam(PATH_PPRESETS, Param, Value);
- 
+
   TabBandLimeGain[CurrentBand] = atoi(Value);
 
   strcpy(Param, "limegain");
@@ -10015,7 +10050,7 @@ void DoFreqChange()
   usleep(100000);
 
   // Now check if the Receive upconverter LO needs to be started or stopped
-  ReceiveLOStart();  
+  ReceiveLOStart();
 }
 
 void SelectBand(int NoButton)  // Set the Band  Now from Menu 9
@@ -10257,7 +10292,7 @@ void SetDeviceLevel()
     SetConfigParam(PATH_PCONFIG, Param, KeyboardReturn);
   }
   else if ((strcmp(CurrentModeOP, TabModeOP[3]) == 0) || (strcmp(CurrentModeOP, TabModeOP[8]) == 0)
-        || (strcmp(CurrentModeOP, TabModeOP[9]) == 0) || (strcmp(CurrentModeOP, TabModeOP[12]) == 0))  
+        || (strcmp(CurrentModeOP, TabModeOP[9]) == 0) || (strcmp(CurrentModeOP, TabModeOP[12]) == 0))
         // Lime Mini or USB or JLIME or LIMEDVB
   {
     while ((LimeGain < 0) || (LimeGain > 100) || (strlen(KeyboardReturn) < 1))
@@ -10319,12 +10354,12 @@ void AdjustVLCVolume(int adjustment)
   SetConfigParam(PATH_PCONFIG, "vlcvolume", VLCVolumeText);
 
   snprintf(VLCVolumeCommand, 254, "/home/pi/rpidatv/scripts/setvlcvolume.sh %d", CurrentVLCVolume);
-  system(VLCVolumeCommand); 
+  system(VLCVolumeCommand);
 
   VLCVolumePerCent = (100 * CurrentVLCVolume) / 512;
   snprintf(VolumeMessageText, 62, "VOLUME %d%%", VLCVolumePerCent);
   // printf("%s\n", VolumeMessageText);
-  
+
   FILE *fw=fopen("/home/pi/tmp/vlc_temp_overlay.txt","w+");
   if(fw!=0)
   {
@@ -10376,7 +10411,7 @@ void SetReceiveLOFreq(int NoButton)
   GetConfigParam(PATH_PPRESETS, Param, Value);
   strcpyn(Value14, Value, 14);
   snprintf(Prompt, 63, "Enter RX LO Freq (MHz) for %s Band (0 for off)", Value14);
-  
+
   // Look up the current value
   strcpy(Param, TabBand[band]);
   strcat(Param, "lo");
@@ -10530,7 +10565,7 @@ void RecallPreset(int PresetButton)
   GetConfigParam(PATH_PPRESETS, Param, Value);
   SetConfigParam(PATH_PCONFIG, "fec", Value);
   fec = atoi(Value);
-  
+
   // Read Audio setting
   strcpy(Value, "");
   snprintf(Param, 15, "p%daudio", PresetButton + 1);
@@ -10639,7 +10674,7 @@ void CompVidStart()
   if (strcmp(CurrentVidSource, "Pi Cam") == 0)
   {
     system("sudo modprobe bcm2835_v4l2");
-    GetPiCamDev(picamdev1);         
+    GetPiCamDev(picamdev1);
     if (strlen(picamdev1) > 1)
     {
       strcpy(bashcmd, "v4l2-ctl -d ");
@@ -10682,7 +10717,7 @@ void CompVidStart()
     // Create the new image
     strcpy(fbicmd, "convert -font \"FreeSans\" -size 720x576 xc:white ");
     strcat(fbicmd, "-gravity North -pointsize 125 -annotate 0,0,0,20 ");
-    strcat(fbicmd, CallSign); 
+    strcat(fbicmd, CallSign);
     strcat(fbicmd, " -gravity Center -pointsize 200 -annotate 0,0,0,20 ");
     strcat(fbicmd, TabBandNumbers[CompVidBand]);
     strcat(fbicmd, " -gravity South -pointsize 75 -annotate 0,0,0,20 \"");
@@ -10714,7 +10749,7 @@ void CompVidStart()
     {
       // Compose the new card
       strcpy(fbicmd, "convert -font \"FreeSans\" -size 720x80 xc:transparent -fill white -gravity Center -pointsize 40 -annotate 0 ");
-      strcat(fbicmd, CallSign); 
+      strcat(fbicmd, CallSign);
       strcat(fbicmd, " /home/pi/tmp/caption.png");
       system(fbicmd);
 
@@ -10774,7 +10809,7 @@ void CompVidStart()
 
     // Fetch the Next Snap serial number
     fp = popen("cat /home/pi/snaps/snap_index.txt", "r");
-    if (fp == NULL) 
+    if (fp == NULL)
     {
       printf("Failed to run command\n" );
       exit(1);
@@ -10883,7 +10918,7 @@ void TransmitStart()
   // Check if a desktop mode is selected; if so, display desktop
 
   if  ((strcmp(ModeInput,"CARDH264")==0)
-    || (strcmp(ModeInput,"CONTEST") == 0) 
+    || (strcmp(ModeInput,"CONTEST") == 0)
     || (strcmp(ModeInput,"DESKTOP") == 0)
     || (strcmp(ModeInput,"CARDMPEG-2")==0)
     || (strcmp(ModeInput,"CONTESTMPEG-2")==0)
@@ -11120,7 +11155,7 @@ void *WaitButtonSnap(void * arg)
     if((scaledX <= 15 * wscreen / 40) && (scaledX >= wscreen / 40) && (scaledY <= hscreen) && (scaledY >= 2 * hscreen / 12))
     {
       printf("in zone\n");
-      if (FinishedButton == 2)  // Toggle parameters on/off 
+      if (FinishedButton == 2)  // Toggle parameters on/off
       {
         FinishedButton = 1; // graphics on
       }
@@ -11190,7 +11225,7 @@ void *WaitButtonLMRX(void * arg)
     else if ((scaledX <= 15 * wscreen / 40) && (scaledY <= 10 * hscreen / 12) && (scaledY >= 2 * hscreen / 12))
     {
       printf("In parameter zone, so toggle parameter view.\n");
-      if (FinishedButton == 2)  // Toggle parameters on/off 
+      if (FinishedButton == 2)  // Toggle parameters on/off
       {
         FinishedButton = 1; // graphics on
       }
@@ -11312,7 +11347,7 @@ int CheckStream()
   {
     return 1;
   }
- 
+
   response[5] = '\0'; // Truncate response to 5 characters
 
   if (strcmp(response, "Video") == 0)
@@ -11358,7 +11393,7 @@ int CheckVLCStream()
   {
     return 1;
   }
- 
+
   response[5] = '\0'; // Truncate response to 5 characters
 
   if (strcmp(response, "Video") == 0)
@@ -11415,7 +11450,7 @@ void DisplayStream(int NoButton)
     usleep(500000);
 
     // run the omxplayer script
- 
+
     system(startCommand);
 
     StreamStatus = CheckStream();
@@ -11424,14 +11459,14 @@ void DisplayStream(int NoButton)
     // = 1 Not started yet
     // = 2 started but audio only
     // = 3 terminated
-    
+
     // Now wait 10 seconds for omxplayer to respond
     // checking every 0.5 seconds.  It will time out at 5 seconds
 
     count = 0;
     while ((StreamStatus == 1) && (count < 20) && (FinishedButton == 0))
     {
-      usleep(500000); 
+      usleep(500000);
       count = count + 1;
       StreamStatus = CheckStream();
     }
@@ -11457,7 +11492,7 @@ void DisplayStream(int NoButton)
       {
         DisplayHere(""); // Clear messages
       }
-    }     
+    }
 
     if (StreamStatus == 2)  // Audio only
     {
@@ -11529,13 +11564,13 @@ void DisplayStreamVLC(int NoButton)
     // = 0 Stream running
     // = 1 Not started yet
     // = 3 terminated
-    
+
     // Now wait for VLC to respond
-    // checking every 0.5 seconds. 
+    // checking every 0.5 seconds.
 
     while ((StreamStatus == 1) && (FinishedButton == 0))
     {
-      usleep(500000); 
+      usleep(500000);
       StreamStatus = CheckStream();
       //printf("Stream Status File value = %d\n", StreamStatus);
     }
@@ -11562,7 +11597,7 @@ void DisplayStreamVLC(int NoButton)
       {
         DisplayHere(""); // Clear messages
       }
-    }     
+    }
 
     if ((StreamStatus == 3) || (StreamStatus == 1))  // Nothing detected
     {
@@ -11571,7 +11606,7 @@ void DisplayStreamVLC(int NoButton)
 
     // Make sure that VLC player is no longer running
     system("/home/pi/rpidatv/scripts/vlc_stream_player_stop.sh");
-    
+
   }
   DisplayHere("");
 
@@ -11743,7 +11778,7 @@ void AmendStreamerPreset(int NoButton)
   sprintf(Prompt, "Enter the stream key (6 characters)");
   Keyboard(Prompt, key, 15);
   strcpy(key, KeyboardReturn);
-  
+
   snprintf(Value, 127, "%s-%s", streamname, key);
   SetConfigParam(PATH_STREAMPRESETS, Param, Value);
   strcpy(StreamKey[NoPreset], Value);
@@ -11804,7 +11839,7 @@ void checkTunerSettings()
     if ((LMRXsr[0] > 500 ) && (LMRXsr[0] != 1000) && (LMRXsr[0] != 1700) && (LMRXsr[0] != 2000) && (LMRXsr[0] != 4000)
                            && (LMRXsr[0] != 5000) && (LMRXsr[0] != 6000) && (LMRXsr[0] != 7000) && (LMRXsr[0] != 8000))
     {
-      MsgBox4("Receive bandwidth outside normal range", "of < 501 kHz or 1, 1.7, 2, 4, 5, 6, 7, or 8 MHz", 
+      MsgBox4("Receive bandwidth outside normal range", "of < 501 kHz or 1, 1.7, 2, 4, 5, 6, 7, or 8 MHz",
               "Tuner may not operate", "Touch Screen to Continue");
       wait_touch();
     }
@@ -11964,12 +11999,12 @@ void LMRX(int NoButton)
     {
       fp=popen(PATH_SCRIPT_LMRXVLCFFUDP, "r");
     }
-    
+
     if (NoButton == 2)
     {
       fp=popen(PATH_SCRIPT_LMRXVLCFFUDP2, "r");
     }
-    
+
     if(fp==NULL) printf("Process error\n");
 
     printf("STARTING VLC with FFMPEG RX\n");
@@ -11977,7 +12012,7 @@ void LMRX(int NoButton)
     /* Open status FIFO for read only  */
     //mkfifo("longmynd_status_fifo", 0666);
     ret = mkfifo("longmynd_status_fifo", 0666);
-    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY); 
+    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
 
     // Set the status fifo to be non-blocking on empty reads
     fcntl(fd_status_fifo, F_SETFL, O_NONBLOCK);
@@ -12019,7 +12054,7 @@ void LMRX(int NoButton)
       {
         status_message_char[num]='\0';
         // if (num>0) printf("%s\n",status_message_char);
-        
+
         if (strcmp(status_message_char, "$") == 0)
         {
           TunerFound = TRUE;
@@ -12107,7 +12142,7 @@ void LMRX(int NoButton)
             if (FinishedButton == 1)  // Parameters requested to be displayed
             {
 
-              // If they weren't displayed before, set the previousMER to 0 
+              // If they weren't displayed before, set the previousMER to 0
               // so they get displayed and don't have to wait for an MER change
               if (Parameters_currently_displayed != 1)
               {
@@ -12245,13 +12280,13 @@ void LMRX(int NoButton)
     // Shutdown VLC if it has not stolen the graphics
     system("/home/pi/rpidatv/scripts/lmvlcsd.sh &");
 
-    close(fd_status_fifo); 
+    close(fd_status_fifo);
     usleep(1000);
 
     printf("Stopping receive process\n");
     pclose(fp);
     system("sudo killall lmvlcffudp.sh >/dev/null 2>/dev/null");
-    touch_response = 0; 
+    touch_response = 0;
     printf("VLC has shut down\n");
     break;
 
@@ -12262,7 +12297,7 @@ void LMRX(int NoButton)
     system("/home/pi/rpidatv/scripts/ctvlcff.sh");
 
     // Open status FIFO for read only
-    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY); 
+    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
 
     // Set the status fifo to be non-blocking on empty reads
     fcntl(fd_status_fifo, F_SETFL, O_NONBLOCK);
@@ -12324,7 +12359,7 @@ void LMRX(int NoButton)
               Text2(wscreen * 1 / 40, hscreen - 1 * linepitch, line5, font_ptr);
             }
           }
-        
+
           if (strcmp(stat_string, "[GetFamilyId] Family ID:0x4955") == 0)
           {
             strcpy(line5, "Initialising Tuner, Please Wait");
@@ -12436,7 +12471,7 @@ void LMRX(int NoButton)
           {
             strcpy(line9, stat_string);
           }
-          
+
           // Display reported Guard
           strcpyn(linex, stat_string, 6);  // for destructive test
           if (strcmp(linex, "Guard:") == 0)
@@ -12583,17 +12618,17 @@ void LMRX(int NoButton)
         }
       }
     }
-    
+
     // Shutdown VLC if it has not stolen the graphics
     system("/home/pi/rpidatv/scripts/lmvlcsd.sh &");
 
-    close(fd_status_fifo); 
+    close(fd_status_fifo);
     usleep(1000);
 
     printf("Stopping receive process\n");
     system("sudo killall /home/pi/rpidatv/scripts/ctvlcff.sh >/dev/null 2>/dev/null");
     system("/home/pi/rpidatv/scripts/lmstop.sh");
-    touch_response = 0; 
+    touch_response = 0;
     printf("Stopped receive process\n");
     break;
 
@@ -12604,7 +12639,7 @@ void LMRX(int NoButton)
     system("/home/pi/rpidatv/scripts/ctudp.sh");
 
     // Open status FIFO for read only
-    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY); 
+    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
 
 
     // Set the status fifo to be non-blocking on empty reads
@@ -12658,7 +12693,7 @@ void LMRX(int NoButton)
               strcpy(line5, "Please connect a Knucker Tuner");
             }
           }
-        
+
           if (strcmp(stat_string, "[GetFamilyId] Family ID:0x4955") == 0)
           {
             strcpy(line5, "Initialising Tuner, Please Wait");
@@ -12770,7 +12805,7 @@ void LMRX(int NoButton)
           {
             strcpy(line9, stat_string);
           }
-          
+
           // Display reported Guard
           strcpyn(linex, stat_string, 6);  // for destructive test
           if (strcmp(linex, "Guard:") == 0)
@@ -12855,14 +12890,14 @@ void LMRX(int NoButton)
         }
       }
     }
-    
-    close(fd_status_fifo); 
+
+    close(fd_status_fifo);
     usleep(1000);
 
     printf("Stopping receive process\n");
     system("sudo killall /home/pi/rpidatv/scripts/ctudp.sh >/dev/null 2>/dev/null");
     system("/home/pi/rpidatv/scripts/lmstop.sh");
-    touch_response = 0; 
+    touch_response = 0;
     printf("Stopped receive process\n");
     break;
 
@@ -12874,7 +12909,7 @@ void LMRX(int NoButton)
 
     /* Open status FIFO for read only  */
     ret=mkfifo("longmynd_status_fifo", 0666);
-    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY); 
+    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
     if (fd_status_fifo < 0)
     {
       printf("Failed to open status fifo\n");
@@ -12882,7 +12917,7 @@ void LMRX(int NoButton)
 
     printf("Listening\n");
 
-    while ((FinishedButton == 1) || (FinishedButton == 2)) 
+    while ((FinishedButton == 1) || (FinishedButton == 2))
     {
       num = read(fd_status_fifo, status_message_char, 1);
       // printf("%s Num= %d \n", "End Read", num);
@@ -12890,7 +12925,7 @@ void LMRX(int NoButton)
       {
         status_message_char[num]='\0';
         //if (num>0) printf("%s\n",status_message_char);
-        
+
         if (strcmp(status_message_char, "$") == 0)
         {
 
@@ -13035,14 +13070,14 @@ void LMRX(int NoButton)
       {
         FinishedButton = 0;
       }
-    } 
-    close(fd_status_fifo); 
+    }
+    close(fd_status_fifo);
     usleep(1000);
 
     printf("Stopping receive process\n");
     pclose(fp);
     system("sudo killall lmomx.sh >/dev/null 2>/dev/null");
-    touch_response = 0; 
+    touch_response = 0;
     break;
 
   case 3:  // DVB-S/S2 UDP Output
@@ -13054,7 +13089,7 @@ void LMRX(int NoButton)
 
     // Open status FIFO
     ret = mkfifo("longmynd_status_fifo", 0666);
-    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY); 
+    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
     if (fd_status_fifo < 0)
     {
       printf("Failed to open status fifo\n");
@@ -13072,7 +13107,7 @@ void LMRX(int NoButton)
       {
         status_message_char[num]='\0';
         //if (num>0) printf("%s\n",status_message_char);
- 
+
         if (strcmp(status_message_char, "$") == 0)
         {
 
@@ -13218,15 +13253,15 @@ void LMRX(int NoButton)
       {
         FinishedButton = 0;
       }
-    } 
-    close(fd_status_fifo); 
+    }
+    close(fd_status_fifo);
     usleep(1000);
 
     printf("Stopping receive process\n");
     pclose(fp);
 
     system("sudo killall lmudp.sh >/dev/null 2>/dev/null");
-    touch_response = 0; 
+    touch_response = 0;
     break;
 
   case 4:  // MER Display
@@ -13238,7 +13273,7 @@ void LMRX(int NoButton)
 
     // Open status FIFO
     ret = mkfifo("longmynd_status_fifo", 0666);
-    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY); 
+    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
     if (fd_status_fifo < 0)
     {
       printf("Failed to open status fifo\n");
@@ -13362,15 +13397,15 @@ void LMRX(int NoButton)
       {
         FinishedButton = 0;
       }
-    } 
-    close(fd_status_fifo); 
+    }
+    close(fd_status_fifo);
     usleep(1000);
 
     printf("Stopping receive process\n");
     pclose(fp);
 
     system("sudo killall lmmer.sh >/dev/null 2>/dev/null");
-    touch_response = 0; 
+    touch_response = 0;
     break;
 
   case 5:  // AutoSet LNB Frequency
@@ -13386,7 +13421,7 @@ void LMRX(int NoButton)
 
     // Open status FIFO
     ret = mkfifo("longmynd_status_fifo", 0666);
-    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY); 
+    fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
     if (fd_status_fifo < 0)
     {
       printf("Failed to open status fifo\n");
@@ -13451,7 +13486,7 @@ void LMRX(int NoButton)
             Text2(wscreen * 1.0 / 40.0, hscreen - 4.5 * linepitch, "Previous LNB Offset", font_ptr);
             snprintf(FREQtext, 15, "%d kHz", oldLMRXqoffset);
             Text2(wscreen * 1.0 / 40.0, hscreen - 5.5 * linepitch, FREQtext, font_ptr);
-       
+
             // Make sure that the Tuner frequency is sensible
             if ((TUNEFREQ < 143000) || (TUNEFREQ > 2650000))
             {
@@ -13488,15 +13523,15 @@ void LMRX(int NoButton)
       {
         FinishedButton = 0;
       }
-    } 
-    close(fd_status_fifo); 
+    }
+    close(fd_status_fifo);
     usleep(1000);
 
     printf("Stopping receive process\n");
     pclose(fp);
 
     system("sudo killall lmmer.sh >/dev/null 2>/dev/null");
-    touch_response = 0; 
+    touch_response = 0;
     break;
   }
   system("sudo killall longmynd >/dev/null 2>/dev/null");
@@ -13529,6 +13564,248 @@ void CycleLNBVolts()
   GetConfigParam(PATH_LMCONFIG, "lnbvolts", LMRXvolts);
 }
 
+void SARSAT_DECODER()
+{
+  char card[10];
+  char mic[10];
+
+  GetMicAudioCard(mic);
+  if (strlen(mic) == 1)   // Use USB audio output if present
+  {
+    strcpy(card, mic);
+  }
+  else                    // Use RPi audio if no USB
+  {
+    GetPiAudioCard(card);
+  }
+
+  snprintf(PATH_SCRIPT_DECODER_1, 45, "/home/pi/rpidatv/406/scan.sh %s 2>&1", card);
+
+  #define PATH_SCRIPT_DECODER PATH_SCRIPT_DECODER_1
+
+  //Local parameters:
+
+  FILE *fp;
+  char *line=NULL;
+  size_t len = 0;
+  ssize_t read;
+
+  // Affichage
+  char line1[80]="";
+  char line2[80]="";
+  char line3[80]="";
+  char line4[80]="";
+  char line5[80]="";
+  char line6[80]="";
+  char line7[80]="";
+  char line8[80]="";
+  char line9[80]="";
+  char line10[80]="";
+  char line11[80]="";
+  char line12[80]="";
+  char line13[80]="";
+  char line14[80]="";
+  char line15[80]="";
+  char line16[80]="";
+  char line17[80]="";
+  char line18[80]="";
+  char line19[80]="";
+  char line20[80]="";
+  char crc1[80]="";
+  char crc2[80]="";
+  char end[80]="";
+
+  int nbline=1;
+
+  char strTag[30];
+
+  // Set globals
+  FinishedButton = 0;
+
+  const font_t *font_ptr = &font_dejavu_sans_20;
+  int txtht =  font_ptr->ascent;
+  int linepitch;
+
+  linepitch = (16 * txtht) / 10;  // =32
+
+  // Create Wait Button thread
+  pthread_create (&thbutton, NULL, &WaitButtonEvent, NULL);
+
+  setBackColour(0, 0, 0);
+  fp=popen(PATH_SCRIPT_DECODER, "r");
+  if(fp==NULL) printf("Process error\n");
+
+  system("/home/pi/rpidatv/scripts/screen_grab_for_web.sh &"); // web access auto-refresh
+
+  printf("STARTING SARSAT DECODER\n");
+
+  clearScreen();
+
+  while (((read = getline(&line, &len, fp)) != -1) && (FinishedButton == 0))
+  {
+
+    sscanf(line,"%s ",strTag);
+    //printf("\n len: %d line: %s strTag: %s", len, line, strTag);
+
+    if((strcmp(strTag, "Scan")==0) || (strcmp(strTag, "Lancement")==0) || (strcmp(strTag, "****Attente")==0) || (strcmp(strTag, "CRC_1")==0) || (strcmp(strTag, "CRC_2")==0) || (strcmp(strTag, "Contenu")==0))
+    {
+       nbline=1;
+       if (strcmp(strTag, "CRC_1")==0)
+       {
+         strcpy(crc1, line);
+         strcpy(crc2,"");
+       }
+       else if (strcmp(strTag, "CRC_2")==0)
+       {
+         strcpy(crc2, line);
+       }
+       else if (strcmp(strTag, "Contenu")!=0)
+       {
+         setForeColour(0, 0, 0);
+         Text2(wscreen / 40, hscreen - 1 * linepitch, line1, font_ptr);
+         strcpy(line1, line);
+         setForeColour(255, 255, 255);
+         Text2(wscreen / 40, hscreen - 1 * linepitch, line1, font_ptr);
+       }
+
+       strcpy(line2, "");
+
+       if (strcmp(strTag, "Scan")==0)
+       {
+         strcpy(line3, "");
+       }
+
+       if (strcmp(strTag, "Contenu")==0)
+         {
+           clearScreen();
+           setBackColour(0, 0, 0);
+           setForeColour(255, 255, 255);
+           Text2(wscreen / 40, hscreen - 1 * linepitch, line1, font_ptr);
+           Text2(wscreen / 40, hscreen - 1.75 * linepitch, line2, font_ptr);
+           nbline=3;
+           strcpy(line3, "");
+           strcpy(line3, line);
+           Text2(wscreen / 40, hscreen - 2.5 * linepitch, line3, font_ptr);
+           strcpy(line4, "");
+           strcpy(line5, "");
+           strcpy(line6, "");
+           strcpy(line7, "");
+           strcpy(line8, "");
+           strcpy(line9, "");
+           strcpy(line10, "");
+           strcpy(line11, "");
+           strcpy(line12, "");
+           strcpy(line13, "");
+           strcpy(line14, "");
+           strcpy(line15, "");
+           strcpy(line16, "");
+           strcpy(line17, "");
+           strcpy(line18, "");
+           strcpy(line19, "");
+           strcpy(line20, "");
+         }
+    }else if (nbline==1){
+       nbline++;
+       strcpy(line2, line);
+       Text2(wscreen / 40, hscreen - 1.75 * linepitch, line2, font_ptr);
+    }else if (nbline==2){
+       nbline++;
+       strcpy(line3, line);
+       Text2(wscreen / 40, hscreen - 2.5 * linepitch, line3, font_ptr);
+    }else if (nbline==3){
+       nbline++;
+       strcpy(line4, line);
+       Text2(wscreen / 40, hscreen - 3.25 * linepitch, line4, font_ptr);
+    }else if (nbline==4){
+       nbline++;
+       strcpy(line5, line);
+       Text2(wscreen / 40, hscreen - 4 * linepitch, line5, font_ptr);
+    }else if (nbline==5){
+       nbline++;
+       strcpy(line6, line);
+       Text2(wscreen / 40, hscreen - 4.75 * linepitch, line6, font_ptr);
+    }else if (nbline==6){
+       nbline++;
+       strcpy(line7, line);
+       Text2(wscreen / 40, hscreen - 5.5 * linepitch, line7, font_ptr);
+    }else if (nbline==7){
+       nbline++;
+       strcpy(line8, line);
+       Text2(wscreen / 40, hscreen - 6.25 * linepitch, line8, font_ptr);
+    }else if (nbline==8){
+       nbline++;
+       strcpy(line9, line);
+       Text2(wscreen / 40, hscreen - 7 * linepitch, line9, font_ptr);
+    }else if (nbline==9){
+       nbline++;
+       strcpy(line10, line);
+       Text2(wscreen / 40, hscreen - 7.75 * linepitch, line10, font_ptr);
+    }else if (nbline==10){
+       nbline++;
+       strcpy(line11, line);
+       Text2(wscreen / 40, hscreen - 8.5 * linepitch, line11, font_ptr);
+    }else if (nbline==11){
+       nbline++;
+       strcpy(line12, line);
+       Text2(wscreen / 40, hscreen - 9.25 * linepitch, line12, font_ptr);
+    }else if (nbline==12){
+       nbline++;
+       strcpy(line13, line);
+       Text2(wscreen / 40, hscreen - 10 * linepitch, line13, font_ptr);
+    }else if (nbline==13){
+       nbline++;
+       strcpy(line14, line);
+       Text2(wscreen / 40, hscreen - 10.75 * linepitch, line14, font_ptr);
+    }else if (nbline==14){
+       nbline++;
+       strcpy(line15, line);
+       Text2(wscreen / 40, hscreen - 11.5 * linepitch, line15, font_ptr);
+    }else if (nbline==15){
+       nbline++;
+       strcpy(line16, line);
+       Text2(wscreen / 40, hscreen - 12.25 * linepitch, line16, font_ptr);
+    }else if (nbline==16){
+       nbline++;
+       strcpy(line17, line);
+       Text2(wscreen / 40, hscreen - 13 * linepitch, line17, font_ptr);
+    }else if (nbline==17){
+       nbline++;
+       strcpy(line18, line);
+       Text2(wscreen / 40, hscreen - 13.75 * linepitch, line18, font_ptr);
+    }else if (nbline==18){
+       nbline++;
+       strcpy(line19, line);
+       Text2(wscreen / 40, hscreen - 14.5 * linepitch, line19, font_ptr);
+    }
+
+       strcpy(end, "Touch to exit     ");
+       strcat(end,crc1);
+       strcat(end,"     ");
+       strcat(end,crc2);
+
+       setBackColour(0, 0, 0);
+       setForeColour(255, 255, 255);
+       Text2(wscreen / 40, hscreen - 15.5 * linepitch, end, font_ptr);
+  }
+
+  system("/home/pi/rpidatv/406/stop.sh >/dev/null 2>/dev/null");
+  usleep(1000);
+  system("sudo killall -9 aplay >/dev/null 2>/dev/null");
+  system("sudo killall -9 aplay2 >/dev/null 2>/dev/null");
+
+  usleep(1000);
+  clearScreen();
+
+  printf("Stopping decoder process\n");
+  pclose(fp);
+
+  system("sudo killall scan.sh >/dev/null 2>/dev/null");
+  touch_response = 0;
+  system("pkill -9 rtl_power && pkill perl && pkill -9 perl && pkill aplay >/dev/null 2>/dev/null");
+  pthread_join(thbutton, NULL);
+
+  system("pkill -f screen_grab_for_web.sh");
+}
 
 void wait_touch()
 // Wait for Screen touch, ignore position, but then move on
@@ -13613,7 +13890,7 @@ void YesNo(int i)  // i == 6 Yes, i == 8 No
     case 6:     // Yes
       // Run script
       system("/home/pi/rpidatv/scripts/restore_factory.sh");
-      
+
       // Correct the display back to original
       SetConfigParam(PATH_PCONFIG, "display", DisplayType);
       MsgBox2("Restored to Factory Settings", "Display will restart after touch");
@@ -13639,7 +13916,7 @@ void YesNo(int i)  // i == 6 Yes, i == 8 No
     case 6:     // Yes
       // Run script
       system("/home/pi/rpidatv/scripts/restore_from_USB.sh");
-      
+
       // Correct the display back to original
       SetConfigParam(PATH_PCONFIG, "display", DisplayType);
       MsgBox2("Settings restored from USB", "Display will restart after touch");
@@ -13665,7 +13942,7 @@ void YesNo(int i)  // i == 6 Yes, i == 8 No
     case 6:     // Yes
       // Run script
       system("/home/pi/rpidatv/scripts/restore_from_boot_folder.sh");
-      
+
       // Correct the display back to original
       SetConfigParam(PATH_PCONFIG, "display", DisplayType);
       MsgBox2("Settings restored from /boot", "Display will restart after touch");
@@ -13846,7 +14123,7 @@ void InfoScreen()
   strcpy(TXParams2, vcoding);
   strcat(TXParams2, " coding from ");
   strcat(TXParams2, vsource);
-  
+
   char TXParams3[255];
   char ModeOutput[255];
   ReadModeOutput(ModeOutput);
@@ -13894,7 +14171,7 @@ void InfoScreen()
   int txtht =  font_ptr->ascent;
   int linepitch = (14 * txtht) / 10;
   int linenumber = 1;
- 
+
   // Display Text
   clearScreen();
 
@@ -13963,7 +14240,7 @@ void RangeBearing()
   // read which entry is currently top of the list
   GetConfigParam(PATH_LOCATORS, "index", Value);
   offset = atoi(Value);
-  
+
   // Calculate the bottom of the list
   offset = offset - 1;
   if (offset < 0)
@@ -14162,7 +14439,7 @@ void AmendBeacon(int i)
   char Prompt[63];
   bool IsValid = FALSE;
 
-  // Correct button number to site number 
+  // Correct button number to site number
   i = i - 5;
   if (i < 0)
   {
@@ -14513,7 +14790,7 @@ void do_snapcheck()
 
   // Fetch the Next Snap serial number
   fp = popen("cat /home/pi/snaps/snap_index.txt", "r");
-  if (fp == NULL) 
+  if (fp == NULL)
   {
     printf("Failed to run command\n" );
     exit(1);
@@ -14602,7 +14879,7 @@ void do_Langstone()
         MsgBox4("Pluto IP not set in Pluto Config", "or Pluto not connected",
                 "Please correct and try again", "Touch Screen to Continue");
         wait_touch();
-      } 
+      }
     }
     if (strcmp(langstone_version, "v2pluto") == 0)
     {
@@ -14616,7 +14893,7 @@ void do_Langstone()
         MsgBox4("Pluto IP not set in Pluto Config", "or Pluto not connected",
                 "Please correct and try again", "Touch Screen to Continue");
         wait_touch();
-      } 
+      }
     }
     if (strcmp(langstone_version, "v2lime") == 0)
     {
@@ -14630,7 +14907,7 @@ void do_Langstone()
         MsgBox4("No LimeSDR connected", " ",
                 "Please correct and try again", "Touch Screen to Continue");
         wait_touch();
-      } 
+      }
     }
   }
   else
@@ -14685,7 +14962,7 @@ void do_video_monitor(int button)
 
   while (FinishedButton == 0)
   {
-    usleep(500000); 
+    usleep(500000);
   }
 
   MonitorStop();
@@ -14744,7 +15021,7 @@ void IPTSConfig(int NoButton)
       strcpy(RequestText, "Enter IP address for TS Out");
       strcpyn(InitText, UDPOutAddr, 17);
       Keyboard(RequestText, InitText, 17);
-  
+
       strcpy(KRCopy, KeyboardReturn);
       if(is_valid_ip(KRCopy) == 1)
       {
@@ -14763,7 +15040,7 @@ void IPTSConfig(int NoButton)
       strcpy(RequestText, "Enter IP Port for TS Out");
       strcpyn(InitText, UDPOutPort, 17);
       Keyboard(RequestText, InitText, 17);
-  
+
       strcpy(KRCopy, KeyboardReturn);
       if(atoi(KRCopy) <= 65353)
       {
@@ -14782,7 +15059,7 @@ void IPTSConfig(int NoButton)
       strcpy(RequestText, "Enter IP Port for TS Input");
       strcpyn(InitText, UDPInPort, 17);
       Keyboard(RequestText, InitText, 17);
-  
+
       strcpy(KRCopy, KeyboardReturn);
       if(atoi(KRCopy) <= 65353)
       {
@@ -14808,7 +15085,7 @@ void IPTSConfig(int NoButton)
       {
         TSPath[i - 1] = '\0';                         // delete the character
       }
-      if (TSPath[i - 2] == '/')                       // If Next character is a slash 
+      if (TSPath[i - 2] == '/')                       // If Next character is a slash
       {
         deleting = false;                             // stop deleting
       }
@@ -14827,7 +15104,7 @@ void IPTSConfig(int NoButton)
       strcat(NewTSPath, NewTSFile);                                      // Combine path and filename
       printf("New TS filename: %s\n", NewTSPath);
 
-      SetConfigParam(PATH_PCONFIG, "tsvideofile", NewTSPath);            // Save filename to config file   
+      SetConfigParam(PATH_PCONFIG, "tsvideofile", NewTSPath);            // Save filename to config file
       strcpy(TSVideoFile, NewTSPath);
     }
   }
@@ -14849,7 +15126,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
   char PreCuttext[63];
   char PostCuttext[63];
   bool refreshed;
-  
+
   // Store away currentMenu
   PreviousMenu = CurrentMenu;
 
@@ -14889,7 +15166,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         {
           SetButtonStatus(i, ShiftStatus);
         }
-      }  
+      }
 
       // Display the keyboard here as it would overwrite the text later
       UpdateWindow();
@@ -14945,7 +15222,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
 
     if (token == 8)  // Enter pressed
     {
-      if (strlen(EditText) > MaxLength) 
+      if (strlen(EditText) > MaxLength)
       {
         strncpy(KeyboardReturn, &EditText[0], MaxLength);
         KeyboardReturn[MaxLength] = '\0';
@@ -14959,7 +15236,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       break;
     }
     else
-    {    
+    {
       if (KeyboardShift == 1)     // Upper Case
       {
         switch (token)
@@ -15124,7 +15401,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       else if ((token == 0) || (token == 4) || ((token >=10) && (token <= 49)))
       {
         // character Key has been touched, so highlight it for 300 ms
- 
+
         ShiftStatus = 3 - (2 * KeyboardShift); // 1 = Upper, 3 = lower
         SetButtonStatus(ButtonNumber(41, token), ShiftStatus);
         DrawButton(ButtonNumber(41, token));
@@ -15140,7 +15417,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         // Copy the text to the left of the insert point
         strncpy(PreCuttext, &EditText[0], CursorPos);
         PreCuttext[CursorPos] = '\0';
-          
+
         // Append the new character to the pre-insert string
         strcat(PreCuttext, KeyPressed);
 
@@ -15214,7 +15491,7 @@ void ChangePresetFreq(int NoButton)
   //  }
   //  snprintf(InitText, 10, "%.2f", TvtrFreq);
   //}
-  
+
   Keyboard(RequestText, InitText, 10);
 
   // Correct freq for transverter offset
@@ -15234,12 +15511,12 @@ void ChangePresetFreq(int NoButton)
   //  }
   //  snprintf(KeyboardReturn, 10, "%.2f", PDfreq);
   //}
-  
+
   // Write freq to tabfreq
   strcpy(TabFreq[FreqIndex], KeyboardReturn);
 
   // write freq to Presets file
-  strcat(Param, PresetNo); 
+  strcat(Param, PresetNo);
   printf("Store Preset %s %s\n", Param, KeyboardReturn);
   SetConfigParam(PATH_PPRESETS, Param, KeyboardReturn);
 
@@ -15289,7 +15566,7 @@ void ChangeLMPresetFreq(int NoButton)
   {
     FreqIndex = 10;
   }
-  else  // called from LM freq Presets menu 
+  else  // called from LM freq Presets menu
   {
     if (NoButton < 4)
     {
@@ -15378,7 +15655,7 @@ void ChangeLMPresetFreq(int NoButton)
 
   // write freq to Stored Presets file
   snprintf(PresetNo, 3, "%d", FreqIndex);
-  strcat(Param, PresetNo); 
+  strcat(Param, PresetNo);
   SetConfigParam(PATH_LMCONFIG, Param, FreqkHz);
 }
 
@@ -15408,7 +15685,7 @@ void ChangePresetSR(int NoButton)
     strcat(RequestText, " in KS/s:");
     snprintf(InitText, 5, "%d", TabSR[SRIndex]);
     Keyboard(RequestText, InitText, 4);
-  
+
     // Check valid value
     SRCheck = atoi(KeyboardReturn);
   }
@@ -15418,7 +15695,7 @@ void ChangePresetSR(int NoButton)
 
   // write SR to Presets file
   char Param[8] = "psr";
-  strcat(Param, PresetNo); 
+  strcat(Param, PresetNo);
   printf("Store Preset %s %s\n", Param, KeyboardReturn);
   SetConfigParam(PATH_PPRESETS, Param, KeyboardReturn);
 
@@ -15462,11 +15739,11 @@ void ChangeLMPresetSR(int NoButton)
   // Correct button numbers to index numbers
   if (NoButton < 4)          // bottom row
   {
-    SRIndex = NoButton + 6;  
+    SRIndex = NoButton + 6;
   }
   else if (NoButton < 10)    // second row
   {
-    SRIndex = NoButton - 4; 
+    SRIndex = NoButton - 4;
   }
   else if (NoButton == 20)  // Change preset 6 directly from Menu 8
   {
@@ -15492,7 +15769,7 @@ void ChangeLMPresetSR(int NoButton)
 
       snprintf(InitText, 5, "%d", LMRXsr[SRIndex]);
       Keyboard(RequestText, InitText, 4);
-  
+
       // Check valid value
       SRCheck = atoi(KeyboardReturn);
     }
@@ -15514,7 +15791,7 @@ void ChangeLMPresetSR(int NoButton)
 
     // write SR to Presets file for preset
     snprintf(PresetNo, 3, "%d", SRIndex);
-    strcat(Param, PresetNo); 
+    strcat(Param, PresetNo);
     SetConfigParam(PATH_LMCONFIG, Param, KeyboardReturn);
   }
 }
@@ -15533,7 +15810,7 @@ void ChangeCall()
     //snprintf(InitText, 24, "%s", CallSign);
     strcpyn(InitText, CallSign, 24);
     Keyboard(RequestText, InitText, 23);
-  
+
     // Check that there are no spaces
     Spaces = 0;
     for (j = 0; j < strlen(KeyboardReturn); j = j + 1)
@@ -15571,7 +15848,7 @@ void ChangeLocator()
     strcpy(RequestText, "Enter new Locator (6, 8 or 10 char)");
     snprintf(InitText, 11, "%s", Locator10);
     Keyboard(RequestText, InitText, 10);
-  
+
     // Check locator is valid
     IsValid = CheckLocator(KeyboardReturn);
   }
@@ -15630,7 +15907,7 @@ void ManageContestCodes(int NoButton)
     {
       AwaitingContestNumberEditSeln = true;
     }
-    break;                         
+    break;
   case 1:                                     // load
     if ((AwaitingContestNumberEditSeln) || (AwaitingContestNumberLoadSeln)
      || (AwaitingContestNumberSaveSeln) || (AwaitingContestNumberViewSeln))
@@ -15644,7 +15921,7 @@ void ManageContestCodes(int NoButton)
     {
       AwaitingContestNumberLoadSeln = true;
     }
-    break;                         
+    break;
   case 2:                                     // save
     if ((AwaitingContestNumberEditSeln) || (AwaitingContestNumberLoadSeln)
      || (AwaitingContestNumberSaveSeln))
@@ -15783,7 +16060,7 @@ void ManageContestCodes(int NoButton)
         AwaitingContestNumberViewSeln = false;
       }
     }
-    break;                         
+    break;
   case 3:                                     // show
     if ((AwaitingContestNumberEditSeln) || (AwaitingContestNumberLoadSeln)
      || (AwaitingContestNumberSaveSeln) || (AwaitingContestNumberViewSeln))
@@ -16098,7 +16375,7 @@ void ManageContestCodes(int NoButton)
       }
       AwaitingContestNumberSaveSeln = false;
     }
-    break;                   
+    break;
   }
 }
 
@@ -16106,7 +16383,7 @@ void ChangeStartApp(int NoButton)
 {
   switch(NoButton)
   {
-  case 5:                          
+  case 5:
     SetConfigParam(PATH_PCONFIG, "startup", "Display_boot");
     strcpy(StartApp, "Display_boot");
     break;
@@ -16147,7 +16424,7 @@ void ChangePlutoIP()  // For Portsdown
     strcpy(RequestText, "Enter IP address for Portsdown Pluto");
     strcpyn(InitText, PlutoIP, 17);
     Keyboard(RequestText, InitText, 17);
-  
+
     strcpy(PlutoIPCopy, KeyboardReturn);
     if(is_valid_ip(PlutoIPCopy) == 1)
     {
@@ -16186,7 +16463,7 @@ void ChangePlutoIPLangstone()  // For Langstone
     strcpy(RequestText, "Enter IP address for Pluto");
     strcpyn(InitText, LangstonePlutoIP, 17);
     Keyboard(RequestText, InitText, 17);
-  
+
     strcpy(PlutoIPCopy, KeyboardReturn);
     if((is_valid_ip(PlutoIPCopy) == 1) || (strcmp(KeyboardReturn, "pluto.local") == 0))
     {
@@ -16247,7 +16524,7 @@ void ChangePlutoXO()
   while ((Spaces >= 1) || (newXO < 9000000) || (newXO > 110000000))
   {
     Keyboard(RequestText, InitText, 9);
-  
+
     // Check that there are no spaces or other characters
     Spaces = 0;
     for (j = 0; j < strlen(KeyboardReturn); j = j + 1)
@@ -16259,7 +16536,7 @@ void ChangePlutoXO()
     }
     newXO = atoi(KeyboardReturn);
   }
-  
+
   if (oldXO != newXO)
   {
     snprintf(cmdText, 62, "/home/pi/rpidatv/scripts/pluto_set_ref.sh %d", newXO);
@@ -16420,7 +16697,7 @@ void RebootPluto(int context)
     while(test == 1)
     {
       snprintf(timetext, 62, "Timeout in %d seconds", 24 - count);
-      MsgBox4("Pluto may be rebooting", "Portsdown will start once Pluto has rebooted", 
+      MsgBox4("Pluto may be rebooting", "Portsdown will start once Pluto has rebooted",
               "Touch to cancel wait", timetext);
       //usleep(1000000);
       test = CheckPlutoIPConnect();
@@ -16611,7 +16888,7 @@ void ChangeADFRef(int NoButton)
     while (Spaces >= 1)
     {
       Keyboard(RequestText, InitText, 9);
-  
+
       // Check that there are no spaces or other characters
       Spaces = 0;
       for (j = 0; j < strlen(KeyboardReturn); j = j + 1)
@@ -16635,7 +16912,7 @@ void ChangeADFRef(int NoButton)
     while (Spaces >= 1)
     {
       Keyboard(RequestText, InitText, 9);
-  
+
       // Check that there are no spaces or other characters
       Spaces = 0;
       for (j = 0; j < strlen(KeyboardReturn); j = j + 1)
@@ -16687,7 +16964,7 @@ void ChangePID(int NoButton)
     }
 
     Keyboard(RequestText, InitText, 4);
-  
+
     // Check that there are no spaces and it is valid
     PIDValid = 0;
     for (j = 0; j < strlen(KeyboardReturn); j = j + 1)
@@ -16729,7 +17006,7 @@ void ChangePID(int NoButton)
 void ToggleLimeRFE()
 {
  // Set the correct band in portsdown_config.txt
-  char bandtext [15];   
+  char bandtext [15];
   GetConfigParam(PATH_PCONFIG, "band", bandtext);
   strcat(bandtext, "limerfe");
 
@@ -16757,7 +17034,7 @@ void SetLimeRFERXAtt()
   char Prompt[127];
   char Value[31];
   int  RFEAtt;
-   
+
   // Get the current band from portsdown_config.txt
   //GetConfigParam(PATH_PCONFIG, "band", bandtext);
   //strcat(bandtext, "limerfe");
@@ -16771,7 +17048,7 @@ void SetLimeRFERXAtt()
   RFEAtt=atoi(Value);
   snprintf(Value, 30, "%d", RFEAtt * 2);
   RFEAtt= - 1;
-  while ((RFEAtt < 0) || (RFEAtt > 14) || (strlen(KeyboardReturn) < 1))  
+  while ((RFEAtt < 0) || (RFEAtt > 14) || (strlen(KeyboardReturn) < 1))
   {
     snprintf(Prompt, 63, "Set LimeRFE Rx Atten for %s. 0-14 (dB):", TabBandLabel[CurrentBand]);
     Keyboard(Prompt, Value, 6);
@@ -16995,7 +17272,7 @@ void *LimeRFEPTTDelay(void * arg)
 {
   int seconds = 0;
 
-  do	
+  do
   {
     usleep(1000000);  // Sleep 1 second
     seconds = seconds + 1;
@@ -17072,7 +17349,7 @@ void ChangeJetsonIP()
     //snprintf(InitText, 17, "%s", JetsonIP);
     strcpyn(InitText, JetsonIP, 17);
     Keyboard(RequestText, InitText, 17);
-  
+
     strcpy(JetsonIPCopy, KeyboardReturn);
     if(is_valid_ip(JetsonIPCopy) == 1)
     {
@@ -17102,7 +17379,7 @@ void ChangeLKVIP()
     //snprintf(InitText, 17, "%s", LKVIP);
     strcpyn(InitText, LKVIP, 17);
     Keyboard(RequestText, InitText, 17);
-  
+
     strcpy(LKVIPCopy, KeyboardReturn);
     if(is_valid_ip(LKVIPCopy) == 1)
     {
@@ -17131,7 +17408,7 @@ void ChangeLKVPort()
     //snprintf(InitText, 10, "%s", LKVPort);
     strcpyn(InitText, LKVPort, 15);
     Keyboard(RequestText, InitText, 10);
-  
+
     if(strlen(KeyboardReturn) > 0)
     {
       IsValid = TRUE;
@@ -17158,7 +17435,7 @@ void ChangeJetsonUser()
     strcpy(RequestText, "Enter the username for the Jetson Nano");
     snprintf(InitText, 15, "%s", JetsonUser);
     Keyboard(RequestText, InitText, 10);
-  
+
     if(strlen(KeyboardReturn) > 0)
     {
       IsValid = TRUE;
@@ -17185,7 +17462,7 @@ void ChangeJetsonPW()
     strcpy(RequestText, "Enter the password for the Jetson Nano");
     snprintf(InitText, 31, "%s", JetsonPW);
     Keyboard(RequestText, InitText, 10);
-  
+
     if(strlen(KeyboardReturn) > 0)
     {
       IsValid = TRUE;
@@ -17212,7 +17489,7 @@ void ChangeJetsonRPW()
     strcpy(RequestText, "Enter the root password for the Jetson Nano");
     snprintf(InitText, 31, "%s", JetsonPW);
     Keyboard(RequestText, InitText, 10);
-  
+
     if(strlen(KeyboardReturn) > 0)
     {
       IsValid = TRUE;
@@ -17224,6 +17501,109 @@ void ChangeJetsonRPW()
   SetConfigParam(PATH_JCONFIG, "jetsonrootpw", KeyboardReturn);
 }
 
+void HotspotConfig()  // Hotspot Config
+{
+  char RequestText[64];
+  char InitText[64];
+  bool IsValid = FALSE;
+  char HotspotParam[31];
+
+  GetConfigParam(PATH_HOTSPOTCONFIG, "ssid", HotspotParam);
+
+  while (IsValid == FALSE)
+  {
+    strcpy(RequestText, "Entrez le  du SSID Hotspot");
+    snprintf(InitText, 31, "%s", HotspotParam);
+    Keyboard(RequestText, InitText, 12);
+
+    if(strlen(KeyboardReturn) > 0)
+    {
+      IsValid = TRUE;
+    }
+  }
+  printf("SSID du Hotspot: %s\n", KeyboardReturn);
+
+  SetConfigParam(PATH_HOTSPOTCONFIG, "ssid", KeyboardReturn);
+
+  IsValid = FALSE;
+
+/////////////////////////////////////////////////////////////////////
+
+  strcpy(HotspotParam, "");
+  strcpy(RequestText, "");
+  strcpy(InitText, "");
+
+  GetConfigParam(PATH_HOTSPOTCONFIG, "wpa_passphrase", HotspotParam);
+
+  while (IsValid == FALSE)
+  {
+    strcpy(RequestText, "Mot de passe du Hotspot:");
+    snprintf(InitText, 31, "%s", HotspotParam);
+    Keyboard(RequestText, InitText, 20);
+
+    if(strlen(KeyboardReturn) > 0)
+    {
+      IsValid = TRUE;
+    }
+  }
+  printf("Mot de passe du Hotspot: %s\n", KeyboardReturn);
+
+  SetConfigParam(PATH_HOTSPOTCONFIG, "wpa_passphrase", KeyboardReturn);
+
+  IsValid = FALSE;
+
+/////////////////////////////////////////////////////////////////////
+
+  strcpy(HotspotParam, "");
+  strcpy(RequestText, "");
+  strcpy(InitText, "");
+
+  GetConfigParam(PATH_HOTSPOTCONFIG, "hw_mode", HotspotParam);
+
+  while (IsValid == FALSE)
+  {
+    strcpy(RequestText, "Bande Wifi du Hotspot (g: 2.4GHz , a: 5GHz (PI 3 B+)):");
+    snprintf(InitText, 31, "%s", HotspotParam);
+    Keyboard(RequestText, InitText, 1);
+
+    if(strlen(KeyboardReturn) > 0)
+    {
+      IsValid = TRUE;
+    }
+  }
+  printf("Bande Wifi du Hotspot: %s\n", KeyboardReturn);
+
+  SetConfigParam(PATH_HOTSPOTCONFIG, "hw_mode", KeyboardReturn);
+
+  IsValid = FALSE;
+
+/////////////////////////////////////////////////////////////////////
+
+  strcpy(HotspotParam, "");
+  strcpy(RequestText, "");
+  strcpy(InitText, "");
+
+  GetConfigParam(PATH_HOTSPOTCONFIG, "channel", HotspotParam);
+
+  while (IsValid == FALSE)
+  {
+    strcpy(RequestText, "Canal du Hotspot (2.4GHz: 1 à 11, 5GHz: 36, 40, 44, 48):");
+    snprintf(InitText, 31, "%s", HotspotParam);
+    Keyboard(RequestText, InitText, 3);
+
+    if(strlen(KeyboardReturn) > 0)
+    {
+      IsValid = TRUE;
+    }
+  }
+  printf("Canal Wifi du Hotspot: %s\n", KeyboardReturn);
+
+  SetConfigParam(PATH_HOTSPOTCONFIG, "channel", KeyboardReturn);
+
+  MsgBox2("La configuration peut prendre jusqu'à 1 min", "Veuillez patienter...");
+
+  system("/home/pi/rpidatv/scripts/hotspot_install.sh");
+}
 
 void waituntil(int w,int h)
 {
@@ -17393,7 +17773,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu1();    // Refresh button labels
           UpdateWindow();
           usleep(500000);
-          SetButtonStatus(i, 0); 
+          SetButtonStatus(i, 0);
           UpdateWindow();
           break;
         case 4:                        // Set up to store preset
@@ -17565,14 +17945,14 @@ void waituntil(int w,int h)
             UpdateWindow();
             //CompVidStart();
           }
-          else     // Transmit 
+          else     // Transmit
           {
             if ((strcmp(CurrentModeOP, "LIMEMINI") == 0) || (strcmp(CurrentModeOP, "LIMEUSB") == 0) || (strcmp(CurrentModeOP, "LIMEDVB") == 0))
-            {  
+            {
               system("/home/pi/rpidatv/scripts/lime_ptt.sh &");
             }
             if (strcmp(CurrentModeOP, "PLUTO") == 0)
-            {  
+            {
               system("/home/pi/rpidatv/scripts/pluto_ptt.sh &");
             }
             SelectPTT(i, 1);
@@ -17710,7 +18090,7 @@ void waituntil(int w,int h)
           {
             SetButtonStatus(ButtonNumber(2, 15), 1);  // and highlight button
             UpdateWindow();
-            RebootPluto(1);                           // Reboot Pluto and wait for recovery                          
+            RebootPluto(1);                           // Reboot Pluto and wait for recovery
             do_Langstone();
             SetButtonStatus(ButtonNumber(2, 15), 0);  // unhighlight button
             setBackColour(0, 0, 0);
@@ -17721,7 +18101,7 @@ void waituntil(int w,int h)
           {
             SetButtonStatus(ButtonNumber(2, 15), 1);  // and highlight button
             UpdateWindow();
-            RebootPluto(1);                           // Reboot Pluto and wait for recovery                          
+            RebootPluto(1);                           // Reboot Pluto and wait for recovery
             do_Langstone();
             SetButtonStatus(ButtonNumber(2, 15), 0);  // unhighlight button
             setBackColour(0, 0, 0);
@@ -17756,15 +18136,15 @@ void waituntil(int w,int h)
             DisplayLogo();
             cleanexit(140);
           }
-          else 
-          { 
+          else
+          {
             if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
             {
               DisplayLogo();
               cleanexit(136);
             }
             else
-            { 
+            {
               if(CheckPlutoIPConnect() == 0)
               {
                 DisplayLogo();
@@ -17819,7 +18199,13 @@ void waituntil(int w,int h)
           Start_Highlights_Menu6();
           UpdateWindow();
           break;
-        case 20:                              // Not shown
+        case 20:                              // Sarsat Decoder
+          printf("MENU  57\n");
+          CurrentMenu=57;
+          setBackColour(0, 0, 0);
+          clearScreen();
+          Start_Highlights_Menu57();
+          UpdateWindow();
           break;
         case 21:                              // Menu 1
           printf("MENU 1 \n");
@@ -17855,7 +18241,7 @@ void waituntil(int w,int h)
           SetButtonStatus(ButtonNumber(3, 0), 1);  // and highlight button
           UpdateWindow();
           SetButtonStatus(ButtonNumber(3, 0), 0);
-          printf("MENU 33 \n"); 
+          printf("MENU 33 \n");
           CurrentMenu=33;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17864,7 +18250,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 1:                               // System Config
-          printf("MENU 43 \n"); 
+          printf("MENU 43 \n");
           CurrentMenu=43;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17872,7 +18258,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 2:                               // Wifi Config
-          printf("MENU 36 \n"); 
+          printf("MENU 36 \n");
           CurrentMenu=36;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17880,25 +18266,25 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 3:                               // TS IP Config
-          printf("MENU 40 \n"); 
+          printf("MENU 40 \n");
           CurrentMenu=40;
           setBackColour(0, 0, 0);
           clearScreen();
           Start_Highlights_Menu40();
           UpdateWindow();
           break;
-        case 4:                              // 
+        case 4:                              //
           break;
         case 5:                              // Lime Config
-          printf("MENU 37 \n"); 
+          printf("MENU 37 \n");
           CurrentMenu=37;
           setBackColour(0, 0, 0);
           clearScreen();
           Start_Highlights_Menu37();
           UpdateWindow();
           break;
-       case 6:                              // Jetson Config 
-          printf("MENU 44 \n"); 
+       case 6:                              // Jetson Config
+          printf("MENU 44 \n");
           CurrentMenu=44;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17906,7 +18292,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 7:                              // Langstone Config
-          printf("MENU 39 \n"); 
+          printf("MENU 39 \n");
           CurrentMenu=39;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17914,7 +18300,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 8:                              // Pluto Config
-          printf("MENU 15 \n"); 
+          printf("MENU 15 \n");
           CurrentMenu=15;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17922,7 +18308,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 9:                              // Test card Select Menu
-          printf("MENU 47 \n"); 
+          printf("MENU 47 \n");
           CurrentMenu=47;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17930,7 +18316,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 10:                               // Amend Sites/Beacons
-          printf("MENU 31 \n"); 
+          printf("MENU 31 \n");
           CurrentMenu=31;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17939,7 +18325,7 @@ void waituntil(int w,int h)
           break;
         case 11:                               // Set Receive LO
           CallingMenu = 302;
-          printf("MENU 26 \n"); 
+          printf("MENU 26 \n");
           CurrentMenu=26;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17947,7 +18333,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 12:                               // Set Stream Outputs
-          printf("MENU 35 \n"); 
+          printf("MENU 35 \n");
           CurrentMenu=35;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17975,7 +18361,7 @@ void waituntil(int w,int h)
           break;
         case 15:                              // Set Band Details
           CallingMenu = 315;
-          printf("MENU 9 \n"); 
+          printf("MENU 9 \n");
           CurrentMenu = 9;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17983,7 +18369,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 16:                              // Set Preset Frequencies
-          printf("MENU 27 \n"); 
+          printf("MENU 27 \n");
           CurrentMenu=27;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17991,7 +18377,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 17:                              // Set Preset SRs
-          printf("MENU 28 \n"); 
+          printf("MENU 28 \n");
           CurrentMenu=28;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -17999,7 +18385,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 18:                              // Set Call, Loc and PIDs
-          printf("MENU 29 \n"); 
+          printf("MENU 29 \n");
           CurrentMenu=29;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -18007,7 +18393,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 19:                               // Set ADF Reference Frequency
-          printf("MENU 32 \n"); 
+          printf("MENU 32 \n");
           CurrentMenu=32;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -18055,7 +18441,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 4:
-          ClearMenuMessage(); 
+          ClearMenuMessage();
           printf("MENU 1 \n");
           CurrentMenu=1;
           setBackColour(255, 255, 255);
@@ -18071,19 +18457,19 @@ void waituntil(int w,int h)
           Start_Highlights_Menu4();           // Refresh button labels
           UpdateWindow();
           break;
-        case 8:                               // 
+        case 8:                               //
           break;
         case 9:                               //
-          ClearMenuMessage(); 
+          ClearMenuMessage();
           ListUSBDevices();
           Start_Highlights_Menu4();           // Refresh button labels
           UpdateWindow();
           break;
-        case 13:                             // 
+        case 13:                             //
           break;
-        case 20:                             // 
+        case 20:                             //
           break;
-        case 22:                             // 
+        case 22:                             //
           break;
         default:
           printf("Menu 4 Error\n");
@@ -18202,7 +18588,7 @@ void waituntil(int w,int h)
           //Start_Highlights_Menu6();    // Refresh button labels
           //UpdateWindow();
           //usleep(500000);
-          //SetButtonStatus(ButtonNumber(CurrentMenu, i), 0); 
+          //SetButtonStatus(ButtonNumber(CurrentMenu, i), 0);
           Start_Highlights_Menu6();          // Refresh button labels
           UpdateWindow();
           break;
@@ -18268,7 +18654,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu6();    // Refresh button labels
           UpdateWindow();
           usleep(500000);
-          SetButtonStatus(ButtonNumber(CurrentMenu, i), 0); 
+          SetButtonStatus(ButtonNumber(CurrentMenu, i), 0);
           UpdateWindow();
           break;
         case 19:                             // Set gain
@@ -18330,7 +18716,7 @@ void waituntil(int w,int h)
             DisplayLogo();
             cleanexit(140);
           }
-          else 
+          else
           {
             MsgBox("No Airspy Connected");
             wait_touch();
@@ -18513,25 +18899,25 @@ void waituntil(int w,int h)
           {
             if (CheckAirspyConnect() == 0)
             {
-              snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //  
+              snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
               SetConfigParam(PATH_AS_CONFIG, "centrefreq", ValueToSave);
               DisplayLogo();
               cleanexit(140);
             }
             else
-            { 
+            {
               if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
               {
-                snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //  
+                snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
                 SetConfigParam(PATH_BV_CONFIG, "centrefreq", ValueToSave);
                 DisplayLogo();
                 cleanexit(136);
               }
               else
-              { 
+              {
                 if(CheckPlutoIPConnect() == 0)
                 {
-                  snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //  
+                  snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
                   SetConfigParam(PATH_PB_CONFIG, "centrefreq", ValueToSave);
                   DisplayLogo();
                   cleanexit(143);
@@ -18540,7 +18926,7 @@ void waituntil(int w,int h)
                 {
                   if(CheckRTL() == 0)
                   {
-                    snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //  
+                    snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
                     SetConfigParam(PATH_RS_CONFIG, "centrefreq", ValueToSave);
                     DisplayLogo();
                     cleanexit(141);
@@ -18928,7 +19314,7 @@ void waituntil(int w,int h)
         case 9:                                         // Site 5
           ManageContestCodes(i);
           Start_Highlights_Menu13();  // Update Menu appearance
-          UpdateWindow();             // 
+          UpdateWindow();             //
           break;
         case 4:                                         // Cancel
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
@@ -19871,7 +20257,7 @@ void waituntil(int w,int h)
         continue;   // Completed Menu 31 action, go and wait for touch
       }
 
- 
+
       if (CurrentMenu == 32)  // Menu 32 Select and Change RTL Reference Frequency
       {
         printf("Button Event %d, Entering Menu 32 Case Statement\n",i);
@@ -20064,6 +20450,7 @@ void waituntil(int w,int h)
         printf("Button Event %d, Entering Menu 36 Case Statement\n",i);
         switch (i)
         {
+        case 1:                               // Hotspot Config
         case 3:                               // Disable Wifi
         case 7:                               // Check connection
         case 8:                               // Enable Wifi
@@ -20257,7 +20644,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu39();
           UpdateWindow();
           break;
-        case 7:                               // Toggle between Langstone V2 Lime and Langstone V2 Pluto 
+        case 7:                               // Toggle between Langstone V2 Lime and Langstone V2 Pluto
           printf("Changing Langstone V2 between Pluto and Lime\n");
           if (strcmp(langstone_version, "v2lime") == 0)
           {
@@ -20291,7 +20678,7 @@ void waituntil(int w,int h)
           {
             SetButtonStatus(ButtonNumber(39, 9), 1);  // and highlight button
             UpdateWindow();
-            RebootPluto(1);                           // Reboot Pluto and wait for recovery                          
+            RebootPluto(1);                           // Reboot Pluto and wait for recovery
             do_Langstone();
             SetButtonStatus(ButtonNumber(39, 9), 0);  // unhighlight button
             setBackColour(0, 0, 0);
@@ -20302,7 +20689,7 @@ void waituntil(int w,int h)
           {
             SetButtonStatus(ButtonNumber(39, 9), 1);  // and highlight button
             UpdateWindow();
-            RebootPluto(1);                           // Reboot Pluto and wait for recovery                          
+            RebootPluto(1);                           // Reboot Pluto and wait for recovery
             do_Langstone();
             SetButtonStatus(ButtonNumber(39, 9), 0);  // unhighlight button
             setBackColour(0, 0, 0);
@@ -20586,7 +20973,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 11:                               // Select Start-up App
-          printf("MENU 34 \n"); 
+          printf("MENU 34 \n");
           CurrentMenu=34;
           setBackColour(0, 0, 0);
           clearScreen();
@@ -20790,7 +21177,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu46();
           UpdateWindow();
           break;
-        case 1:                                         // Output UDP port 
+        case 1:                                         // Output UDP port
           ChangeLMRXPort();
           CurrentMenu=46;
           setBackColour(0, 0, 0);
@@ -20806,7 +21193,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu27();
           UpdateWindow();
           break;
-        case 3:                                         // Change Receive Preset SRs 
+        case 3:                                         // Change Receive Preset SRs
           printf("MENU 28 \n");
           CurrentMenu=28;
           setBackColour(0, 0, 0);
@@ -20983,7 +21370,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu1();
           UpdateWindow();
           break;
-        case 14:                                         // Toggle Caption State 
+        case 14:                                         // Toggle Caption State
           if (strcmp(CurrentCaptionState, "off") == 0)
           {
             strcpy(CurrentCaptionState, "on");
@@ -21003,19 +21390,142 @@ void waituntil(int w,int h)
         continue;   // Completed Menu 47 action, go and wait for touch
       }
 
+			if (CurrentMenu == 57)  // Menu 57 Sarsat Decoder
+      {
+        printf("Button Event %d, Entering Menu 57 Case Statement\n",i);
+        char Checksum[4];
+        GetConfigParam(PATH_406CONFIG,"no_checksum",Checksum);
+        char Input[6];
+        GetConfigParam(PATH_406CONFIG,"input",Input);
+        switch (i)
+        {
+        case 4:                               // Cancel
+          SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
+          printf("Cancelling Sarsat Decoder Menu\n");
+          UpdateWindow();
+          usleep(500000);
+          SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 0); // Reset cancel (even if not selected)
+          printf("Returning to MENU 8 from Menu 57\n");
+          CurrentMenu=2;
+          setBackColour(255, 255, 255);
+          clearScreen();
+          Start_Highlights_Menu2();
+          UpdateWindow();
+          break;
+        case 0:
+          SelectInGroupOnMenu(CurrentMenu, 0, 0, 0, 1);
+          UpdateWindow();
+          usleep(50000);
+          SelectInGroupOnMenu(CurrentMenu, 0, 0, 0, 0);
+          if ((CheckRTL()==0) || (strcmp(Input, "mic") == 0))
+          {
+            setBackColour(255, 255, 255);
+            clearScreen();
+            SARSAT_DECODER();
+            setBackColour(255, 255, 255);
+            clearScreen();
+            Start_Highlights_Menu57();
+            UpdateWindow();
+            break;
+          }
+          else
+          {
+            MsgBox("Clé RTL non connectée!");
+            wait_touch();
+            setBackColour(255, 255, 255);
+            clearScreen();
+            UpdateWindow();
+          }
+          break;
+        case 1:
+          SelectInGroupOnMenu(CurrentMenu, 1, 1, 1, 1);
+          UpdateWindow();
+          usleep(50000);
+          SelectInGroupOnMenu(CurrentMenu, 1, 1, 1, 0);
+          ChangeSarsatFreq();
+          CurrentMenu=57;
+          setBackColour(255, 255, 255);
+          clearScreen();
+          Start_Highlights_Menu57();
+          UpdateWindow();
+          break;
+        case 2:
+          break;
+        case 3:
+          break;
+        case 5:
+          break;
+        case 6:
+          SelectInGroupOnMenu(CurrentMenu, 6, 6, 6, 1);
+          UpdateWindow();
+          usleep(50000);
+          SelectInGroupOnMenu(CurrentMenu, 6, 6, 6, 0);
+          SetConfigParam(PATH_406CONFIG, "low", "406.028");
+          SetConfigParam(PATH_406CONFIG, "high", "406.028");
+          CurrentMenu=57;
+          setBackColour(255, 255, 255);
+          clearScreen();
+          Start_Highlights_Menu57();
+          UpdateWindow();
+          break;
+        case 7:
+          SelectInGroupOnMenu(CurrentMenu, 7, 7, 7, 1);
+          UpdateWindow();
+          usleep(50000);
+          SelectInGroupOnMenu(CurrentMenu, 7, 7, 7, 0);
+          SetConfigParam(PATH_406CONFIG, "low", "433.95");
+          SetConfigParam(PATH_406CONFIG, "high", "433.95");
+          CurrentMenu=57;
+          setBackColour(255, 255, 255);
+          clearScreen();
+          Start_Highlights_Menu57();
+          UpdateWindow();
+          break;
+        case 8:
+          SelectInGroupOnMenu(CurrentMenu, 8, 8, 8, 1);
+          UpdateWindow();
+          usleep(50000);
+          SelectInGroupOnMenu(CurrentMenu, 8, 8, 8, 0);
+          SetConfigParam(PATH_406CONFIG, "low", "434.2");
+          SetConfigParam(PATH_406CONFIG, "high", "434.2");
+          CurrentMenu=57;
+          setBackColour(255, 255, 255);
+          clearScreen();
+          Start_Highlights_Menu57();
+          UpdateWindow();
+          break;
+        case 9:
+          SelectInGroupOnMenu(CurrentMenu, 9, 9, 9, 1);
+          UpdateWindow();
+          usleep(50000);
+          SelectInGroupOnMenu(CurrentMenu, 9, 9, 9, 0);
+          if (atoi(Checksum) == 1) SetConfigParam(PATH_406CONFIG, "no_checksum", "0");
+          else SetConfigParam(PATH_406CONFIG, "no_checksum", "1");
+          CurrentMenu=57;
+          setBackColour(255, 255, 255);
+          clearScreen();
+          Start_Highlights_Menu57();
+          UpdateWindow();
+          break;
+        default:
+          printf("Menu 57 Error\n");
+        }
+        // stay in Menu 57 if parameter changed
+        continue;   // Completed Menu 57 action, go and wait for touch
+      }
 
       if (CurrentMenu == 41)  // Menu 41 Keyboard (should not get here)
       {
         //break;
       }
-    }   
+    }
   }
 }
 
 void Define_Menu1()
 {
   int button = 0;
-  strcpy(MenuTitle[1], "BATC Portsdown 4 DATV Transceiver Main Menu"); 
+  strcpy(MenuTitle[1], "BATC Portsdown 4 DATV Transceiver Main Menu");
 
   // Frequency - Bottom Row, Menu 1
 
@@ -21158,7 +21668,7 @@ void Start_Highlights_Menu1()
   GreyOut1();
 
   // Presets Buttons 0 - 3
-  
+
   char Presettext[63];
 
   strcpy(Presettext, "Preset 1^");
@@ -21556,7 +22066,7 @@ void Define_Menu2()
 {
   int button;
 
-  strcpy(MenuTitle[2], "BATC Portsdown 4 DATV Transceiver Menu 2"); 
+  strcpy(MenuTitle[2], "BATC Portsdown 4 DATV Transceiver Menu 2");
 
   // Bottom Row, Menu 2
 
@@ -21634,6 +22144,9 @@ void Define_Menu2()
 
   // Top of Menu 2
 
+	button = CreateButton(2, 20);
+  AddButtonStatus(button, "Sarsat^Decoder", &Blue);
+
   button = CreateButton(2, 21);
   AddButtonStatus(button," M1  ",&Blue);
   AddButtonStatus(button," M1  ",&Green);
@@ -21681,7 +22194,7 @@ void Define_Menu3()
   button = CreateButton(3, 3);
   AddButtonStatus(button, "TS IP^Config", &Blue);
 
-  // 2nd line up Menu 3: Lime Config 
+  // 2nd line up Menu 3: Lime Config
 
   button = CreateButton(3, 5);
   AddButtonStatus(button, "Lime^Config", &Blue);
@@ -21698,7 +22211,7 @@ void Define_Menu3()
   button = CreateButton(3, 9);
   AddButtonStatus(button, "Select^Test Card", &Blue);
 
-  // 3rd line up Menu 3: Amend Sites/Beacons, Set Receive LOs and set Stream Outputs 
+  // 3rd line up Menu 3: Amend Sites/Beacons, Set Receive LOs and set Stream Outputs
 
   button = CreateButton(3, 10);
   AddButtonStatus(button, "Amend^Sites/Bcns", &Blue);
@@ -21764,7 +22277,7 @@ void Define_Menu4()
 {
   int button;
 
-  strcpy(MenuTitle[4], "File Menu (4)"); 
+  strcpy(MenuTitle[4], "File Menu (4)");
 
   // Bottom Row, Menu 4
   button = CreateButton(4, 0);
@@ -21858,11 +22371,11 @@ void Define_Menu5()
 {
   // int button = 0;
 
-  strcpy(MenuTitle[5], "Menu (5)"); 
+  strcpy(MenuTitle[5], "Menu (5)");
 
   // Menu 5
 
-  // 2nd Row, Menu 5.  
+  // 2nd Row, Menu 5.
 
   // 3rd line up Menu 5
 
@@ -21881,7 +22394,7 @@ void Start_Highlights_Menu5()
 void Define_Menu6()
 {
   int button = 0;
-  strcpy(MenuTitle[6], "RTL-FM Audio Receiver Menu (6)"); 
+  strcpy(MenuTitle[6], "RTL-FM Audio Receiver Menu (6)");
 
   // Presets - Bottom Row, Menu 6
 
@@ -22037,7 +22550,7 @@ void Start_Highlights_Menu6()
   {
     SelectInGroupOnMenu(6, 10, 14, 14, 1);
   }
- 
+
   // Highlight current preset by comparing frequency
   for(index = 1; index < 10 ; index = index + 1)
   {
@@ -22077,7 +22590,7 @@ void Start_Highlights_Menu6()
   }
 
   // Make the RX button red if RX on
-  SetButtonStatus(ButtonNumber(6, 21), RTLactive); 
+  SetButtonStatus(ButtonNumber(6, 21), RTLactive);
 }
 
 void Define_Menu7()
@@ -22103,7 +22616,7 @@ void Define_Menu7()
   button = CreateButton(7, 4);
   AddButtonStatus(button, "SDR Play^BandViewer", &Grey);
 
-  // 2nd line up Menu 7:  
+  // 2nd line up Menu 7:
 
   button = CreateButton(7, 5);
   AddButtonStatus(button, "Button 1", &Blue);
@@ -22139,7 +22652,7 @@ void Define_Menu7()
   button = CreateButton(7, 14);
   AddButtonStatus(button, "XY^Display", &Blue);
 
-  // 4th line up Menu 7: 
+  // 4th line up Menu 7:
 
   button = CreateButton(7, 19);
   AddButtonStatus(button, "Meteor^Bcn RX", &Blue);
@@ -22160,7 +22673,7 @@ void Define_Menu8()
 {
   int button = 0;
 
-  strcpy(MenuTitle[8], "Portsdown Receiver Menu (8)"); 
+  strcpy(MenuTitle[8], "Portsdown Receiver Menu (8)");
 
   // Bottom Row, Menu 8
 
@@ -22186,7 +22699,7 @@ void Define_Menu8()
   AddButtonStatus(button, "Band Viewer^on RX freq", &Blue);
   AddButtonStatus(button, "Band Viewer^on RX freq", &Grey);
 
-  // 2nd Row, Menu 8.  
+  // 2nd Row, Menu 8.
 
   button = CreateButton(8, 5);
   AddButtonStatus(button, " ", &Blue);
@@ -22210,7 +22723,7 @@ void Define_Menu8()
 
   // 3rd line up Menu 8
 
-  button = CreateButton(8, 10);    
+  button = CreateButton(8, 10);
   AddButtonStatus(button, " ", &Blue);
   AddButtonStatus(button, " ", &Green);
 
@@ -22290,14 +22803,14 @@ void Start_Highlights_Menu8()
 
   if (strcmp(RXmod, "DVB-S") == 0)
   {
-    strcpy(MenuTitle[8], "Portsdown DVB-S/S2 Receiver Menu (8)"); 
+    strcpy(MenuTitle[8], "Portsdown DVB-S/S2 Receiver Menu (8)");
     SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 24), 0);
   }
   else
   {
-    strcpy(MenuTitle[8], "Portsdown DVB-T/T2 Receiver Menu (8)"); 
+    strcpy(MenuTitle[8], "Portsdown DVB-T/T2 Receiver Menu (8)");
     SetButtonStatus(ButtonNumber(CurrentMenu, 1), 1);
     SetButtonStatus(ButtonNumber(CurrentMenu, 2), 1);
     SetButtonStatus(ButtonNumber(CurrentMenu, 24), 1);
@@ -22339,7 +22852,7 @@ void Start_Highlights_Menu8()
     }
     else
     {
-      FreqIndex = i + indexoffset - 5;    
+      FreqIndex = i + indexoffset - 5;
     }
     div_10 = div(LMRXfreq[FreqIndex], 10);
     div_1000 = div(LMRXfreq[FreqIndex], 1000);
@@ -22380,31 +22893,31 @@ void Start_Highlights_Menu8()
 
   AmendButtonStatus(ButtonNumber(8, 5), 0, LMBtext[1], &Blue);
   AmendButtonStatus(ButtonNumber(8, 5), 1, LMBtext[1], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 6), 0, LMBtext[2], &Blue);
   AmendButtonStatus(ButtonNumber(8, 6), 1, LMBtext[2], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 7), 0, LMBtext[3], &Blue);
   AmendButtonStatus(ButtonNumber(8, 7), 1, LMBtext[3], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 8), 0, LMBtext[4], &Blue);
   AmendButtonStatus(ButtonNumber(8, 8), 1, LMBtext[4], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 9), 0, LMBtext[5], &Blue);
   AmendButtonStatus(ButtonNumber(8, 9), 1, LMBtext[5], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 10), 0, LMBtext[6], &Blue);
   AmendButtonStatus(ButtonNumber(8, 10), 1, LMBtext[6], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 11), 0, LMBtext[7], &Blue);
   AmendButtonStatus(ButtonNumber(8, 11), 1, LMBtext[7], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 12), 0, LMBtext[8], &Blue);
   AmendButtonStatus(ButtonNumber(8, 12), 1, LMBtext[8], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 13), 0, LMBtext[9], &Blue);
   AmendButtonStatus(ButtonNumber(8, 13), 1, LMBtext[9], &Green);
-  
+
   AmendButtonStatus(ButtonNumber(8, 14), 0, LMBtext[10], &Blue);
   AmendButtonStatus(ButtonNumber(8, 14), 1, LMBtext[10], &Green);
 
@@ -22461,23 +22974,23 @@ void Start_Highlights_Menu8()
     snprintf(LMBStext, 15, "SR^%d", LMRXsr[1 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 15), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 15), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 15, "SR^%d", LMRXsr[2 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 16), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 16), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 15, "SR^%d", LMRXsr[3 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 17), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 17), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 15, "SR^%d", LMRXsr[4 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 18), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 18), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 15, "SR^%d", LMRXsr[5 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 19), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 19), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 25, "SR %d^Keyboard", LMRXsr[6 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 20), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 20), 1, LMBStext, &Green);
@@ -22487,23 +23000,23 @@ void Start_Highlights_Menu8()
     snprintf(LMBStext, 21, "Bandwidth^%d kHz", LMRXsr[1 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 15), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 15), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 21, "Bandwidth^%d kHz", LMRXsr[2 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 16), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 16), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 21, "Bandwidth^%d kHz", LMRXsr[3 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 17), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 17), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 21, "Bandwidth^%d kHz", LMRXsr[4 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 18), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 18), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 21, "Bandwidth^%d kHz", LMRXsr[5 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 19), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 19), 1, LMBStext, &Green);
-  
+
     snprintf(LMBStext, 25, "BW %d kHz^Keyboard", LMRXsr[6 + indexoffset]);
     AmendButtonStatus(ButtonNumber(8, 20), 0, LMBStext, &Blue);
     AmendButtonStatus(ButtonNumber(8, 20), 1, LMBStext, &Green);
@@ -22911,7 +23424,7 @@ void Start_Highlights_Menu9()
   AmendButtonStatus(ButtonNumber(9, 8), 0, BandLabel, &Blue);
   AmendButtonStatus(ButtonNumber(9, 8), 1, BandLabel, &Green);
   AmendButtonStatus(ButtonNumber(9, 8), 2, BandLabel, &Black);
- 
+
   strcpy(BandLabel, "Transvtr^");                                  // 3cm T
   if ((TabBandLO[7] < 0.5) && (TabBandLO[7] > -0.5))
   {
@@ -22983,7 +23496,7 @@ void Start_Highlights_Menu9()
   AmendButtonStatus(ButtonNumber(9, 14), 0, BandLabel, &Blue);
   AmendButtonStatus(ButtonNumber(9, 14), 1, BandLabel, &Green);
   AmendButtonStatus(ButtonNumber(9, 14), 2, BandLabel, &Black);
- 
+
   strcpy(BandLabel, "Transvtr^");                                  // 71 MHz
   if ((TabBandLO[0] < 0.5) && (TabBandLO[0] > -0.5))
   {
@@ -23007,7 +23520,7 @@ void Start_Highlights_Menu9()
   AmendButtonStatus(ButtonNumber(9, 15), 0, BandLabel, &Blue);
   AmendButtonStatus(ButtonNumber(9, 15), 1, BandLabel, &Green);
   AmendButtonStatus(ButtonNumber(9, 15), 2, BandLabel, &Black);
- 
+
   strcpy(BandLabel, "Transvtr^");                                  // 146 MHz
   if ((TabBandLO[1] < 0.5) && (TabBandLO[1] > -0.5))
   {
@@ -23031,7 +23544,7 @@ void Start_Highlights_Menu9()
   AmendButtonStatus(ButtonNumber(9, 16), 0, BandLabel, &Blue);
   AmendButtonStatus(ButtonNumber(9, 16), 1, BandLabel, &Green);
   AmendButtonStatus(ButtonNumber(9, 16), 2, BandLabel, &Black);
- 
+
   strcpy(BandLabel, "Transvtr^");                                  // 70 cm
   if ((TabBandLO[2] < 0.5) && (TabBandLO[2] > -0.5))
   {
@@ -23055,7 +23568,7 @@ void Start_Highlights_Menu9()
   AmendButtonStatus(ButtonNumber(9, 17), 0, BandLabel, &Blue);
   AmendButtonStatus(ButtonNumber(9, 17), 1, BandLabel, &Green);
   AmendButtonStatus(ButtonNumber(9, 17), 2, BandLabel, &Black);
- 
+
   strcpy(BandLabel, "Transvtr^");                                  // 23 cm
   if ((TabBandLO[3] < 0.5) && (TabBandLO[3] > -0.5))
   {
@@ -23114,7 +23627,7 @@ void Define_Menu10()
   char Freqtext[31];
   char Value[31];
 
-  strcpy(MenuTitle[10], "Transmit Frequency Selection Menu (10)"); 
+  strcpy(MenuTitle[10], "Transmit Frequency Selection Menu (10)");
 
   // Bottom Row, Menu 10
 
@@ -23270,7 +23783,7 @@ void Define_Menu11()
 {
   int button;
 
-  strcpy(MenuTitle[11], "Modulation Selection Menu (11)"); 
+  strcpy(MenuTitle[11], "Modulation Selection Menu (11)");
 
   // Bottom Row, Menu 11
 
@@ -23395,7 +23908,7 @@ void Define_Menu12()
 {
   int button;
 
-  strcpy(MenuTitle[12], "Encoding Selection Menu (12)"); 
+  strcpy(MenuTitle[12], "Encoding Selection Menu (12)");
 
   // Bottom Row, Menu 12
 
@@ -23461,7 +23974,7 @@ void Define_Menu13()
 {
   int button;
 
-  strcpy(MenuTitle[13], "Manage Contest Codes (13)"); 
+  strcpy(MenuTitle[13], "Manage Contest Codes (13)");
 
   // Bottom Row, Menu 13
 
@@ -23571,7 +24084,7 @@ void Define_Menu14()
 {
   int button;
 
-  strcpy(MenuTitle[14], "Video Format Menu (14)"); 
+  strcpy(MenuTitle[14], "Video Format Menu (14)");
 
   // Bottom Row, Menu 14
 
@@ -23626,7 +24139,7 @@ void Define_Menu15()
 {
   int button;
 
-  strcpy(MenuTitle[15], "Pluto Configuration Menu (15)"); 
+  strcpy(MenuTitle[15], "Pluto Configuration Menu (15)");
 
   // Bottom Row, Menu 15
 
@@ -23675,7 +24188,7 @@ void Define_Menu16()
 {
   int button;
 
-  strcpy(MenuTitle[16], "DVB-T Parameters Menu (16)"); 
+  strcpy(MenuTitle[16], "DVB-T Parameters Menu (16)");
 
   // Bottom Row, Menu 16
 
@@ -23746,7 +24259,7 @@ void MakeFreqText(int index)
       //  TvtrFreq = TvtrFreq * -1;
       //}
       strcpy(FreqBtext, "Keyboard^IF:");
-      TvtrFreq = atof(TabFreq[index]); // 
+      TvtrFreq = atof(TabFreq[index]); //
       snprintf(Value, 10, "%.2f", TvtrFreq);
       strcat(FreqBtext, Value);
     }
@@ -23960,7 +24473,7 @@ void Start_Highlights_Menu18()
   char Value[255];
   int fec;
 
-  strcpy(MenuTitle[18], "Transmit FEC Selection Menu (18)"); 
+  strcpy(MenuTitle[18], "Transmit FEC Selection Menu (18)");
   strcpy(Param,"fec");
   strcpy(Value,"");
   GetConfigParam(PATH_PCONFIG,Param,Value);
@@ -23986,7 +24499,7 @@ void Define_Menu19()
 {
   int button;
 
-  strcpy(MenuTitle[19], "Transverter Selection Menu (19)"); 
+  strcpy(MenuTitle[19], "Transverter Selection Menu (19)");
 
   // Bottom Row, Menu 19
 
@@ -24075,7 +24588,7 @@ void Define_Menu20()
   int n;
   char TempLabel[31] = "Keyboard^";
 
-  strcpy(MenuTitle[20], "Stream Viewer Selection Menu (20)"); 
+  strcpy(MenuTitle[20], "Stream Viewer Selection Menu (20)");
 
   // Top Row, Menu 20
   button = CreateButton(20, 9);
@@ -24149,7 +24662,7 @@ void Define_Menu21()
 {
   int button;
 
-  strcpy(MenuTitle[21], "EasyCap Video Input Menu (21)"); 
+  strcpy(MenuTitle[21], "EasyCap Video Input Menu (21)");
 
   // Bottom Row, Menu 21
 
@@ -24202,7 +24715,7 @@ void Define_Menu22()
 {
   int button;
 
-  strcpy(MenuTitle[22], "Caption Selection Menu (22)"); 
+  strcpy(MenuTitle[22], "Caption Selection Menu (22)");
 
   // Bottom Row, Menu 22
 
@@ -24239,7 +24752,7 @@ void Define_Menu23()
 {
   int button;
 
-  strcpy(MenuTitle[23], "Audio Input Selection Menu (23)"); 
+  strcpy(MenuTitle[23], "Audio Input Selection Menu (23)");
 
   // Bottom Row, Menu 23
 
@@ -24314,7 +24827,7 @@ void Define_Menu24()
 {
   int button;
 
-  strcpy(MenuTitle[24], "Attenuator Selection Menu (24)"); 
+  strcpy(MenuTitle[24], "Attenuator Selection Menu (24)");
 
   // Bottom Row, Menu 24
 
@@ -24371,7 +24884,7 @@ void Define_Menu25()
 {
   int button;
 
-  strcpy(MenuTitle[25], "DVB-S2 FEC Selection Menu (25)"); 
+  strcpy(MenuTitle[25], "DVB-S2 FEC Selection Menu (25)");
 
   // Bottom Row, Menu 25
 
@@ -24565,7 +25078,7 @@ void Define_Menu27()
   int button;
   int i;
 
-  strcpy(MenuTitle[27], "Frequency Preset Setting Menu (27)"); 
+  strcpy(MenuTitle[27], "Frequency Preset Setting Menu (27)");
 
   // Bottom Row, Menu 27
 
@@ -24592,7 +25105,7 @@ void Define_Menu27()
 
 void Start_Highlights_Menu27()
 {
-  // Preset Frequency Change 
+  // Preset Frequency Change
   int index;
   int FreqIndex;
   int NoButton;
@@ -24672,7 +25185,7 @@ void Define_Menu28()
   int button;
   int i;
 
-  strcpy(MenuTitle[28], "Symbol Rate/Bandwidth Preset Setting Menu (28)"); 
+  strcpy(MenuTitle[28], "Symbol Rate/Bandwidth Preset Setting Menu (28)");
 
   // Bottom Row, Menu 28
 
@@ -24699,7 +25212,7 @@ void Define_Menu28()
 
 void Start_Highlights_Menu28()
 {
-  // Preset SR Change 
+  // Preset SR Change
   int index;
   int NoButton;
   char SRLabelLocal[31];
@@ -24752,7 +25265,7 @@ void Define_Menu29()
 {
   int button;
 
-  strcpy(MenuTitle[29], "Call, Locator and PID Setting Menu (29)"); 
+  strcpy(MenuTitle[29], "Call, Locator and PID Setting Menu (29)");
 
   // Bottom Row, Menu 29
 
@@ -24817,7 +25330,7 @@ void Define_Menu30()
   int button;
   char BandLabel[31];
 
-  strcpy(MenuTitle[30], "Comp Video Band Selection Menu (30)"); 
+  strcpy(MenuTitle[30], "Comp Video Band Selection Menu (30)");
 
   // Bottom Row, Menu 30
 
@@ -24889,8 +25402,8 @@ void Define_Menu31()
   char Param[15];
   char DispName[10][20];
 
-  strcpy(MenuTitle[31], "Amend Site Name and Locator (31)"); 
-  
+  strcpy(MenuTitle[31], "Amend Site Name and Locator (31)");
+
   for(i = 0; i < 10 ;i++)
   {
     sprintf(Param, "bcallsign%d", i);
@@ -24915,7 +25428,7 @@ void Define_Menu32()
 {
   int button;
 
-  strcpy(MenuTitle[32], "Select and Set Reference Frequency Menu (32)"); 
+  strcpy(MenuTitle[32], "Select and Set Reference Frequency Menu (32)");
 
   // Bottom Row, Menu 32
 
@@ -24987,7 +25500,7 @@ void Start_Highlights_Menu32()
   //{
   //  SelectInGroupOnMenu(CurrentMenu, 5, 7, 7, 0);
   //}
-  
+
   //snprintf(Buttext, 26, "Set Ref 1^%s", ADFRef[0]);
   //AmendButtonStatus(ButtonNumber(32, 0), 0, Buttext, &Blue);
 
@@ -25008,7 +25521,7 @@ void Define_Menu33()
 {
   int button;
 
-  strcpy(MenuTitle[33], "Check for Software Update Menu (33)"); 
+  strcpy(MenuTitle[33], "Check for Software Update Menu (33)");
 
   // Bottom Row, Menu 33
 
@@ -25069,7 +25582,7 @@ void Define_Menu34()
 {
   int button;
 
-  strcpy(MenuTitle[34], "Start-up App Menu (34)"); 
+  strcpy(MenuTitle[34], "Start-up App Menu (34)");
 
   // Bottom Row, Menu 34
 
@@ -25167,7 +25680,7 @@ void Define_Menu35()    // Menu 35 Stream output Selector
   int button;
   int n;
 
-  strcpy(MenuTitle[35], "Stream Output Selection Menu (35)"); 
+  strcpy(MenuTitle[35], "Stream Output Selection Menu (35)");
 
   // Top Row, Menu 35
   button = CreateButton(35, 9);
@@ -25234,11 +25747,19 @@ void Define_Menu36()
 {
   int button;
 
-  strcpy(MenuTitle[36], "WiFi Configuration Menu (36)"); 
+  strcpy(MenuTitle[36], "WiFi Configuration Menu (36)");
 
   // Bottom Row, Menu 36
 
+  button = CreateButton(36, 0);
+  AddButtonStatus(button, "SSID^None", &Red);
+  AddButtonStatus(button, "SSID^None", &Green);
+  AddButtonStatus(button, "SSID^None", &Orange);
 
+  button = CreateButton(36, 1);
+  AddButtonStatus(button, "Hotspot^Config", &Blue);
+  AddButtonStatus(button, "Hotspot^Config", &Green);
+  AddButtonStatus(button, "Hotspot^Config", &Grey);
 
   button = CreateButton(36, 3);
   AddButtonStatus(button, "Disable^WiFi", &Blue);
@@ -25279,6 +25800,48 @@ void Define_Menu36()
 
 void Start_Highlights_Menu36()
 {
+  char Param[255];
+  char Value[255];
+
+  /// Bouton SSID
+  system("sudo /home/pi/rpidatv/scripts/wifi_check.sh");
+  strcpy(Param,"ssid");
+  char Getssid[255];
+  strcpy(Getssid,"");
+  GetConfigParam(PATH_WIFIGET, Param, Value);
+
+  if (strcmp(Value, "Hotspot") != 0)
+  {
+    strcpy(Getssid, "SSID^");
+    strcat(Getssid, Value);
+
+    AmendButtonStatus(ButtonNumber(36, 0), 0, Getssid, &Red);
+    AmendButtonStatus(ButtonNumber(36, 0), 1, Getssid, &Green);
+    AmendButtonStatus(ButtonNumber(36, 0), 2, Getssid, &Orange);
+
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
+
+    if (strcmp(Value, "Deconnecte") == 0)
+    {
+      SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    }
+    else
+    {
+      SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
+    }
+  }
+  else
+  {
+    strcpy(Getssid, "Hotspot^Actif");
+
+    AmendButtonStatus(ButtonNumber(36, 0), 0, Getssid, &Red);
+    AmendButtonStatus(ButtonNumber(36, 0), 1, Getssid, &Green);
+    AmendButtonStatus(ButtonNumber(36, 0), 2, Getssid, &Orange);
+
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 2);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2);
+  }
+
   if (CheckWifiEnabled() == 1)  // Wifi not enabled
   {
     SetButtonStatus(ButtonNumber(36, 5), 2);  // Grey out the "List WiFi Networks" Button
@@ -25301,7 +25864,7 @@ void Define_Menu37()
 {
   int button;
 
-  strcpy(MenuTitle[37], "Lime Configuration Menu (37)"); 
+  strcpy(MenuTitle[37], "Lime Configuration Menu (37)");
 
   // Bottom Row, Menu 37
 
@@ -25406,7 +25969,7 @@ void Define_Menu38()
 {
   int button;
 
-  strcpy(MenuTitle[38], "Answer Yes or No (38)"); 
+  strcpy(MenuTitle[38], "Answer Yes or No (38)");
 
 // 2nd Row, Menu 38
 
@@ -25431,7 +25994,7 @@ void Define_Menu39()
 {
   int button;
 
-  strcpy(MenuTitle[39], "Langstone Configuration Menu (39)"); 
+  strcpy(MenuTitle[39], "Langstone Configuration Menu (39)");
 
   // Bottom Row, Menu 39
 
@@ -25510,7 +26073,7 @@ void Define_Menu40()
 {
   int button;
 
-  strcpy(MenuTitle[40], "TS IP Configuration Menu (40)"); 
+  strcpy(MenuTitle[40], "TS IP Configuration Menu (40)");
 
   // Bottom Row, Menu 40
 
@@ -25547,7 +26110,7 @@ void Define_Menu42()
 {
   int button;
 
-  strcpy(MenuTitle[42], "Output Device Menu (42)"); 
+  strcpy(MenuTitle[42], "Output Device Menu (42)");
 
   // Bottom Row, Menu 42
 
@@ -25564,7 +26127,7 @@ void Define_Menu42()
   //AddButtonStatus(button, TabModeOPtext[6], &Green);
 
   button = CreateButton(42, 2);                          // IPTS Out
-  AddButtonStatus(button, TabModeOPtext[7], &Blue);  
+  AddButtonStatus(button, TabModeOPtext[7], &Blue);
   AddButtonStatus(button, TabModeOPtext[7], &Green);
 
   button = CreateButton(42, 3);                          // Lime Mini
@@ -25675,7 +26238,7 @@ void Define_Menu43()
 {
   int button;
 
-  strcpy(MenuTitle[43], "System Configuration Menu (43)"); 
+  strcpy(MenuTitle[43], "System Configuration Menu (43)");
 
   // Bottom Row, Menu 43
 
@@ -25797,7 +26360,7 @@ void Define_Menu44()
 {
   int button;
 
-  strcpy(MenuTitle[44], "Jetson Configuration Menu (44)"); 
+  strcpy(MenuTitle[44], "Jetson Configuration Menu (44)");
 
   // Bottom Row, Menu 44
 
@@ -25863,7 +26426,7 @@ void Define_Menu45()
 {
   int button;
 
-  strcpy(MenuTitle[45], "Video Source Menu (45)"); 
+  strcpy(MenuTitle[45], "Video Source Menu (45)");
 
   // Bottom Row, Menu 45
   button = CreateButton(45, 0);                     // Contest
@@ -25978,7 +26541,7 @@ void Define_Menu46()
 {
   int button;
 
-  strcpy(MenuTitle[46], "Portsdown Receiver Configuration (46)"); 
+  strcpy(MenuTitle[46], "Portsdown Receiver Configuration (46)");
 
   // Bottom Row, Menu 46
 
@@ -26051,14 +26614,14 @@ void Start_Highlights_Menu46()
 
   if (strcmp(LMRXmode, "sat") == 0)
   {
-    strcpy(MenuTitle[46], "Portsdown QO-100 Receiver Configuration (46)"); 
+    strcpy(MenuTitle[46], "Portsdown QO-100 Receiver Configuration (46)");
     strcpy(LMBtext, "QO-100^Input ");
     strcat(LMBtext, LMRXinput);
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
   }
   else
   {
-    strcpy(MenuTitle[46], "Portsdown Terrestrial Receiver Configuration (46)"); 
+    strcpy(MenuTitle[46], "Portsdown Terrestrial Receiver Configuration (46)");
     strcpy(LMBtext, "Terrestrial^Input ");
     strcat(LMBtext, LMRXinput);
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 1);
@@ -26077,7 +26640,7 @@ void Start_Highlights_Menu46()
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 8), 2);
   }
- 
+
 
   if (strcmp(LMRXaudio, "rpi") == 0)
   {
@@ -26104,7 +26667,7 @@ void Define_Menu47()
   int button;
   char label[63];
 
-  strcpy(MenuTitle[47], "Portsdown Test Card Selection (47)"); 
+  strcpy(MenuTitle[47], "Portsdown Test Card Selection (47)");
 
   // Bottom Row, Menu 47
 
@@ -26249,11 +26812,115 @@ void Start_Highlights_Menu47()
   }
 }
 
+void Define_Menu57()
+{
+  int button;
+
+  strcpy(MenuTitle[57], "Sarsat Decoder (57)");
+
+  button = CreateButton(57, 0);
+  AddButtonStatus(button, "Start^Decoder", &DBlue);
+  AddButtonStatus(button, "Start^Decoder", &LBlue);
+  //AddButtonStatus(button, "Start^Decoder", &Grey);
+
+  button = CreateButton(57, 1);
+  AddButtonStatus(button, "Freq^Freq", &DBlue);
+  AddButtonStatus(button, "Freq^Freq", &LBlue);
+
+//  button = CreateButton(57, 2);
+//  AddButtonStatus(button, "", &DBlue);
+//  AddButtonStatus(button, "", &LBlue);
+
+  button = CreateButton(57, 4);
+  AddButtonStatus(button, "Exit", &DBlue);
+  AddButtonStatus(button, "Exit", &LBlue);
+
+  //button = CreateButton(57, 5);
+  //AddButtonStatus(button, "", &Blue);
+  //AddButtonStatus(button, "", &Blue);
+
+  button = CreateButton(57, 6);
+  AddButtonStatus(button, "406.028M", &DBlue);
+  AddButtonStatus(button, "406.028M", &LBlue);
+  AddButtonStatus(button, "406.028M", &Green);
+
+  button = CreateButton(57, 7);
+  AddButtonStatus(button, "433.95M", &DBlue);
+  AddButtonStatus(button, "433.95M", &LBlue);
+  AddButtonStatus(button, "433.95M", &Green);
+
+  button = CreateButton(57, 8);
+  AddButtonStatus(button, "434.2M", &DBlue);
+  AddButtonStatus(button, "434.2M", &LBlue);
+  AddButtonStatus(button, "434.2M", &Green);
+
+  button = CreateButton(57, 9);
+  AddButtonStatus(button, "Balise^F1LVT", &DBlue);
+  AddButtonStatus(button, "Balise^F1LVT", &LBlue);
+  AddButtonStatus(button, "Balise^F1LVT", &Green);
+}
+
+void Start_Highlights_Menu57()
+{
+  char ValueLow[15] = "";
+  char ValueHigh[15] = "";
+  char ValueChecksum[15] = "";
+  //char ValueInput[15] = "";
+  char Freqtext[21];
+
+  // Low:
+  GetConfigParam(PATH_406CONFIG, "low", ValueLow);
+  strcpy(Freqtext, "Freq^");
+  strcat(Freqtext, ValueLow);
+  strcat(Freqtext, "M");
+  AmendButtonStatus(ButtonNumber(57, 1), 0, Freqtext, &DBlue);
+  AmendButtonStatus(ButtonNumber(57, 1), 1, Freqtext, &LBlue);
+
+  // High:
+  GetConfigParam(PATH_406CONFIG, "high", ValueHigh);
+
+  if ((atof(ValueLow) == 406.028) && (atof(ValueHigh) == 406.028))
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2);
+  }else{
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+  }
+
+  if ((atof(ValueLow) == 433.95) && (atof(ValueHigh) == 433.95))
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 2);
+  }else{
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
+  }
+
+  if ((atof(ValueLow) == 434.2) && (atof(ValueHigh) == 434.2))
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 2);
+  }else{
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+  }
+
+  //GetConfigParam(PATH_406CONFIG, "input", ValueInput);
+  //strcpy(Freqtext, "Input^");
+  //strcat(Freqtext, ValueInput);
+  //AmendButtonStatus(ButtonNumber(57, 8), 0, Freqtext, &DBlue);
+  //AmendButtonStatus(ButtonNumber(57, 8), 1, Freqtext, &LBlue);
+
+  GetConfigParam(PATH_406CONFIG, "no_checksum", ValueChecksum);
+
+  if (atoi(ValueChecksum) == 1)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2);
+  }else{
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
+  }
+}
+
 void Define_Menu41()
 {
   int button;
 
-  strcpy(MenuTitle[41], " "); 
+  strcpy(MenuTitle[41], " ");
 
   button = CreateButton(41, 0);
   AddButtonStatus(button, "SPACE", &Blue);
@@ -26531,7 +27198,7 @@ terminate(int dummy)
   exit(1);
 }
 
-// main initializes the system and starts Menu 1 
+// main initializes the system and starts Menu 1
 
 //int main(int argc, char **argv)
 int main(int argc, char *argv[])
@@ -26705,6 +27372,7 @@ int main(int argc, char *argv[])
   Define_Menu45();
   Define_Menu46();
   Define_Menu47();
+  Define_Menu57();
 
   // Check if DATV Express Server required and, if so, start it
   CheckExpress();

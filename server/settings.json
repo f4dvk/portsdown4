@@ -1,0 +1,9 @@
+{
+    "RtcConfig" : null,
+    "FallbackFFmpegPath": "ffmpeg2",
+    "FallbackUseMp3": true,
+    "FallbackUseWav": true,
+    "FallbackMp3Bitrate": 128,
+    "FallbackWavSampleRate": 16000,
+    "AdminKey": ""
+}

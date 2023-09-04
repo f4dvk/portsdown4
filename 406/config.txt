@@ -1,0 +1,4 @@
+low=433.95
+high=433.95
+no_checksum=1
+input=rtl

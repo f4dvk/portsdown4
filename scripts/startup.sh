@@ -56,6 +56,8 @@ mv "$3.bak" "$3"
 
 ######################### Start here #####################
 
+/home/pi/rpidatv/server/stream.sh >/dev/null 2>/dev/null &
+
 if [ "$SESSION_TYPE" == "cron" ]; then
   SESSION_TYPE="boot"
 else
@@ -130,7 +132,7 @@ fi
 # Read the desired start-up behaviour
 MODE_STARTUP=$(get_config_var startup $PCONFIGFILE)
 
-# First check that the correct display has been selected 
+# First check that the correct display has been selected
 # to load drivers against the one that is fitted
 
 # But only if it is a boot session and display boot selected
@@ -242,5 +244,3 @@ case "$MODE_STARTUP" in
     return
   ;;
 esac
-
-

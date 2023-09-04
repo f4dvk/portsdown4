@@ -1,0 +1,5 @@
+ssid=Pi4-AP
+wpa_passphrase=raspberry
+hw_mode=g
+channel=6
+hotspot=off

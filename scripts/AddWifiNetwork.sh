@@ -7,7 +7,6 @@
 
 ## Set up new network
 
-
 SSID=$1
 PW=$2
 
@@ -69,6 +68,9 @@ rm $PATHCONFIGS"/wpa_text.txt" >/dev/null 2>/dev/null
 sudo ip link set wlan0 down
 sudo ip link set wlan0 up
 wpa_cli -i wlan0 reconfigure >/dev/null 2>/dev/null
+
+# Suppression lignes known_hosts
+echo "" | sudo tee /root/.ssh/known_hosts >/dev/null 2>/dev/null
 
 ## Make sure that it is not soft-blocked
 sleep 1

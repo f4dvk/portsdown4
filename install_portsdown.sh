@@ -10,11 +10,11 @@ if [ $? != 0 ]; then
 fi
 
 # Check which source needs to be loaded
-GIT_SRC="BritishAmateurTelevisionClub"
+GIT_SRC="f4dvk"
 GIT_SRC_FILE=".portsdown_gitsrc"
 
 if [ "$1" == "-d" ]; then
-  GIT_SRC="davecrump";
+  GIT_SRC="f4dvk";
   echo
   echo "---------------------------------------------------------"
   echo "----- Installing Development version of Portsdown 4-----"
@@ -31,7 +31,7 @@ elif [ "$1" == "-u" -a ! -z "$2" ]; then
 else
   echo
   echo "-------------------------------------------------------------"
-  echo "----- Installing BATC Production version of Portsdown 4 -----"
+  echo "----- Installing F4DVK Production version of Portsdown 4 ----"
   echo "-------------------------------------------------------------"
 fi
 
@@ -65,9 +65,9 @@ echo "-------------------------------"
 echo "----- Installing Packages -----"
 echo "-------------------------------"
 
-sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0 
-sudo apt-get -y install wiringpi                                         # Wiring pi depracated? 
-sudo apt-get -y install libx11-dev buffer libjpeg-dev indent 
+sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0
+sudo apt-get -y install wiringpi                                         # Wiring pi depracated?
+sudo apt-get -y install libx11-dev buffer libjpeg-dev indent
 sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
 sudo apt-get -y install fbi netcat imagemagick omxplayer
@@ -92,6 +92,11 @@ sudo apt-get -y install libairspy-dev                                   # For Ai
 sudo apt-get -y install expect                                          # For unattended installs
 sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
 sudo apt-get -y install libssl-dev                                      # For websockets
+
+sudo apt-get install -y nodejs npm         # streaming audio
+sudo apt-get install -y ffmpeg
+sudo cp /usr/bin/ffmpeg /usr/bin/ffmpeg2
+sudo cp /usr/bin/aplay /usr/bin/aplay2
 
 # Install WiringPi
 cd /tmp
@@ -199,9 +204,9 @@ cd /home/pi
 cd LimeSuite/udev-rules
 chmod +x install.sh
 sudo /home/pi/LimeSuite/udev-rules/install.sh
-cd /home/pi	
+cd /home/pi
 
-# Record the LimeSuite Version	
+# Record the LimeSuite Version
 echo "9c983d8" >/home/pi/LimeSuite/commit_tag.txt
 
 # Download the LimeSDR Mini firmware/gateware versions
@@ -210,7 +215,7 @@ echo "------------------------------------------------------"
 echo "----- Downloading LimeSDR Mini Firmware versions -----"
 echo "------------------------------------------------------"
 
-# Current LimeSDR Mini V1 Version from LimeSuite 22.09 
+# Current LimeSDR Mini V1 Version from LimeSuite 22.09
 mkdir -p /home/pi/.local/share/LimeSuite/images/22.09/
 wget https://downloads.myriadrf.org/project/limesuite/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd -O \
                /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd
@@ -220,7 +225,7 @@ mkdir -p /home/pi/.local/share/LimeSuite/images/v0.3
 wget https://github.com/natsfr/LimeSDR_DVBSGateware/releases/download/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd -O \
  /home/pi/.local/share/LimeSuite/images/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd
 
-# Current LimeSDR Mini V2 Version from LimeSuite 22.09 
+# Current LimeSDR Mini V2 Version from LimeSuite 22.09
 wget https://downloads.myriadrf.org/project/limesuite/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit -O \
                /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit
 
@@ -237,7 +242,7 @@ echo "----- Downloading Portsdown 4 version of avc2ts Software -----"
 echo "--------------------------------------------------------------"
 
 # Download the previously selected version of avc2ts for Portsdown 4
-cd /home/pi	
+cd /home/pi
 wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
 
 # Unzip the avc2ts software and copy to the Pi
@@ -302,7 +307,7 @@ echo "-----------------------------------------------"
 echo "----- Installing RTL-SDR Drivers and Apps -----"
 echo "-----------------------------------------------"
 cd /home/pi
-wget https://github.com/keenerd/rtl-sdr/archive/master.zip
+wget https://github.com/f4dvk/rtl-sdr/archive/master.zip
 unzip master.zip
 mv rtl-sdr-master rtl-sdr
 rm master.zip
@@ -346,7 +351,7 @@ make
 cp dvb2iq /home/pi/rpidatv/bin/
 cd /home/pi/rpidatv/src/limesdr_toolbox/
 
-make 
+make
 cp limesdr_send /home/pi/rpidatv/bin/
 cp limesdr_dump /home/pi/rpidatv/bin/
 cp limesdr_stopchannel /home/pi/rpidatv/bin/
@@ -612,7 +617,7 @@ echo "alias udvbt='/home/pi/rpidatv/scripts/utils/udvbt.sh'"  >> /home/pi/.bash_
 #cd /home/pi
 #sed -i 's|/home/pi/Langstone/run|source /home/pi/rpidatv/scripts/startup.sh|' .bashrc
 
-echo if test -z \"\$SSH_CLIENT\" >> ~/.bashrc 
+echo if test -z \"\$SSH_CLIENT\" >> ~/.bashrc
 echo then >> ~/.bashrc
 echo "source /home/pi/rpidatv/scripts/startup.sh" >> ~/.bashrc
 echo fi >> ~/.bashrc
@@ -628,6 +633,16 @@ fi
 if !(grep global_cursor_default /boot/cmdline.txt) then
   sudo sed -i '1s,$, vt.global_cursor_default=0,' /boot/cmdline.txt
 fi
+
+# Streaming audio source: https://github.com/JoJoBond/3LAS
+
+cd /home/pi/rpidatv/server/
+npm install ws wrtc
+chmod ug+x stream.sh
+cd /home/pi
+
+cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
+sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules
 
 # Configure the nginx web server
 cp -r /home/pi/rpidatv/scripts/configs/webroot /home/pi/webroot
@@ -645,6 +660,19 @@ echo
 echo "SD Card Serial:"
 cat /sys/block/mmcblk0/device/cid
 
+# Installation décodage 406
+cd /home/pi/rpidatv/406
+./install.sh
+
+# installation de hostapd et dnsmasq
+sudo apt-get -f -y install hostapd
+sudo apt-get -f -y install dnsmasq
+
+sudo systemctl disable hostapd
+sudo systemctl disable dnsmasq
+sudo service hostapd stop
+sudo service dnsmasq stop
+
 # Reboot
 echo
 echo "--------------------------------"
@@ -654,5 +682,3 @@ sleep 1
 
 sudo reboot now
 exit
-
-
