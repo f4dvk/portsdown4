@@ -41,7 +41,7 @@ sudo apt-get -y dist-upgrade                     # Upgrade all the installed pac
 
 # Langstone packages to install
 sudo apt-get -y install libxml2 libxml2-dev bison flex libcdk5-dev
-sudo apt-get -y install libaio-dev libserialport-dev libxml2-dev libavahi-client-dev 
+sudo apt-get -y install libaio-dev libserialport-dev libxml2-dev libavahi-client-dev
 sudo apt-get -y install gr-iio
 sudo apt-get -y install gnuradio
 sudo apt-get -y install raspi-gpio
@@ -59,6 +59,7 @@ if [ ! -d  /home/pi/libiio ]; then
   cd /home/pi
   git clone https://github.com/analogdevicesinc/libiio.git
   cd libiio
+  git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
   cmake ./
   make all
   sudo make install
@@ -102,5 +103,3 @@ echo "#################################"
 
 #Reboot and start
 sudo reboot now
-
-

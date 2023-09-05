@@ -72,6 +72,7 @@ if [ ! -d  /home/pi/libiio ]; then
   echo
   git clone https://github.com/analogdevicesinc/libiio.git
   cd libiio
+  git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
   cmake ./
   make all
   sudo make install
@@ -120,5 +121,3 @@ echo "#################################"
 
 #Reboot and start
 sudo reboot now
-
-
