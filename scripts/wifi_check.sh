@@ -30,7 +30,7 @@ while [ $? == 0 ] && [ -z "/home/pi/ssid1.txt" ]; do
   ssid
 done
 
-cat /home/pi/ssid1.txt | sed 's/.* //;s/ESSID/ssid/g;s/ //g;s/""/Déconnecté/g;s/"//g;s/:/=/g' > /home/pi/rpidatv/scripts/wifi_get.txt
+cat /home/pi/ssid1.txt | sed 's/.* //;s/ESSID/ssid/g;s/ //g;s/""/Deconnecte/g;s/"//g;s/:/=/g' > /home/pi/rpidatv/scripts/wifi_get.txt
 
 sudo rm /home/pi/ssid1.txt
 

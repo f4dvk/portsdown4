@@ -1,3 +1,6 @@
+202309050
+Bug hotspot
+
 202309040
 Ajout Sarsat, audio web, hotspot
 

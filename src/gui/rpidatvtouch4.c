@@ -17587,7 +17587,7 @@ void HotspotConfig()  // Hotspot Config
 
   while (IsValid == FALSE)
   {
-    strcpy(RequestText, "Canal du Hotspot (2.4GHz: 1 à 11, 5GHz: 36, 40, 44, 48):");
+    strcpy(RequestText, "Canal du Hotspot (2.4GHz: 1 to 11, 5GHz: 36, 40, 44, 48):");
     snprintf(InitText, 31, "%s", HotspotParam);
     Keyboard(RequestText, InitText, 3);
 
@@ -17600,7 +17600,7 @@ void HotspotConfig()  // Hotspot Config
 
   SetConfigParam(PATH_HOTSPOTCONFIG, "channel", KeyboardReturn);
 
-  MsgBox2("La configuration peut prendre jusqu'à 1 min", "Veuillez patienter...");
+  MsgBox2("La configuration peut prendre 1 min", "Veuillez patienter...");
 
   system("/home/pi/rpidatv/scripts/hotspot_install.sh");
 }
