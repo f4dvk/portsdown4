@@ -28,6 +28,7 @@ mv "$3.bak" "$3"
 ###########################################################
 
 sudo systemctl disable hostapd
+sudo systemctl disable dnsmasq
 sudo systemctl stop hostapd
 sudo service hostapd stop
 sudo service dnsmasq stop
@@ -41,8 +42,8 @@ if grep -q "iptables-restore < \/etc\/iptables.ipv4.nat" /etc/rc.local; then
 fi
 
 if grep -q "sudo ifconfig" /home/pi/.bashrc; then
- sudo sed -i "/sudo ifconfig wlan0 172.24.1.1/d" /home/pi/.bashrc
- sudo sed -i "/^$/d" /home/pi/.bashrc
+ sed -i "/sudo ifconfig wlan0 172.24.1.1/d" /home/pi/.bashrc
+ sed -i "/^$/d" /home/pi/.bashrc
 fi
 
 # Si présent, suppression inhibition dhcp wlan0

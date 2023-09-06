@@ -52,6 +52,7 @@ sudo service hostapd status >/dev/null 2>/dev/null
 
 if [ $? == 0 ]; then
   sudo systemctl disable hostapd
+  sudo systemctl disable dnsmasq
   sudo systemctl stop hostapd
   sudo service hostapd stop
   sudo service dnsmasq stop
@@ -147,9 +148,9 @@ if ! grep -q iptables-restore /etc/rc.local; then
 fi
 
 if ! grep -q "sudo ifconfig" /home/pi/.bashrc; then
- sudo sed -i "s/\"source\"/\"source\"/g" /home/pi/.bashrc
- sudo sed -i "/source/i\sudo ifconfig wlan0 172.24.1.1\n" /home/pi/.bashrc
- sudo sed -i "/^$/d" /home/pi/.bashrc
+ sed -i "s/\"source \"/\"source \"/g" /home/pi/.bashrc
+ sed -i "/source /i\sudo ifconfig wlan0 172.24.1.1\n" /home/pi/.bashrc
+ sed -i "/^$/d" /home/pi/.bashrc
 fi
 
 # Démarrage des service
