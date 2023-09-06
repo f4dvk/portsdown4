@@ -1465,7 +1465,7 @@ void PrepSWUpdate()
   system("rm /home/pi/rpidatv/scripts/latest_version.txt  >/dev/null 2>/dev/null");
 
   // Download new latest version file
-  strcpy(LinuxCommand, "wget -4 --timeout=2 https://raw.githubusercontent.com/BritishAmateurTelevisionClub/");
+  strcpy(LinuxCommand, "wget -4 --timeout=2 https://raw.githubusercontent.com/f4dvk/");
   strcat(LinuxCommand, "portsdown4/master/scripts/latest_version.txt ");
   strcat(LinuxCommand, "-O /home/pi/rpidatv/scripts/latest_version.txt  >/dev/null 2>/dev/null");
   system(LinuxCommand);
@@ -1557,7 +1557,7 @@ void ExecuteUpdate(int NoButton)
       system(LinuxCommand);
 
       printf("Downloading Normal Update Portsdown 4 Version\n");
-      strcpy(LinuxCommand, "wget https://raw.githubusercontent.com/BritishAmateurTelevisionClub/portsdown4/master/update.sh");
+      strcpy(LinuxCommand, "wget https://raw.githubusercontent.com/f4dvk/portsdown4/master/update.sh");
       strcat(LinuxCommand, " -O /home/pi/update.sh");
       system(LinuxCommand);
 
@@ -1589,7 +1589,7 @@ void ExecuteUpdate(int NoButton)
       system(LinuxCommand);
 
       printf("Downloading Development Update Portsdown 4 Version\n");
-      strcpy(LinuxCommand, "wget https://raw.githubusercontent.com/davecrump/portsdown4/master/update.sh");
+      strcpy(LinuxCommand, "wget https://raw.githubusercontent.com/f4dvk/portsdown4/master/update.sh");
       strcat(LinuxCommand, " -O /home/pi/update.sh");
       system(LinuxCommand);
 
