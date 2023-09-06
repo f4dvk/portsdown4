@@ -244,7 +244,8 @@ echo "--------------------------------------------------------------"
 
 # Download the previously selected version of avc2ts for Portsdown 4
 cd /home/pi
-wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
+#wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
+wget https://github.com/BritishAmateurTelevisionClub/avc2ts/archive/refs/heads/portsdown4.zip
 
 # Unzip the avc2ts software and copy to the Pi
 unzip -o portsdown4.zip
