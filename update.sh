@@ -442,7 +442,7 @@ cd /home/pi/avc2ts
 rm avc2ts.cpp
 
 # Download the previously selected version of avc2ts.cpp for Portsdown 4
-wget https://github.com/${GIT_SRC}/avc2ts/raw/portsdown4/avc2ts.cpp
+wget https://github.com/BritishAmateurTelevisionClub/avc2ts/raw/portsdown4/avc2ts.cpp
 
 # Make avc2ts with new source
 make
