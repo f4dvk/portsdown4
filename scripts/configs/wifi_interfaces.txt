@@ -2,6 +2,13 @@ auto eth0
 allow-hotplug eth0
 iface eth0 inet dhcp
 
+auto lo
+iface lo inet loopback
+
+auto eth1
+allow-hotplug eth1
+iface eth1 inet dhcp
+
 allow-hotplug wlan0
 auto wlan0
 iface wlan0 inet dhcp
