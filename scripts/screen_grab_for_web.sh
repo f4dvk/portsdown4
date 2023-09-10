@@ -20,8 +20,7 @@ while [ true ]
 do
   raspi2png -p /home/pi/tmp/stage_screen.png -c 3
   mv /home/pi/tmp/stage_screen.png /home/pi/tmp/screen.png
-  sleep 1
+  sleep 0.6
 done
 
 exit
-

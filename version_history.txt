@@ -1,3 +1,6 @@
+202309100
+Langstone V2 accessible via web
+
 202309070
 Correction bug Pluto si wifi
 

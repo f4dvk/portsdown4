@@ -56,7 +56,7 @@ ChooseBandViewerSDR()
   # Set default start code to be Portsdown main menu
   BANDVIEW_START_CODE=129
 
-  # Check for presence of Airspy   
+  # Check for presence of Airspy
   lsusb | grep -q 'Airspy'
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=140
@@ -92,7 +92,7 @@ ChooseBandViewerSDR()
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=141
     return
-  fi 
+  fi
 }
 
 ##################################################################
@@ -209,9 +209,11 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       GUI_RETURN_CODE="$?"
     ;;
     135)
+      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run
       /home/pi/Langstone/stop
+      pkill -f screen_grab_for_web.sh
       PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
       ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "$PLUTOIP" >/dev/null 2>/dev/null
       # ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "pluto.local" >/dev/null 2>/dev/null
@@ -270,9 +272,11 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       GUI_RETURN_CODE="129"
     ;;
     146)                              # Langstone V2 Pluto
+      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run_pluto
       /home/pi/Langstone/stop_pluto
+      pkill -f screen_grab_for_web.sh
       PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
       ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "$PLUTOIP" >/dev/null 2>/dev/null
       # ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "pluto.local" >/dev/null 2>/dev/null
@@ -305,13 +309,13 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
           sleep 1
 
           lsusb | grep -q '1df7:'           # Check again
-          if [ $? != 0 ]; then              # Not detected   
+          if [ $? != 0 ]; then              # Not detected
             DisplayMsg "Unable to detect SDRPlay\n\nResetting the USB Bus"
             /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
             sudo uhubctl -R -a 2            # Try reset USB bus again
             sleep 1
 
-            lsusb | grep -q '1df7:'         # Has that worked?         
+            lsusb | grep -q '1df7:'         # Has that worked?
             if [ $? != 0 ]; then            # No
               DisplayMsg "Still Unable to detect SDRPlay\n\n\nCheck connections"
               /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
@@ -327,7 +331,7 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
           RPISTATE="Ready"
         fi
       done
-      
+
       DisplayMsg "Starting the beacon RX server\n\nThis caption stays on while it is running\n"
       /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
@@ -338,7 +342,7 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
         DisplayMsg "Beacon RX server did not start properly\nTyring again\n"
         /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
-        GUI_RETURN_CODE=149                         # So try to restart beacon        
+        GUI_RETURN_CODE=149                         # So try to restart beacon
       fi
     ;;
 
@@ -359,14 +363,14 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
         if [ $? != 0 ]; then              # Check again
           sudo uhubctl -R -a 2            # Try reset USB bus again
           sleep 1
-          lsusb | grep -q '1df7:'         
+          lsusb | grep -q '1df7:'
           if [ $? != 0 ]; then            # If still no joy
             DisplayMsg "Still Unable to detect SDRPlay\n\n\nCheck connections"
             /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
             sleep 2
             DisplayMsg " "                # Display Blank screen
             /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-            GUI_RETURN_CODE=129           # Return to Portsdown     
+            GUI_RETURN_CODE=129           # Return to Portsdown
           fi
         fi
       fi
@@ -376,7 +380,7 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
         GUI_RETURN_CODE="$?"
       fi
       if [ $GUI_RETURN_CODE != 129 ]; then          # Not Portsdown
-        GUI_RETURN_CODE=150                         # So restart meteorview        
+        GUI_RETURN_CODE=150                         # So restart meteorview
       fi
     ;;
     160)
@@ -431,5 +435,3 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
     ;;
   esac
 done
-
-

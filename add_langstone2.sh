@@ -95,6 +95,7 @@ sudo rm -rf /home/pi/Langstone >/dev/null 2>/dev/null
 cd /home/pi
 git clone https://github.com/g4eml/Langstone-V2.git
 mv Langstone-V2 Langstone
+cp -f /home/pi/rpidatv/scripts/configs/langstone/* /home/pi/Langstone/
 cd Langstone
 chmod +x build
 chmod +x run_lime
