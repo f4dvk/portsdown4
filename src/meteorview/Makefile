@@ -12,8 +12,8 @@ else
 endif
 
 COPT = -O3 -march=native -mtune=native
-# CFLAGS = -Wall -Wextra -Wpedantic -std=gnu11 -D_GNU_SOURCE -pthread 
-CFLAGS = -Wall -std=gnu11 -D_GNU_SOURCE -DNEON_OPTS 
+# CFLAGS = -Wall -Wextra -Wpedantic -std=gnu11 -D_GNU_SOURCE -pthread
+CFLAGS = -Wall -std=gnu11 -D_GNU_SOURCE -DNEON_OPTS
 
 
 BIN = meteorview
@@ -27,6 +27,9 @@ SRC =	$(SRCDIR)/meteorview.c\
 		$(SRCDIR)/screen.c \
 		$(SRCDIR)/graphics.c \
 		$(SRCDIR)/sdrplayfft.c \
+		$(SRCDIR)/transport.c \
+		$(SRCDIR)/websocket_server.c \
+		$(SRCDIR)/protocol.c \
 		$(SRCDIR)/timing.c \
 		$(SRCDIR)/ffunc.c \
 		$(SRCDIR)/ffunc.h \
@@ -35,7 +38,7 @@ SRC =	$(SRCDIR)/meteorview.c\
 		$(SRCDIR)/font/dejavu_sans_20.c \
 		$(SRCDIR)/font/dejavu_sans_22.c \
 		$(SRCDIR)/font/dejavu_sans_28.c \
-		$(SRCDIR)/font/dejavu_sans_32.c 
+		$(SRCDIR)/font/dejavu_sans_32.c
 
 # ========================================================================================
 # External Libraries
@@ -44,7 +47,7 @@ SRC =	$(SRCDIR)/meteorview.c\
 # OBSDIR = libwebsockets/build/lib
 
 LIBS = -lm -lc -lsdrplay_api -lbcm_host -pthread -lusb-1.0 -lfftw3 -lwiringPi -Wl,-Bstatic -Wl,-Bdynamic
-LIBS += -L/opt/vc/lib -lrt -ldl -lfcgi -rdynamic
+LIBS += -L/opt/vc/lib -lrt -ldl -lfcgi -rdynamic -lwebsockets
 
 
 #
@@ -61,4 +64,3 @@ debug: all
 
 clean:
 	rm -fv $(BIN)
-

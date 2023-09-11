@@ -250,6 +250,32 @@ fi
 sudo apt-get -y install libairspy-dev                                   # For Airspy Bandviewer
 sudo apt-get -y install expect                                          # For unattended installs
 sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
+sudo apt-get -y install libssl-dev                                      # For libwebsockets
+
+# Install libwebsockets if required
+if [ ! -d  /home/pi/libwebsockets ]; then
+  cd /home/pi
+  git clone https://github.com/warmcat/libwebsockets.git
+  cd libwebsockets
+  cmake ./
+  make all
+  sudo make install
+  sudo ldconfig
+  cd /home/pi
+fi
+
+# Install the sdrplay drivers if required
+if [ ! -f  /usr/local/include/sdrplay_api.h ]; then
+  cd /home/pi/rpidatv/src/meteorview
+
+  # Download api
+  wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
+  chmod +x SDRplay_RSP_API-ARM-3.09.1.run
+
+  # Create file to trigger install on next reboot
+  touch /home/pi/rpidatv/.post-install_actions
+  cd /home/pi
+fi
 
 sudo apt-get install -y nodejs npm         # streaming audio
 
@@ -458,6 +484,26 @@ rm -rf longmynd
 cp -r /home/pi/rpidatv/src/longmynd/ /home/pi/
 cd longmynd
 make
+cd /home/pi
+
+echo
+echo "--------------------------------------------"
+echo "------ Installing the LeanDVB Receiver -----"
+echo "--------------------------------------------"
+#install leandvb DVB-S2
+cd /home/pi/rpidatv/src/
+sudo rm -fr leansdr
+wget https://github.com/f4dvk/leansdr/archive/master.zip
+unzip master.zip
+mv leansdr-master leansdr
+rm master.zip
+cd leansdr/src/apps
+make
+cp leandvb ../../../../bin/
+
+cd /home/pi/rpidatv/src/fake_read
+make
+cp fake_read ../../bin/
 cd /home/pi
 
 echo

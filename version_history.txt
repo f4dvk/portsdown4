@@ -19,6 +19,9 @@ Bug hotspot
 202309040
 Ajout Sarsat, audio web, hotspot
 
+202308300
+Update MeteorView to control headless receiver server from browser
+
 202308240
 Install Open SSL and Websockets
 Add robust scheduler for Meteor Beacon RX
