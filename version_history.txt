@@ -19,6 +19,9 @@ Bug hotspot
 202309040
 Ajout Sarsat, audio web, hotspot
 
+202309040
+SDRPlay install fixes
+
 202308300
 Update MeteorView to control headless receiver server from browser
 

@@ -92,8 +92,9 @@ sudo apt-get -y install libairspy-dev                                   # For Ai
 sudo apt-get -y install expect                                          # For unattended installs
 sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
 sudo apt-get -y install libssl-dev                                      # For websockets
+sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
 
-sudo apt-get install -y nodejs npm         # streaming audio
+sudo apt-get install -y nodejs npm                                      # streaming audio
 sudo apt-get install -y ffmpeg
 sudo cp /usr/bin/ffmpeg /usr/bin/ffmpeg2
 sudo cp /usr/bin/aplay /usr/bin/aplay2
