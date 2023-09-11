@@ -388,6 +388,27 @@ cd longmynd
 make
 cd /home/pi
 
+echo
+echo "--------------------------------------------"
+echo "------ Installing the LeanDVB Receiver -----"
+echo "--------------------------------------------"
+# Get leandvb
+cd /home/pi/rpidatv/src
+wget https://github.com/f4dvk/leansdr/archive/master.zip
+unzip master.zip
+mv leansdr-master leansdr
+rm master.zip
+
+# Compile leandvb
+cd leansdr/src/apps
+make
+cp leandvb ../../../../bin/
+
+cd /home/pi/rpidatv/src/fake_read
+make
+cp fake_read ../../bin/
+cd /home/pi
+
 # Download, compile and install the executable for hardware shutdown button
 echo
 echo "------------------------------------------------------------"

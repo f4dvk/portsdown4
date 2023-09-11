@@ -56,7 +56,9 @@ mv "$3.bak" "$3"
 
 ######################### Start here #####################
 
-/home/pi/rpidatv/server/stream.sh >/dev/null 2>/dev/null &
+if ! pgrep -f stream.sh; then
+  /home/pi/rpidatv/server/stream.sh >/dev/null 2>/dev/null &
+fi
 
 if [ "$SESSION_TYPE" == "cron" ]; then
   SESSION_TYPE="boot"
