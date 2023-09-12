@@ -209,7 +209,6 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       GUI_RETURN_CODE="$?"
     ;;
     135)
-      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run
       /home/pi/Langstone/stop
@@ -265,9 +264,11 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       GUI_RETURN_CODE="$?"
     ;;
     145)                              # Langstone V2 Lime
+      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run_lime
       /home/pi/Langstone/stop_lime
+      pkill -f screen_grab_for_web.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
