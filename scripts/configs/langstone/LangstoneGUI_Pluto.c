@@ -354,7 +354,7 @@ int main(int argc, char* argv[])
     }
   strcat(plutoip,penv);
 
-  printf("plutoip = %s\n",plutoip);
+  fprintf(stderr, "plutoip = %s\n",plutoip);
 
 
   initUDP();
@@ -394,7 +394,7 @@ int main(int argc, char* argv[])
        touchX = web_x;
        touchY = web_y;
        strcpy(WebClickForAction, "no");
-       printf("Web touchX = %d, touchY = %d\n", touchX, touchY);
+       fprintf(stderr, "Web touchX = %d, touchY = %d\n", touchX, touchY);
        processTouch();
      }
 
@@ -1771,19 +1771,19 @@ FFUNC touchscreenClick(ffunc_session_t * session)
     ffunc_write_out(session, "Status: 200 OK\r\n");
     ffunc_write_out(session, "Content-Type: text/plain\r\n\r\n");
     ffunc_write_out(session, "%s\n", "click received.");
-    fprintf(stderr, "Received click POST: %s (%d)\n", payload.data?payload.data:"", payload.len);
+    //fprintf(stderr, "Received click POST: %s (%d)\n", payload.data?payload.data:"", payload.len);
 
     int x = -1;
     int y = -1;
     parseClickQuerystring(payload.data, &x, &y);
-    printf("After Parse: x: %d, y: %d\n", x, y);
+    //fprintf(stderr, "After Parse: x: %d, y: %d\n", x, y);
 
     if((x >= 0) && (y >= 0))
     {
       web_x = x;                 // web_x is a global int
       web_y = y;                 // web_y is a global int
       strcpy(WebClickForAction, "yes");
-      printf("Web Click Event x: %d, y: %d\n", web_x, web_y);
+      //fprintf(stderr, "Web Click Event x: %d, y: %d\n", web_x, web_y);
     }
   }
   else
@@ -1796,9 +1796,9 @@ FFUNC touchscreenClick(ffunc_session_t * session)
 
 void togglewebcontrol()
 {
-  printf("Creating thread as webclick listener is not running\n");
+  fprintf(stderr, "Creating thread as webclick listener is not running\n");
   pthread_create (&thwebclick, NULL, &WebClickListener, NULL);
-  printf("Created webclick listener thread\n");
+  fprintf(stderr, "Created webclick listener thread\n");
 }
 
 void *WebClickListener(void * arg)
@@ -1807,7 +1807,7 @@ void *WebClickListener(void * arg)
   {
     ffunc_run(ProgramName);
   }
-  printf("Exiting WebClickListener\n");
+  fprintf(stderr, "Exiting WebClickListener\n");
   return NULL;
 }
 
