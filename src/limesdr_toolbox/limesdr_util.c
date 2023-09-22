@@ -33,9 +33,19 @@ int limesdr_set_channel(const unsigned int freq,
 						const char *antenna,
 						const int is_tx,
 						lms_device_t *device,
-						bool WithCalibration)
+						bool WithCalibration,
+						bool Forward)
 
 {
+
+	if (Forward)
+	{
+		if (LMS_EnableChannel(device, is_tx, channel, true) < 0)
+		{
+			fprintf(stderr, "LMS_EnableChannelTx() : %s\n", LMS_GetLastErrorMessage());
+			//return -1;
+		}
+	}
 
 	if (!WithCalibration)
 	{
@@ -46,71 +56,71 @@ int limesdr_set_channel(const unsigned int freq,
 		{
 			fprintf(stderr,"No calibration file found. Perform a calibration. Exiting.\n");
 			exit(1);
-		}	
+		}
 	}
 
 	//if (WithCalibration)
 	{
-		
-		
 
-		
+
+
+
 
 		if (WithCalibration)
 		{
 			int nb_antenna = LMS_GetAntennaList(device, is_tx, channel, NULL);
-		lms_name_t list[nb_antenna];
-		LMS_GetAntennaList(device, is_tx, channel, list);
-		int antenna_found = 0;
-		int i;
-				
-		for (i = 0; i < nb_antenna; i++)
-		{
-			
-			if (strcmp(list[i], antenna) == 0)
+			lms_name_t list[nb_antenna];
+			LMS_GetAntennaList(device, is_tx, channel, list);
+			int antenna_found = 0;
+			int i;
+
+			for (i = 0; i < nb_antenna; i++)
 			{
-				antenna_found = 1;
-				if (LMS_SetAntenna(device, is_tx, channel, i) < 0)
+
+				if (strcmp(list[i], antenna) == 0)
 				{
-					fprintf(stderr, "LMS_SetAntenna() : %s\n", LMS_GetLastErrorMessage());
+					antenna_found = 1;
+					if (LMS_SetAntenna(device, is_tx, channel, i) < 0)
+					{
+						fprintf(stderr, "LMS_SetAntenna() : %s\n", LMS_GetLastErrorMessage());
+						return -1;
+					}
+				}
+			}
+			if (antenna_found == 0)
+			{
+				fprintf(stderr, "ERROR: unable to found antenna : %s\n", antenna);
+				return -1;
+			}
+
+			if (LMS_SetLOFrequency(device, is_tx, channel, freq) < 0)
+			{
+				fprintf(stderr, "LMS_SetLOFrequency() : %s\n", LMS_GetLastErrorMessage());
+				return -1;
+			}
+
+    	fprintf(stderr, "With Calibration\n");
+			if (gain >= 0)
+			{
+		  	fprintf(stderr, "Set %s gain to %f\n", is_tx ? "TX" : "RX", gain);
+				if (LMS_SetNormalizedGain(device, is_tx, channel, gain) < 0)
+		  	{
+					fprintf(stderr, "LMS_SetNormalizedGain() : %s\n", LMS_GetLastErrorMessage());
 					return -1;
 				}
 			}
-		}
-		if (antenna_found == 0)
-		{
-			fprintf(stderr, "ERROR: unable to found antenna : %s\n", antenna);
-			return -1;
-		}
-
-		if (LMS_SetLOFrequency(device, is_tx, channel, freq) < 0)
-		{
-			fprintf(stderr, "LMS_SetLOFrequency() : %s\n", LMS_GetLastErrorMessage());
-			return -1;
-		}
-
-            fprintf(stderr, "With Calibration\n");
-			if (gain >= 0)
-		{
-			fprintf(stderr, "Set %s gain to %f\n", is_tx ? "TX" : "RX", gain);
-			if (LMS_SetNormalizedGain(device, is_tx, channel, gain) < 0)
-			{
-				fprintf(stderr, "LMS_SetNormalizedGain() : %s\n", LMS_GetLastErrorMessage());
-				return -1;
-			}
-		}
 			if (LMS_Calibrate(device, is_tx, channel, bandwidth_calibrating, 0) < 0)
 			{
 				fprintf(stderr, "LMS_Calibrate() : %s\n", LMS_GetLastErrorMessage());
 				return -1;
 			}
-			LMS_SetNormalizedGain(device, is_tx, channel, 0);
-			//SaveCal(device, "limemini.cal");
-            if (LMS_SaveConfig(device, "limemini.cal") < 0)
-		    {
-			    fprintf(stderr, "LMS_SaveConfig() : %s\n", LMS_GetLastErrorMessage());
-			    return -1;
-		    }
+				LMS_SetNormalizedGain(device, is_tx, channel, 0);
+				//SaveCal(device, "limemini.cal");
+    	if (LMS_SaveConfig(device, "limemini.cal") < 0)
+			{
+				fprintf(stderr, "LMS_SaveConfig() : %s\n", LMS_GetLastErrorMessage());
+				return -1;
+			}
 		}
 		else
 		{
@@ -123,9 +133,9 @@ int limesdr_set_channel(const unsigned int freq,
 			return -1;
 		}
 			//LoadCal(device, "limemini.cal");
-			
+
 		}
-			
+
 		/*
 		if (LMS_SaveConfig(device, "limemini.cal") < 0)
 		{
@@ -136,7 +146,7 @@ int limesdr_set_channel(const unsigned int freq,
 
 		//LMS_SetNormalizedGain(device, is_tx, channel, 0);
 	}
-	
+
 	return 0;
 }
 
@@ -191,14 +201,14 @@ int16_t LoadCal(lms_device_t *device, char *FileCalib)
 	fscanf(file, "csw_vco=%hu\n", &csw_vco);
 
 	//restore results
-	
+
 	LMS_WriteLMSReg(device, 0x011D, reg011D);
 	LMS_WriteLMSReg(device, 0x011E, reg011E);
 	LMS_WriteParam(device, LMS7_DIV_LOCH, div_loch);
 	LMS_WriteParam(device, LMS7_EN_DIV2_DIVPROG, en_div2);
 	LMS_WriteParam(device, LMS7_SEL_VCO, sel_vco);
 	LMS_WriteParam(device, LMS7_CSW_VCO, csw_vco);
-	
+
 
 	// DC/IQ same for Rx/Tx just adjust the paramter names
 	uint16_t gcorri;
@@ -556,8 +566,11 @@ int SetGFIR(lms_device_t *device, int Upsample)
 		xcoeffs = xcoeffs4;
 	if (xcoeffs != NULL)
 	{
+		if (LMS_SetGFIRCoeff(device, LMS_CH_RX, 0, LMS_GFIR3, xcoeffs, 119) < 0)
+			fprintf(stderr, "Unable to set RX coeff GFIR3");
+
 		if (LMS_SetGFIRCoeff(device, LMS_CH_TX, 0, LMS_GFIR3, xcoeffs, 119) < 0)
-			fprintf(stderr, "Unable to set coeff GFIR3");
+			fprintf(stderr, "Unable to set TX coeff GFIR3");
 		return (LMS_SetGFIR(device, LMS_CH_TX, 0, LMS_GFIR3, true));
 	}
 	else
@@ -639,13 +652,13 @@ int limesdr_init(const double sample_rate,
 		fprintf(stderr, "LMS_EnableChannelTx1() : %s\n", LMS_GetLastErrorMessage());
 		//return -1;
 	}*/
-	
+
 	if (LMS_EnableChannel(*device, is_tx, channel, true) < 0)
 	{
 		fprintf(stderr, "LMS_EnableChannelTx() : %s\n", LMS_GetLastErrorMessage());
 		//return -1;
 	}
-	
+
 	LMS_SetNormalizedGain(*device, is_tx, channel, gain);
 	if(WithCalibration)
 	{
@@ -654,7 +667,7 @@ int limesdr_init(const double sample_rate,
 			fprintf(stderr, "LMS_SetSampleRate() : %s\n", LMS_GetLastErrorMessage());
 			return -1;
 		}
-		
+
 		if (LMS_GetSampleRate(*device, is_tx, channel, host_sample_rate, NULL) < 0)
 		{
 			fprintf(stderr, "Warning : LMS_GetSampleRate() : %s\n", LMS_GetLastErrorMessage());
@@ -662,12 +675,12 @@ int limesdr_init(const double sample_rate,
 		}
 		else
 			fprintf(stderr, "LMS_GetSampleRate() return : %f\n", *host_sample_rate);
-	}		
+	}
 	LMS_SetLPFBW(*device,is_tx,0,bandwidth_calibrating);
 
 	//	LMS_SetLPFBW(*device,is_not_tx,0,bandwidth_calibrating);
 
-	if (limesdr_set_channel(freq, bandwidth_calibrating, gain, channel, antenna, is_tx, *device, WithCalibration) < 0)
+	if (limesdr_set_channel(freq, bandwidth_calibrating, gain, channel, antenna, is_tx, *device, WithCalibration, false) < 0)
 	{
 		return -1;
 	}
@@ -676,6 +689,6 @@ int limesdr_init(const double sample_rate,
 		LMS_SetSampleRate(*device, sample_rate, 0);
 		LMS_GetSampleRate(*device, is_tx, channel, host_sample_rate,NULL);
 	}
-	
+
 	return 0;
 }

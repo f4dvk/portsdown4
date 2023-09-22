@@ -227,7 +227,7 @@ if [ ! -f  /home/pi/libiio/iio.h ]; then
   git clone https://github.com/analogdevicesinc/libiio.git
   cd libiio
   git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
-  cmake ./
+  cmake -DWITH_EXAMPLES=ON ./
   make all
   sudo make install
   cd /home/pi
@@ -695,7 +695,9 @@ cp -f -r "$PATHUBACKUP"/rtl-fm_presets.txt "$PATHSCRIPT"/rtl-fm_presets.txt
 cp -f -r "$PATHUBACKUP"/portsdown_locators.txt "$PATHSCRIPT"/portsdown_locators.txt
 
 # Restore the user's original rx_presets.txt
-cp -f -r "$PATHUBACKUP"/rx_presets.txt "$PATHSCRIPT"/rx_presets.txt
+if grep -q upsample "$PATHUBACKUP"/rx_presets.txt; then
+  cp -f -r "$PATHUBACKUP"/rx_presets.txt "$PATHSCRIPT"/rx_presets.txt
+fi
 
 # Restore the user's original stream presets
 cp -f -r "$PATHUBACKUP"/stream_presets.txt "$PATHSCRIPT"/stream_presets.txt

@@ -8,4 +8,3 @@ all:
 
 dvb:
 	g++ -o limesdr_dvb limesdr_dvb.cpp limesdr_util.c $(FLAGS) -lm -lrt -lfftw3 -lpthread ./libdvbmod/libdvbmod/lib/libdvbmod.a 
-

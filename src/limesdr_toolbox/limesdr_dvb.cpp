@@ -42,7 +42,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <netinet/in.h> /* IPPROTO_IP, sockaddr_in, htons(), 
+#include <netinet/in.h> /* IPPROTO_IP, sockaddr_in, htons(),
 htonl() */
 #include <arpa/inet.h>  /* inet_addr() */
 #include <netdb.h>
@@ -89,51 +89,51 @@ double postpone_emitting_sec = 0.5;
 unsigned int device_i = 0;
 unsigned int channel = 0;
 
-//static uint64_t _timestamp_ns(void)
-//{
-//	struct timespec tp;
-//
-//	if (clock_gettime(CLOCK_REALTIME, &tp) != 0)
-//	{
-//		return (0);
-//	}
-//
-//	return ((int64_t)tp.tv_sec * 1e9 + tp.tv_nsec);
-//}
+static uint64_t _timestamp_ns(void)
+{
+	struct timespec tp;
+
+	if (clock_gettime(CLOCK_REALTIME, &tp) != 0)
+	{
+		return (0);
+	}
+
+	return ((int64_t)tp.tv_sec * 1e9 + tp.tv_nsec);
+}
 
 unsigned int NullFiller(lms_stream_t *tx_stream, int NbPacket, bool fpga)
 {
 	//unsigned char NullPacket[188] = {0x47, 0x1F, 0xFF, 'F', '5', 'O', 'E', 'O'};
 	unsigned char NullPacket[188] = {
-	0x47, 0x1F, 0xFF, 0x10, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+	0x47, 0x1F, 0xFF, 0x10,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	};
 	unsigned int TotalSampleWritten = 0;
 	for (int i = 0; i < NbPacket; i++)
 	{
-		int len = 0;
+		int len;
 		if (ModeDvb == DVBS)
 			len = DvbsAddTsPacket(NullPacket);
 		if (ModeDvb == DVBS2)
@@ -187,6 +187,7 @@ unsigned int NullFiller(lms_stream_t *tx_stream, int NbPacket, bool fpga)
 
 bool Tune(lms_stream_t *tx_stream, bool fpga)  // Carrier Mode
 {
+
 #define LEN_CARRIER 100000  // Shorter lengths do not seem to work
 
 	if (!fpga)  // Normal LimeSDR Mini
@@ -226,7 +227,7 @@ bool RunWithFile(lms_stream_t *tx_stream, bool live, bool fpga)
 
 	if (live)
 	{
-		int nin; //, nout;
+		int nin, nout;
 		int ret = ioctl(fileno(input), FIONREAD, &nin);
 
 		if ((ret == 0) && (nin < BUFFER_SIZE))
@@ -338,7 +339,7 @@ bool RunWithFile(lms_stream_t *tx_stream, bool live, bool fpga)
 			}
 		}
 	}
-	//int n, ret;
+	int n, ret;
 
 	return true;
 }
@@ -354,32 +355,29 @@ static void signal_handler(int signal)
 
 void print_usage()
 {
-  fprintf(stderr,
 
-"limesdr_dvb -%s\n\
-Usage:\n\
-limesdr_dvb -s SymbolRate [-i File Input] [-f Fec]  [-m Modulation Type]  [-c Constellation Type] [-p] [-h] \n\
-\n\
--i     Input Transport stream File (default stdin) \n\
--s     SymbolRate in (10000-4000000) \n\
--f     Fec : {1/2,3/4,5/6,7/8} for DVBS {1/4,1/3,2/5,1/2,3/5,2/3,3/4,5/6,7/8,8/9,9/10} for DVBS2 \n\
--m     Modulation Type {DVBS,DVBS2}\n\
--c     Constellation mapping (DVBS2) : {QPSK,8PSK,16APSK,32APSK}\n\
--p     Pilots on(DVBS2)\n\
--r     upsample (1,2,4) Better MER for low SR(<1M) choose 4\n\
--v     ShortFrame(DVBS2)\n\
--d     print net bitrate on stdout and exit\n\
--t     Tune frequency in Hertz \n\
--g     Gain (0..1) \n\
--q     {0,1} 0:Use a calibration file 1:Process calibration (!HF peak!)\n\
--F     Enable FPGA mapping\n\
--D     Digital Gain (FPGA Mapping only)\n\
--e     <GPIO_BAND> (default: 0)\n\
--h     help (print this help).\n\
-\n\
+	fprintf(stderr,
+			"limesdr_dvb -%s\n\
+Usage:\nlimesdr_dvb -s SymbolRate [-i File Input] [-f Fec]  [-m Modulation Type]  [-c Constellation Type] [-p] [-h] \n\
+-i            Input Transport stream File (default stdin) \n\
+-s            SymbolRate in (10000-4000000) \n\
+-f            Fec : {1/2,3/4,5/6,7/8} for DVBS {1/4,1/3,2/5,1/2,3/5,2/3,3/4,5/6,7/8,8/9,9/10} for DVBS2 \n\
+-m            Modulation Type {DVBS,DVBS2}\n\
+-c 	      Constellation mapping (DVBS2) : {QPSK,8PSK,16APSK,32APSK}\n\
+-p 	      Pilots on(DVBS2)\n\
+-r 	      upsample (1,2,4) Better MER for low SR(<1M) choose 4\n\
+-v 	      ShortFrame(DVBS2)\n\
+-d 	      print net bitrate on stdout and exit\n\
+-t 	      Tune frequency in Hertz \n\
+-g 	      Gain (0..1) \n\
+-q 	      {0,1} 0:Use a calibration file 1:Process calibration (!HF peak!)\n\
+-F 	      Enable FPGA mapping\n\
+-D 	      Digital Gain (FPGA Mapping only)\n\
+-e 	      <GPIO_BAND> (default: 0)\n\
+-h            help (print this help).\n\
 Example : ./limesdr_dvb -s 1000 -f 7/8 -m DVBS2 -c 8PSK -p\n\
-\n"
-, PROGRAM_VERSION);
+\n",
+			PROGRAM_VERSION);
 
 } /* end function print_usage */
 
@@ -398,8 +396,8 @@ int main(int argc, char **argv)
 	//Lime
 	bool WithCalibration = false;
 	bool FPGAMapping = false;
-        uint8_t gpio_band = 0;
-	bool LimeSDR_USB = false;        
+	uint8_t gpio_band = 0;
+	bool LimeSDR_USB = false;
 
 	while (1)
 	{
@@ -525,11 +523,11 @@ int main(int argc, char **argv)
 		case '?':
 			if (isprint(optopt))
 			{
-				fprintf(stderr, "limesdr_dvb `-%c'.\n", optopt);
+				fprintf(stderr, "dvb2iq `-%c'.\n", optopt);
 			}
 			else
 			{
-				fprintf(stderr, "limesdr_dvb: unknown option character `\\x%x'.\n", optopt);
+				fprintf(stderr, "dvb2iq: unknown option character `\\x%x'.\n", optopt);
 			}
 			print_usage();
 
@@ -593,8 +591,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Using file mode\n");
 
 	// Init LimeSDR
-
-  // Determine correct Antenna first
+	// Determine correct Antenna first
   char const *antenna = "BAND1";  // correct for < 2 GHz LimeSDR USB, or > 2 GHz LimeSDR Mini or LMN
 
   if ((LimeSDR_USB == true) && (freq > 2000000000))
@@ -632,14 +629,14 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-    	// Set up GPIOs for output
+	// Set up GPIOs for output
 	uint8_t gpio_dir = 0x8F; // set the 4 LSBs and the MSB to write
     	if (LMS_GPIODirWrite(device, &gpio_dir, 1) != 0) //1 byte buffer is enough to configure 8 GPIO pins on LimeSDR-USB
     	{
 		fprintf(stderr, "LMS_SetupStream() : %s\n", LMS_GetLastErrorMessage());
 		return 1;
     	}
- 
+
 	// Make sure PTT is not set
 	if (gpio_band >= 128)
 	{
@@ -668,7 +665,7 @@ int main(int argc, char **argv)
 	{
 		buffer_size = 8000 * upsample * CoeffBufferSize; //FixMe for DVB-S
 		if (FPGAMapping)
-			buffer_size = 272 * 10000/16; //(FixMe) /16 added by G8GKQ = 170,000 
+			buffer_size = 272 * 10000/16; //(FixMe) /16 added by G8GKQ = 170,000
 	}
 
 	 lms_stream_t tx_stream;
@@ -679,9 +676,9 @@ int main(int argc, char **argv)
 		tx_stream.fifoSize = buffer_size;
 		tx_stream.throughputVsLatency = FPGAMapping?1.0:1.0; //Need maybe more at high symbolrate : fixme !
 		tx_stream.dataFmt = lms_stream_t::LMS_FMT_I16;
-	
 
-	
+
+
 	if(FPGAMapping)
 	{
 		uint16_t FpgaCustomRegister=0;
@@ -715,15 +712,15 @@ int main(int argc, char **argv)
 
 	/*if (isapipe)
 	{
-			static unsigned char BufferDummyTS[BUFFER_SIZE*10];	
+			static unsigned char BufferDummyTS[BUFFER_SIZE*10];
 		int nin=0xffff;
 		while(nin>BUFFER_SIZE*10)
 		{
 			int ret = ioctl(fileno(input), FIONREAD, &nin);
 			fread(BufferDummyTS,1,BUFFER_SIZE*10,input);
 			fprintf(stderr,"Init Pipein=%d\n",nin);
-		}	
-		
+		}
+
 	}
 */
 
@@ -769,7 +766,7 @@ int main(int argc, char **argv)
 
 		//if (DebugCount % 1000 == 0)
 		//{
-		//	fprintf(stderr, "Fifo =%d/%d dropped %d underrun %d overrun %d Link=%f \n", Status.fifoFilledCount, Status.fifoSize, Status.droppedPackets, Status.underrun, Status.overrun, Status.linkRate);
+			//fprintf(stderr, "Fifo =%d/%d dropped %d underrun %d overrun %d Link=%f \n", Status.fifoFilledCount, Status.fifoSize, Status.droppedPackets, Status.underrun, Status.overrun, Status.linkRate);
 		//}
 		//DebugCount++;
 	}
@@ -779,7 +776,7 @@ int main(int argc, char **argv)
 	LMS_GPIOWrite(device, &gpio_band, 1);
 
 	// Set  Fan auto
-   	LMS_WriteFPGAReg(device, 0xCC, 0x00);  // Enable auto fan control
+	LMS_WriteFPGAReg(device, 0xCC, 0x00);  // Enable auto fan control
 
 	LMS_SetNormalizedGain(device, LMS_CH_TX, channel, 0);
 	LMS_StopStream(&tx_stream);

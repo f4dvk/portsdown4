@@ -462,13 +462,13 @@ case "$MODE_OUTPUT" in
     let DIGITAL_GAIN=($LIME_GAIN*31)/100 # For LIMEDVB
 
     if [ "$SYMBOLRATE_K" -lt 990 ] ; then
-      UPSAMPLE=2
+      UPSAMPLE=4
       LIME_GAINF=`echo - | awk '{print '$LIME_GAIN' / 100}'`
     elif [ "$SYMBOLRATE_K" -lt 1500 ] && [ "$MODULATION" == "DVB-S" ] ; then
-      UPSAMPLE=2
+      UPSAMPLE=4
       LIME_GAINF=`echo - | awk '{print '$LIME_GAIN' / 100}'`
     else
-      UPSAMPLE=1
+      UPSAMPLE=2
       LIME_GAINF=`echo - | awk '{print ( '$LIME_GAIN' - 6 ) / 100}'`
     fi
 
@@ -511,7 +511,7 @@ case "$MODE_OUTPUT" in
 
     if [ -f "$PATH_LIME_CAL" ]; then                                   # Lime Cal file exists, so read it
       LIMECALFREQ=$(get_config_var limecalfreq $PATH_LIME_CAL)
-    else                                                               # No file, so set to calibrate 
+    else                                                               # No file, so set to calibrate
       LIMECALFREQ="-1.0"
     fi
 
@@ -570,7 +570,7 @@ case "$MODE_INPUT" in
   #============================================ H264 PI CAM INPUT MODE =========================================================
   "CAMH264")
 
-    # Check PiCam is present to prevent kernel panic    
+    # Check PiCam is present to prevent kernel panic
     vcgencmd get_camera | grep 'detected=1' >/dev/null 2>/dev/null
     RESULT="$?"
     if [ "$RESULT" -ne 0 ]; then
@@ -670,7 +670,7 @@ case "$MODE_INPUT" in
       ;;
       "DATVEXPRESS")
         echo "set ptt tx" >> /tmp/expctrl
-        sudo nice -n -30 netcat -u -4 127.0.0.1 1314 < videots & 
+        sudo nice -n -30 netcat -u -4 127.0.0.1 1314 < videots &
       ;;
       "LIMEMINI" | "LIMEUSB" | "LIMEDVB")
         $PATHRPI"/limesdr_dvb" -i videots -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
@@ -744,7 +744,7 @@ x=(w/2-(text_w/2)):y=(h-text_h-40)"
     VF="-vf "
   else
     CAPTION=""
-    VF=""    
+    VF=""
   fi
 else
   if [ "$CAPTIONON" == "on" ]; then
@@ -754,7 +754,7 @@ x=w/10:y=(h/4-text_h)/2"
     VF="-vf "
   else
     CAPTION=""
-    VF=""    
+    VF=""
   fi
 fi
 
@@ -876,8 +876,8 @@ fi
 
           # ******************************* MPEG-2 VIDEO WITH AUDIO ************************************
 
-          # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.  nice -n -30 
-          # PMT, Vid and Audio PIDs can all be set. 
+          # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.  nice -n -30
+          # PMT, Vid and Audio PIDs can all be set.
 
           sudo $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET"\
             -analyzeduration 0 -probesize 2048  -fpsprobesize 0 -thread_queue_size 512 \
@@ -1167,12 +1167,12 @@ fi
       ANALOGCAMNAME=$VID_WEBCAM
     fi
 
-    # If PiCam is present unload driver   
+    # If PiCam is present unload driver
     vcgencmd get_camera | grep 'detected=1' >/dev/null 2>/dev/null
     RESULT="$?"
     if [ "$RESULT" -eq 0 ]; then
       sudo modprobe -r bcm2835_v4l2
-    fi    
+    fi
 
     if [ "$MODULATION" != "DVB-T" ]; then      ## For DVB-S and DVB-S2
       # Set up means to transport of stream out of unit
@@ -1250,7 +1250,7 @@ fi
       else
         # Resample the audio (was 32k or 48k which overruns, so this is reduced to 47500)
         arecord -f S16_LE -r $AUDIO_SAMPLE -c 2 -B $ARECORD_BUF -D plughw:$AUDIO_CARD_NUMBER,0 \
-         | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 47500 &  
+         | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 47500 &
 
         sudo $PATHRPI"/avc2ts" -b $BITRATE_VIDEO -m $BITRATE_TS -d 300 -x $VIDEO_WIDTH -y $VIDEO_HEIGHT \
           -f $VIDEO_FPS -i $IDRPERIOD $OUTPUT_FILE -t 2 -e $ANALOGCAMNAME -p $PIDPMT -s $CALL $OUTPUT_IP \
@@ -1267,7 +1267,7 @@ fi
           else
             arecord -f S16_LE -r $AUDIO_SAMPLE -c 2 -B $ARECORD_BUF -D plughw:$AUDIO_CARD_NUMBER,0 \
               | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 47500 &
-          fi 
+          fi
         fi
       done
     fi
@@ -1449,7 +1449,7 @@ fi
       (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
     fi
 
-    # If PiCam is present unload driver   
+    # If PiCam is present unload driver
     vcgencmd get_camera | grep 'detected=1' >/dev/null 2>/dev/null
     RESULT="$?"
     if [ "$RESULT" -eq 0 ]; then
@@ -1576,7 +1576,7 @@ fi
       "DATVEXPRESS")
         echo "set ptt tx" >> /tmp/expctrl
         sudo nice -n -30 netcat -u -4 127.0.0.1 1314 < $TSVIDEOFILE &
-        #sudo nice -n -30 cat $TSVIDEOFILE | sudo nice -n -30 netcat -u -4 127.0.0.1 1314 & 
+        #sudo nice -n -30 cat $TSVIDEOFILE | sudo nice -n -30 netcat -u -4 127.0.0.1 1314 &
       ;;
       "LIMEMINI" | "LIMEUSB" | "LIMEDVB")
       $PATHRPI"/limesdr_dvb" -i $TSVIDEOFILE -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
@@ -1724,13 +1724,13 @@ fi
           text=\'$CALL\': fontcolor=white: fontsize=36: box=1: boxcolor=black@0.5: \
           boxborderw=5: x=w/10: y=(h/4-text_h)/2, "
       else
-        CAPTION=""    
+        CAPTION=""
       fi
     fi
 
     # Select USB Video Dongle or Webcam and set USB Video modes
     if [ "$MODE_INPUT" == "ANALOGMPEG-2" ] || [ "$MODE_INPUT" == "ANALOG16MPEG-2" ]; then
-      # Set the EasyCap input 
+      # Set the EasyCap input
       if [ "$ANALOGCAMINPUT" != "-" ]; then
         v4l2-ctl -d $ANALOGCAMNAME "--set-input="$ANALOGCAMINPUT
       fi
@@ -1849,7 +1849,7 @@ exit
 
         # ******************************* MPEG-2 ANALOG VIDEO WITH AUDIO ************************************
 
-        # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.  
+        # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.
         # PMT, Vid and Audio PIDs can all be set.
 
         $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET"\
@@ -1904,7 +1904,7 @@ exit
       # Display the numbers on the desktop
       sudo fbi -T 1 -noverbose -a /home/pi/tmp/contest.jpg >/dev/null 2>/dev/null
       (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
-    
+
     elif [ "$MODE_INPUT" == "CARDMPEG-2" ] && [ "$FORMAT" != "16:9" ]; then
       if [ "$CAPTIONON" == "on" ]; then
         rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
@@ -2054,8 +2054,8 @@ exit
 
           # ******************************* MPEG-2 CARD WITH AUDIO ************************************
 
-          # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.  
-          # PMT, Vid and Audio PIDs can all be set. nice -n -30 
+          # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.
+          # PMT, Vid and Audio PIDs can all be set. nice -n -30
 
           sudo $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET" \
             -thread_queue_size 512 \
@@ -2119,12 +2119,12 @@ exit
 #echo AUDIO_CARD_NUMBER $AUDIO_CARD_NUMBER
 #echo ARECORD_BUF $ARECORD_BUF
 
-      # If PiCam is present unload driver   
+      # If PiCam is present unload driver
       vcgencmd get_camera | grep 'detected=1' >/dev/null 2>/dev/null
       RESULT="$?"
       if [ "$RESULT" -eq 0 ]; then
         sudo modprobe -r bcm2835_v4l2
-      fi    
+      fi
 
       # Set Video parameters and control the Cam Link 4K
       if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
@@ -2223,7 +2223,7 @@ exit
         #arecord -f S16_LE -r $AUDIO_SAMPLE -c 2 -B $ARECORD_BUF -D plughw:$AUDIO_CARD_NUMBER,0 > audioin.wav &
 
         arecord -f S16_LE -r $AUDIO_SAMPLE -c 2 -B $ARECORD_BUF -D plughw:$AUDIO_CARD_NUMBER,0 \
-         | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 48000 &  
+         | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 48000 &
 
         sudo $PATHRPI"/avc2ts" -b $BITRATE_VIDEO -m $BITRATE_TS -d 300 -x $VIDEO_WIDTH -y $VIDEO_HEIGHT \
           -f $VIDEO_FPS -i $IDRPERIOD $OUTPUT_FILE -t 2 -e $VID_WEBCAM -p $PIDPMT -s $CALL $OUTPUT_IP \
@@ -2239,7 +2239,7 @@ exit
         # Resample the audio (was 32k or 48k which overruns, so this is reduced to 46500)
 
         arecord -f S16_LE -r $AUDIO_SAMPLE -c 2 -B $ARECORD_BUF -D plughw:$AUDIO_CARD_NUMBER,0 \
-         | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 48000 &  
+         | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 48000 &
 
         sudo $PATHRPI"/avc2ts" -b $BITRATE_VIDEO -m $BITRATE_TS -d 300 -x $VIDEO_WIDTH -y $VIDEO_HEIGHT \
           -f $VIDEO_FPS -i $IDRPERIOD $OUTPUT_FILE -t 2 -e $VID_WEBCAM -p $PIDPMT -s $CALL $OUTPUT_IP \
@@ -2252,7 +2252,7 @@ exit
         sleep 10
         if ! pgrep -x "arecord" > /dev/null; then # arecord is not running, so restart it
           arecord -f S16_LE -r $AUDIO_SAMPLE -c 2 -B $ARECORD_BUF -D plughw:$AUDIO_CARD_NUMBER,0 \
-           | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 48000 &  
+           | sox -c $AUDIO_CHANNELS --buffer 1024 -t wav - audioin.wav rate 48000 &
         fi
       done
     fi

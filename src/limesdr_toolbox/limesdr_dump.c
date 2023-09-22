@@ -34,10 +34,11 @@ int main(int argc, char** argv)
 		       "  -b <BANDWIDTH_CALIBRATING> (default: 8e6)\n"
 		       "  -s <SAMPLE_RATE> (default: 2e6)\n"
 		       "  -g <GAIN_NORMALIZED> (default: 1)\n"
-                       "  -l <BUFFER_SIZE>  (default: 1024*1024)\n"
+		       "  -l <BUFFER_SIZE>  (default: 1024*1024)\n"
 		       "  -d <DEVICE_INDEX> (default: 0)\n"
 		       "  -c <CHANNEL_INDEX> (default: 0)\n"
 		       "  -a <ANTENNA> (LNAL | LNAH | LNAW) (default: LNAW)\n"
+		       "  -r <RRC FILTER> (0 | 2 | 4) (default: 0)\n"
 		       "  -o <OUTPUT_FILENAME> (default: stdout)\n");
 		return 1;
 	}
@@ -49,6 +50,7 @@ int main(int argc, char** argv)
 	unsigned int buffer_size = 1024*1024;
 	unsigned int device_i = 0;
 	unsigned int channel = 0;
+	int rrc=1;
 	char* antenna = "LNAW";
 	char* output_filename = NULL;
 	for ( i = 1; i < argc-1; i += 2 ) {
@@ -60,6 +62,7 @@ int main(int argc, char** argv)
 		else if (strcmp(argv[i], "-d") == 0) { device_i = atoi( argv[i+1] ); }
 		else if (strcmp(argv[i], "-c") == 0) { channel = atoi( argv[i+1] ); }
 		else if (strcmp(argv[i], "-a") == 0) { antenna = argv[i+1]; }
+		else if (strcmp(argv[i], "-r") == 0) { rrc = atoi( argv[i+1] ); }
 		else if (strcmp(argv[i], "-o") == 0) { output_filename = argv[i+1]; }
 	}
 	if ( freq == 0 ) {
@@ -102,6 +105,24 @@ int main(int argc, char** argv)
 	}
 	fprintf(stderr, "sample_rate: %f\n", host_sample_rate);
 
+//	if(SetGFIR(device,2)<0)
+//	{
+//		fprintf(stderr, "SetGFIR() : %s\n", LMS_GetLastErrorMessage());
+//		return -1;
+//	}
+//	LMS_SetGFIR(device, LMS_CH_RX, 0, LMS_GFIR3, true);
+
+	if(SetGFIR(device,rrc)<0)
+	{
+		fprintf(stderr, "SetGFIR() : %s\n", LMS_GetLastErrorMessage());
+		return -1;
+	}
+
+	if(rrc>1)
+		LMS_SetGFIR(device, LMS_CH_RX, 0, LMS_GFIR3, true);
+	else
+		LMS_SetGFIR(device, LMS_CH_RX, 0, LMS_GFIR3, false);
+
 	lms_stream_t rx_stream = {
 		.channel = channel,
 		.fifoSize = buffer_size * sizeof(*buff),
@@ -113,7 +134,9 @@ int main(int argc, char** argv)
 		fprintf(stderr, "LMS_SetupStream() : %s\n", LMS_GetLastErrorMessage());
 		return 1;
 	}
+
 	LMS_StartStream(&rx_stream);
+	LMS_SetNormalizedGain( device, LMS_CH_RX, channel, gain );
 	while( 1 ) {
 		int nb_samples = LMS_RecvStream( &rx_stream, buff, buffer_size, NULL, 1000 );
 		if ( nb_samples < 0 ) {
@@ -123,6 +146,7 @@ int main(int argc, char** argv)
 		fwrite( buff, sizeof( *buff ), nb_samples, fd );
 		fflush( fd );
 	}
+	LMS_SetNormalizedGain( device, LMS_CH_RX, channel, 0 );
 	LMS_StopStream(&rx_stream);
 	LMS_DestroyStream(device, &rx_stream);
 	free( buff );

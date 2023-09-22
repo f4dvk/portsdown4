@@ -39,24 +39,23 @@ static void signal_handler(int signal)
 
 int main(int argc, char** argv)
 {
-  if ( argc < 2 )
-  {
-    printf("Usage: %s <OPTIONS>\n", argv[0]);
-    printf("  -f <FREQUENCY>\n"
-           "  -b <BANDWIDTH_CALIBRATING> (default: 8e6)\n"
-           "  -s <SAMPLE_RATE> (default: 2e6)\n"
-           "  -g <GAIN_NORMALIZED> (default: 1)\n"
-           "  -l <BUFFER_SIZE> (default: 1024*1024)\n"
-           "  -p <POSTPONE_EMITTING_SEC> (default: 3)\n"
-           "  -d <DEVICE_INDEX> (default: 0)\n"
-           "  -c <CHANNEL_INDEX> (default: 0)\n"
-           "  -a <ANTENNA> (BAND1 | BAND2) (default: BAND1)\n"
-           "  -r <RRC FILTER> (0 | 2 | 4) (default: 0)\n"
-           "  -i <INPUT_FILENAME> (default: stdin)\n"
-           "  -e <GPIO_BAND> (default: 0)\n"
-           "  -q <CalibrationEnable> (default: 1)\n");
-    return 1;
-  }
+	if ( argc < 2 ) {
+		printf("Usage: %s <OPTIONS>\n", argv[0]);
+		printf("  -f <FREQUENCY>\n"
+		       "  -b <BANDWIDTH_CALIBRATING> (default: 8e6)\n"
+		       "  -s <SAMPLE_RATE> (default: 2e6)\n"
+		       "  -g <GAIN_NORMALIZED> (default: 1)\n"
+		       "  -l <BUFFER_SIZE> (default: 1024*1024)\n"
+		       "  -p <POSTPONE_EMITTING_SEC> (default: 3)\n"
+		       "  -d <DEVICE_INDEX> (default: 0)\n"
+		       "  -c <CHANNEL_INDEX> (default: 0)\n"
+		       "  -a <ANTENNA> (BAND1 | BAND2) (default: BAND1)\n"
+		       "  -r <RRC FILTER> (0 | 2 | 4) (default: 0)\n"
+		       "  -e <GPIO_BAND> (default: 0)\n"
+		       "  -i <INPUT_FILENAME> (default: stdin)\n"
+		       "  -q <CalibrationEnable> (default: 1)\n");
+		return 1;
+	}
 	int i;
 	unsigned int freq = 0;
 	double bandwidth_calibrating = 8e6;
@@ -83,7 +82,7 @@ int main(int argc, char** argv)
 		else if (strcmp(argv[i], "-a") == 0) { antenna = argv[i+1]; }
 		else if (strcmp(argv[i], "-r") == 0) { rrc = atoi( argv[i+1] ); }
 		else if (strcmp(argv[i], "-i") == 0) { input_filename = argv[i+1]; }
-                else if (strcmp(argv[i], "-e") == 0) { gpio_band = atoi( argv[i+1] ); }
+		else if (strcmp(argv[i], "-e") == 0) { gpio_band = atoi( argv[i+1] ); }
 		else if (strcmp(argv[i], "-q") == 0) { WithCalibration = atoi(argv[i+1]); }
 	}
 	if ( freq == 0 ) {
@@ -130,32 +129,32 @@ int main(int argc, char** argv)
 	fprintf(stderr, "sample_rate: %f\n", host_sample_rate);
 	lms_stream_t tx_stream = {
 		.channel = channel,
-		.fifoSize = buffer_size,
+		.fifoSize = buffer_size*20,
 		.throughputVsLatency = 0.2,
 		.isTx = LMS_CH_TX,
 		.dataFmt = LMS_FMT_I16
 	};
 
-    	// Set up GPIOs for output
-	uint8_t gpio_dir = 0x8F; // set the 4 LSBs and the MSB to write
-    	if (LMS_GPIODirWrite(device, &gpio_dir, 1) != 0) //1 byte buffer is enough to configure 8 GPIO pins on LimeSDR-USB
-    	{
+	// Set up GPIOs for output
+	uint8_t gpio_dir = 0x8F; // Set the 4 LSBs and the MSB to write
+	if (LMS_GPIODirWrite(device, &gpio_dir, 1) != 0) // 1 byte buffer is enough to configure 8 GPIO pins on LimeSDR-USB
+	{
 		fprintf(stderr, "LMS_SetupStream() : %s\n", LMS_GetLastErrorMessage());
 		return 1;
-    	}
- 
+	}
+
 	// Make sure PTT is not set
 	if (gpio_band >= 128)
 	{
-		 gpio_band = gpio_band - 128;
+		gpio_band = gpio_band - 128;
 	}
 
 	// Set band
-   	if (LMS_GPIOWrite(device, &gpio_band, 1)!=0) //1 byte buffer is enough to write 8 GPIO pins on LimeSDR-USB
-    	{
+	if (LMS_GPIOWrite(device, &gpio_band, 1)!=0) //1 byte buffer is enough to write 8 GPIO pins on LimeSDR-USB
+	{
 		fprintf(stderr, "LMS_SetupStream() : %s\n", LMS_GetLastErrorMessage());
 		return 1;
-    	}
+	}
 
 	if ( LMS_SetupStream(device, &tx_stream) < 0 ) {
 		fprintf(stderr, "LMS_SetupStream() : %s\n", LMS_GetLastErrorMessage());
@@ -170,20 +169,19 @@ int main(int argc, char** argv)
 	// Set PTT
 	if (gpio_band < 128)
 	{
-		 gpio_band = gpio_band + 128;
+		gpio_band = gpio_band + 128;
 	}
 
 	// Set PTT on
-   	if (LMS_GPIOWrite(device, &gpio_band, 1)!=0) //1 byte buffer is enough to write 8 GPIO pins on LimeSDR-USB
-    	{
+	if (LMS_GPIOWrite(device, &gpio_band, 1)!=0) //1 byte buffer is enough to write 8 GPIO pins on LimeSDR-USB
+	{
 		fprintf(stderr, "LMS_SetupStream() : %s\n", LMS_GetLastErrorMessage());
 		return 1;
-    	}
+	}
 
-	// Set  Fan on
-   	LMS_WriteFPGAReg(device, 0xCC, 0x01);  // Enable manual fan control
-        LMS_WriteFPGAReg(device, 0xCD, 0x01);  // Turn fan on
-
+	// Set Fan on
+	LMS_WriteFPGAReg(device, 0xCC, 0x01); // Enable manual fan control
+	LMS_WriteFPGAReg(device, 0xCD, 0x01); // Turn fan on
 
 	//LMS_StartStream(&tx_stream);
 	if(rrc>1)
@@ -208,8 +206,8 @@ int main(int argc, char** argv)
 	}
 	LMS_StartStream(&rx_stream);
 	*/
-	
-	
+
+
 	signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
         signal(SIGQUIT, signal_handler);
@@ -220,20 +218,37 @@ int main(int argc, char** argv)
 	bool FirstTx=true;
 	bool Transition=true;
 	int TotalSampleSent=0;
-	
+	int DebugCount=0;
 	while( !want_quit ) {
-		lms_stream_status_t Status;
-		LMS_GetStreamStatus(&tx_stream,&Status);
-		if(Status.fifoFilledCount<Status.fifoSize*0.4)
+
+			lms_stream_status_t Status;
+			LMS_GetStreamStatus(&tx_stream,&Status);
+
+		if(DebugCount%100==0)
 		{
-				fprintf(stderr,"Fifo=%d/%d\n",Status.fifoFilledCount,Status.fifoSize);
-				//memset(buff,0,buffer_size*sizeof(*buff));
-				//LMS_SendStream( &tx_stream, buff, (Status.fifoSize-Status.fifoFilledCount)/sizeof( *buff ), NULL, 1000 );
-		}		
+			fprintf(stderr,"Fifo =%d/%d\n",Status.fifoFilledCount,Status.fifoSize);
+			/*
+			if(Status.fifoFilledCount<Status.fifoSize*0.2)
+			{
+					fprintf(stderr,"Fifo nearly empty=%d/%d\n",Status.fifoFilledCount,Status.fifoSize);
+					//memset(buff,0,buffer_size*sizeof(*buff));
+					//LMS_SendStream( &tx_stream, buff, (Status.fifoSize-Status.fifoFilledCount)/sizeof( *buff ), NULL, 1000 );
+			}*/
+		}
+		DebugCount++;
 		int nb_samples_to_send = fread( buff, sizeof( *buff ), buffer_size, fd );
-		if(FirstTx)
+
+		if((!FirstTx)&&(Status.fifoFilledCount<Status.fifoSize*0.25))
 		{
-			
+			memset(buff,0,buffer_size*sizeof(struct s16iq_sample_s));
+			for(int i=0;i<8;i++)
+				LMS_SendStream( &tx_stream, buff, buffer_size, NULL/*&tx_meta*/, 1000 );
+			fprintf(stderr,"Underflow ! %d\n",Status.fifoFilledCount);
+
+		}
+		if(FirstTx&&(Status.fifoFilledCount==Status.fifoSize))
+		{
+			fprintf(stderr,"Restart stream %d \n",Status.fifoFilledCount);
 			LMS_StartStream(&tx_stream);
 			FirstTx=false;
 		}
@@ -246,22 +261,27 @@ int main(int argc, char** argv)
             else
 			    break;
 		}
-	    int nb_samples = LMS_SendStream( &tx_stream, buff, nb_samples_to_send, NULL/*&tx_meta*/, 1000 );
+		int nb_samples;
+		if(!FirstTx)
+	    	 nb_samples = LMS_SendStream( &tx_stream, buff, nb_samples_to_send, NULL/*&tx_meta*/, 1000 );
+		else
+				 nb_samples = LMS_SendStream( &tx_stream, buff, nb_samples_to_send, NULL/*&tx_meta*/, 000 );
 		TotalSampleSent+=nb_samples;
 		if ( nb_samples < 0 ) {
 			fprintf(stderr, "LMS_SendStream() : %s\n", LMS_GetLastErrorMessage());
-			break;
+
 		}
 		if(Transition)
 		{
 			if(TotalSampleSent>sample_rate) // 1 second
 			{
 				LMS_SetNormalizedGain( device, LMS_CH_TX, channel, gain );
-				Transition=false;		
+				Transition=false;
 			}
 		}
 		tx_meta.timestamp += nb_samples;
 	}
+	LMS_SetNormalizedGain( device, LMS_CH_TX, channel, 0 );
 	LMS_StopStream(&tx_stream);
 	LMS_DestroyStream(device, &tx_stream);
 	free( buff );
@@ -271,9 +291,8 @@ int main(int argc, char** argv)
 	gpio_band = gpio_band - 128;
 	LMS_GPIOWrite(device, &gpio_band, 1);
 
-	// Set  Fan auto
-   	LMS_WriteFPGAReg(device, 0xCC, 0x00);  // Enable auto fan control
-
+	// Set Fan auto
+	LMS_WriteFPGAReg(device, 0xCC, 0x00); // Enable auto fan control
 
 	LMS_EnableChannel( device, LMS_CH_TX, channel, false);
 	LMS_Close(device);

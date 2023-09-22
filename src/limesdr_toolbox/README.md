@@ -7,13 +7,20 @@ The toolbox contains the following tools:
  - limesdr_forward : relay of both digital and analog signals : forward input I/Q signals of a RX channel (inputs frequencies) to a TX channel (output frequencies).
  - limesdr_stopchannel : stop all RX/TX channels (debug purpose)
 
+ # Installation
+```
+wget https://raw.githubusercontent.com/f4dvk/limesdr_toolbox/master/install.sh
+chmod +x install.sh
+./install.sh
+```
+
 # limesdr_dump
 limesdr_dump allows to dump I/Q signals on arbitrary frequencies with 16-bits resolution (highest precision of the hardware).
 ```
 $ ./limesdr_dump
 Usage: ./limesdr_dump <OPTIONS>
   -f <FREQUENCY>
-  -b <BANDWIDTH_CALIBRATING> (default: 200e3)
+  -b <BANDWIDTH_CALIBRATING> (default: 8e6)
   -s <SAMPLE_RATE> (default: 2e6)
   -g <GAIN_NORMALIZED> (default: 1)
   -l <BUFFER_SIZE>  (default: 1024*1024)
@@ -38,7 +45,7 @@ limesdr_send allows to send any I/Q signals.
 $ ./limesdr_send
 Usage: limesdr_send <OPTIONS>
   -f <FREQUENCY>
-  -b <BANDWIDTH_CALIBRATING> (default: 200e3)
+  -b <BANDWIDTH_CALIBRATING> (default: 8e6)
   -s <SAMPLE_RATE> (default: 2e6)
   -g <GAIN_NORMALIZED> (default: 1)
   -l <BUFFER_SIZE> (default: 1024*1024)
@@ -47,6 +54,7 @@ Usage: limesdr_send <OPTIONS>
   -c <CHANNEL_INDEX> (default: 0)
   -a <ANTENNA> (BAND1 | BAND2) (default: BAND1)
   -i <INPUT_FILENAME> (default: stdin)
+  -q <CalibrationEnable> (default: 0)
 ```
 
 E.g. send of previous caputured I/Q signals
@@ -67,7 +75,7 @@ $ ./limesdr_forward
 Usage: ./limesdr_forward <OPTIONS>
   -f <INPUT_FREQUENCY>
   -F <OUTPUT_FREQUENCY>
-  -b <BANDWIDTH_CALIBRATING> (default: 200e3)
+  -b <BANDWIDTH_CALIBRATING> (default: 8e6)
   -s <SAMPLE_RATE> (default: 2e6)
   -g <INPUT_GAIN_NORMALIZED> (default: unused)
   -G <OUTPUT_GAIN_NORMALIZED> (default: 1)
@@ -83,6 +91,14 @@ E.g. forwarding of a radio station
 ```
 $ ./limesdr_forward -f 100.1e6 -F 234.5e6
 ```
+
+Menu:
+```
+$ transpondeur
+```
+
+GPIO Mode: GPIO 21 (Pin 40), Low for active.
+
 
 # limesdr_stopchannel
 limesdr_stopchannel allows to stop all channels on RX/TX.
