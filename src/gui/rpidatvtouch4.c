@@ -12058,6 +12058,11 @@ void ProcessLeandvb2(int NoButton)
         if (Lock == 1)
         {
           strcpy(sLock,"[LOCKED]");
+          if (FirstLock == 0) // This is the first time MER has exceeded threshold
+          {
+            FirstLock = 1;
+            LockTime = clock();  // Set first lock time
+          }
         }
         else
         {
@@ -12089,11 +12094,6 @@ void ProcessLeandvb2(int NoButton)
           rectangle(wscreen * 1 / 40, hscreen - 7 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
           Text2(wscreen * 1 / 40, hscreen - 7 * linepitch, sMER, font_ptr);
 
-          if (FirstLock == 0) // This is the first time MER has exceeded threshold
-          {
-            FirstLock = 1;
-            LockTime = clock();  // Set first lock time
-          }
           if ((clock() > LockTime + 600000) && (FirstLock == 1))  // About 5s since first lock
           {
             FinishedButton = 2; // Hide parameters
@@ -12219,6 +12219,11 @@ void ProcessLeandvb2(int NoButton)
         if (Lock == 1)
         {
           strcpy(sLock,"[LOCKED]");
+          if (FirstLock == 0) // This is the first time MER has exceeded threshold
+          {
+            FirstLock = 1;
+            LockTime = clock();  // Set first lock time
+          }
         }
         else
         {
@@ -12246,11 +12251,6 @@ void ProcessLeandvb2(int NoButton)
           Text2(wscreen * 1 / 40, hscreen - 11 * linepitch, "Touch Centre to exit", font_ptr);
           Text2(wscreen * 1 / 40, hscreen - 12 * linepitch, "Touch Lower left for image capture", font_ptr);
 
-          if (FirstLock == 0) // This is the first time MER has exceeded threshold
-          {
-            FirstLock = 1;
-            LockTime = clock();  // Set first lock time
-          }
           if ((clock() > LockTime + 600000) && (FirstLock == 1))  // About 5s since first lock
           {
             FinishedButton = 2; // Hide parameters

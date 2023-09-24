@@ -78,7 +78,7 @@ detect_audio()
   printf "Video Input is $PIC_INPUT \n"
 
   # First check if any audio card is present
-  arecord -l | grep -q 'card'
+  arecord -l | grep -q 'card' | grep -v -e 'Loopback'
   if [ $? != 0 ]; then   ## not present
     printf "Audio card not present\n"
     # No known card detected so take the safe option and go for beeps
@@ -129,7 +129,7 @@ detect_audio()
       WC_AUDIO_SAMPLE=48000
       WC_VIDEO_FPS=29.97
     fi
- 
+
     C920Present=0
     # Check for the presence of a C920 Webcam with stereo audio
     arecord -l | grep -E -q \
@@ -435,9 +435,9 @@ detect_video()
   # select the line with the device details and delete the leading tab
   VID_USB1="$(v4l2-ctl --list-devices 2> /dev/null | \
     sed -n '/usb/,/dev/p' | grep 'dev' | tr -d '\t' | head -n1)"
-  
+
   printf "The first USB device string is $VID_USB1\n"
- 
+
   VID_USB2="$(v4l2-ctl --list-devices 2> /dev/null | \
     sed -n '/usb/,/dev/p' | grep 'dev' | tr -d '\t' | tail -n1)"
   printf "The second USB device string is $VID_USB2\n"
@@ -450,7 +450,7 @@ detect_video()
   if [ "$VID_USB2" != "$VID_WEBCAM" ]; then
     VID_USB=$VID_USB2
   printf "The second test passed"
-  fi  
+  fi
   printf "The final USB device string is $VID_USB\n"
 
   # List the video devices, select the 2 lines for any mmal device, then
@@ -592,8 +592,6 @@ detect_video()
 
   if [ "$WEBCAM_TYPE" == "None" ]; then
     printf "No Webcam identified\n"
-  else 
+  else
     printf "Found Webcam of type $WEBCAM_TYPE\n"
   fi
-
-

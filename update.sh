@@ -165,6 +165,9 @@ cp -f -r "$PATHSCRIPT"/TXstopextras.sh "$PATHUBACKUP"/TXstopextras.sh
 # Make a safe copy of the user's Test cards
 cp -f -r "$PATHSCRIPT"/images "$PATHUBACKUP"/images
 
+# Hotspot Config
+cp -f -r "$PATHSCRIPT"/hotspot_config.txt "$PATHUBACKUP"/hotspot_config.txt
+
 
 DisplayUpdateMsg "Step 4 of 10\nUpdating Software Package List\n\nXXXX------"
 
@@ -736,6 +739,9 @@ cp -f -r "$PATHUBACKUP"/user_button5.sh "$PATHSCRIPT"/user_button5.sh
 # Restore the user's original transmit start and transmit stop scripts
 cp -f -r "$PATHUBACKUP"/TXstartextras.sh "$PATHSCRIPT"/TXstartextras.sh
 cp -f -r "$PATHUBACKUP"/TXstopextras.sh "$PATHSCRIPT"/TXstopextras.sh
+
+# Restore hotspot_config
+cp -f -r "$PATHUBACKUP"/hotspot_config.txt "$PATHSCRIPT"/hotspot_config.txt
 
 # Restore the user's original test cards if required
 if test -f "$PATHUBACKUP"/images/tccw.jpg ; then     # Test card functionality included pre-update
