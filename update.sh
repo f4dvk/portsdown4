@@ -575,7 +575,7 @@ cp plutoview ../../bin/
 cd /home/pi
 
 # Install SDRPlay API and compile MeteorViewer
-if [ ! -f  home/pi/rpidatv/bin/beacon ]; then
+if [ ! -f  /home/pi/rpidatv/bin/beacon ]; then
   echo
   echo "-------------------------------------------------"
   echo "----- Setting SDRPlay for install on reboot -----"
@@ -947,6 +947,11 @@ if [ $? != 0 ]; then
   sudo systemctl disable dnsmasq
   sudo service dnsmasq stop
 fi
+
+# Réduction temps démarrage sans ethernet
+sudo sed -i 's/^TimeoutStartSec.*/TimeoutStartSec=5/' /etc/systemd/system/network-online.target.wants/networking.service
+sudo sed -i 's/^#timeout.*/timeout 8;/' /etc/dhcp/dhclient.conf
+sudo sed -i 's/^#retry.*/retry 20;/' /etc/dhcp/dhclient.conf
 
 # Reboot
 DisplayRebootMsg "Step 10 of 10\nRebooting\n\nUpdate Complete"
