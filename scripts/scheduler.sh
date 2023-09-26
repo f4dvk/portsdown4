@@ -268,7 +268,7 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       cd /home/pi
       /home/pi/Langstone/run_lime
       /home/pi/Langstone/stop_lime
-      pkill -f screen_grab_for_web.sh
+      /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
@@ -277,7 +277,7 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       cd /home/pi
       /home/pi/Langstone/run_pluto
       /home/pi/Langstone/stop_pluto
-      pkill -f screen_grab_for_web.sh
+      /home/pi/rpidatv/scripts/stop_web_update.sh
       PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
       ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "$PLUTOIP" >/dev/null 2>/dev/null
       # ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "pluto.local" >/dev/null 2>/dev/null

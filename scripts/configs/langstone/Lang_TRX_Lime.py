@@ -3,11 +3,10 @@
 ##################################################
 # GNU Radio Python Flow Graph
 # Title: Lang Trx Lime
-# Generated: Wed May 25 11:59:42 2022
+# Generated: Sat Sep 23 20:13:54 2023
 ##################################################
 import os
 import errno
-
 from gnuradio import analog
 from gnuradio import audio
 from gnuradio import blocks
@@ -17,6 +16,7 @@ from gnuradio import gr
 from gnuradio.eng_option import eng_option
 from gnuradio.fft import logpwrfft
 from gnuradio.filter import firdes
+from grc_gnuradio import blks2 as grc_blks2
 from optparse import OptionParser
 import limesdr
 
@@ -47,6 +47,7 @@ class Lang_TRX_Lime(gr.top_block):
         self.MicGain = MicGain = 5.0
         self.KEY = KEY = False
         self.FMMIC = FMMIC = 50
+        self.FFT_SEL = FFT_SEL = 0
         self.CTCSS = CTCSS = 885
         self.AMMIC = AMMIC = 5
         self.AFGain = AFGain = 20
@@ -54,22 +55,58 @@ class Lang_TRX_Lime(gr.top_block):
         ##################################################
         # Blocks
         ##################################################
+        self.rational_resampler_xxx_1_2 = filter.rational_resampler_ccc(
+                interpolation=1,
+                decimation=8,
+                taps=None,
+                fractional_bw=None,
+        )
+        self.rational_resampler_xxx_1_1_0 = filter.rational_resampler_ccc(
+                interpolation=1,
+                decimation=2,
+                taps=None,
+                fractional_bw=None,
+        )
+        self.rational_resampler_xxx_1_1 = filter.rational_resampler_ccc(
+                interpolation=1,
+                decimation=2,
+                taps=None,
+                fractional_bw=None,
+        )
+        self.rational_resampler_xxx_1_0_0 = filter.rational_resampler_ccc(
+                interpolation=1,
+                decimation=4,
+                taps=None,
+                fractional_bw=None,
+        )
+        self.rational_resampler_xxx_1_0 = filter.rational_resampler_ccc(
+                interpolation=1,
+                decimation=4,
+                taps=None,
+                fractional_bw=None,
+        )
+        self.rational_resampler_xxx_1 = filter.rational_resampler_ccc(
+                interpolation=1,
+                decimation=8,
+                taps=None,
+                fractional_bw=None,
+        )
         self.rational_resampler_xxx_0 = filter.rational_resampler_ccc(
                 interpolation=11,
                 decimation=1,
                 taps=None,
                 fractional_bw=None,
         )
-        self.logpwrfft_x_0_0 = logpwrfft.logpwrfft_c(
-        	sample_rate=48000,
+        self.logpwrfft_x_0_1 = logpwrfft.logpwrfft_c(
+        	sample_rate=48000/ (2 ** FFT_SEL),
         	fft_size=512,
         	ref_scale=2,
         	frame_rate=15,
         	avg_alpha=0.9,
         	average=True,
         )
-        self.logpwrfft_x_0 = logpwrfft.logpwrfft_c(
-        	sample_rate=48000,
+        self.logpwrfft_x_0_0_0 = logpwrfft.logpwrfft_c(
+        	sample_rate=48000/ (2** FFT_SEL),
         	fft_size=512,
         	ref_scale=2,
         	frame_rate=15,
@@ -117,6 +154,20 @@ class Lang_TRX_Lime(gr.top_block):
         self.blocks_add_xx_0_0 = blocks.add_vff(1)
         self.blocks_add_xx_0 = blocks.add_vff(1)
         self.blocks_add_const_vxx_0 = blocks.add_const_vff(((0.5 * int(Tx_Mode==5)) + int(Tx_Mode==2) +int(Tx_Mode==3), ))
+        self.blks2_selector_0_0 = grc_blks2.selector(
+        	item_size=gr.sizeof_gr_complex*1,
+        	num_inputs=4,
+        	num_outputs=1,
+        	input_index=FFT_SEL,
+        	output_index=0,
+        )
+        self.blks2_selector_0 = grc_blks2.selector(
+        	item_size=gr.sizeof_gr_complex*1,
+        	num_inputs=4,
+        	num_outputs=1,
+        	input_index=FFT_SEL,
+        	output_index=0,
+        )
         self.band_pass_filter_1 = filter.fir_filter_fff(1, firdes.band_pass(
         	1, 48000, 300, 3500, 100, firdes.WIN_HAMMING, 6.76))
         self.band_pass_filter_0_0 = filter.fir_filter_ccc(1, firdes.complex_band_pass(
@@ -169,6 +220,8 @@ class Lang_TRX_Lime(gr.top_block):
         self.connect((self.band_pass_filter_0, 0), (self.blocks_complex_to_real_0, 0))
         self.connect((self.band_pass_filter_0_0, 0), (self.blocks_multiply_const_vxx_4, 0))
         self.connect((self.band_pass_filter_1, 0), (self.blocks_add_xx_0_0, 1))
+        self.connect((self.blks2_selector_0, 0), (self.logpwrfft_x_0_1, 0))
+        self.connect((self.blks2_selector_0_0, 0), (self.logpwrfft_x_0_0_0, 0))
         self.connect((self.blocks_add_const_vxx_0, 0), (self.analog_rail_ff_0_0, 0))
         self.connect((self.blocks_add_xx_0, 0), (self.analog_rail_ff_0, 0))
         self.connect((self.blocks_add_xx_0_0, 0), (self.analog_nbfm_tx_0, 0))
@@ -191,14 +244,26 @@ class Lang_TRX_Lime(gr.top_block):
         self.connect((self.blocks_multiply_const_vxx_3, 0), (self.blocks_add_xx_2, 0))
         self.connect((self.blocks_multiply_const_vxx_4, 0), (self.blocks_add_xx_2, 1))
         self.connect((self.blocks_multiply_xx_0, 0), (self.band_pass_filter_0_0, 0))
-        self.connect((self.blocks_mute_xx_0_0, 0), (self.logpwrfft_x_0_0, 0))
+        self.connect((self.blocks_mute_xx_0_0, 0), (self.blks2_selector_0_0, 0))
         self.connect((self.blocks_mute_xx_0_0, 0), (self.rational_resampler_xxx_0, 0))
+        self.connect((self.blocks_mute_xx_0_0, 0), (self.rational_resampler_xxx_1_0_0, 0))
+        self.connect((self.blocks_mute_xx_0_0, 0), (self.rational_resampler_xxx_1_1_0, 0))
+        self.connect((self.blocks_mute_xx_0_0, 0), (self.rational_resampler_xxx_1_2, 0))
         self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.band_pass_filter_0, 0))
-        self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.logpwrfft_x_0, 0))
+        self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.blks2_selector_0, 0))
+        self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.rational_resampler_xxx_1, 0))
+        self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.rational_resampler_xxx_1_0, 0))
+        self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.rational_resampler_xxx_1_1, 0))
         self.connect((self.limesdr_source_0, 0), (self.freq_xlating_fir_filter_xxx_0, 0))
-        self.connect((self.logpwrfft_x_0, 0), (self.blocks_udp_sink_0, 0))
-        self.connect((self.logpwrfft_x_0_0, 0), (self.blocks_udp_sink_0_0, 0))
+        self.connect((self.logpwrfft_x_0_0_0, 0), (self.blocks_udp_sink_0_0, 0))
+        self.connect((self.logpwrfft_x_0_1, 0), (self.blocks_udp_sink_0, 0))
         self.connect((self.rational_resampler_xxx_0, 0), (self.limesdr_sink_0, 0))
+        self.connect((self.rational_resampler_xxx_1, 0), (self.blks2_selector_0, 3))
+        self.connect((self.rational_resampler_xxx_1_0, 0), (self.blks2_selector_0, 2))
+        self.connect((self.rational_resampler_xxx_1_0_0, 0), (self.blks2_selector_0_0, 2))
+        self.connect((self.rational_resampler_xxx_1_1, 0), (self.blks2_selector_0, 1))
+        self.connect((self.rational_resampler_xxx_1_1_0, 0), (self.blks2_selector_0_0, 1))
+        self.connect((self.rational_resampler_xxx_1_2, 0), (self.blks2_selector_0_0, 3))
 
     def get_Tx_Mode(self):
         return self.Tx_Mode
@@ -333,6 +398,16 @@ class Lang_TRX_Lime(gr.top_block):
         self.FMMIC = FMMIC
         self.blocks_multiply_const_vxx_0_0.set_k((self.FMMIC/5.0, ))
 
+    def get_FFT_SEL(self):
+        return self.FFT_SEL
+
+    def set_FFT_SEL(self, FFT_SEL):
+        self.FFT_SEL = FFT_SEL
+        self.logpwrfft_x_0_1.set_sample_rate(48000/ (2 ** self.FFT_SEL))
+        self.logpwrfft_x_0_0_0.set_sample_rate(48000/ (2** self.FFT_SEL))
+        self.blks2_selector_0_0.set_input_index(int(self.FFT_SEL))
+        self.blks2_selector_0.set_input_index(int(self.FFT_SEL))
+
     def get_CTCSS(self):
         return self.CTCSS
 
@@ -360,7 +435,7 @@ def docommands(tb):
     os.mkfifo("/tmp/langstoneTRx")
   except OSError as oe:
     if oe.errno != errno.EEXIST:
-      raise
+      raise    
   ex=False
   lastbase=0
   while not ex:
@@ -371,19 +446,19 @@ def docommands(tb):
          for line in filein:
            line=line.strip()
            if line[0]=='Q':
-              ex=True
+              ex=True                  
            if line[0]=='U':
               value=int(line[1:])
               tb.set_Rx_Mute(value)
            if line[0]=='H':
               value=int(line[1:])
-              if value==1:
+              if value==1:   
                   tb.lock()
               if value==0:
-                  tb.unlock()
+                  tb.unlock() 
            if line[0]=='O':
               value=int(line[1:])
-              tb.set_RxOffset(value)
+              tb.set_RxOffset(value)  
            if line[0]=='V':
               value=int(line[1:])
               tb.set_AFGain(value)
@@ -395,30 +470,30 @@ def docommands(tb):
               tb.set_Rx_Gain(value)
            if line[0]=='S':
               value=int(line[1:])
-              tb.set_SQL(value)
+              tb.set_SQL(value) 
            if line[0]=='F':
               value=int(line[1:])
-              tb.set_Rx_Filt_High(value)
+              tb.set_Rx_Filt_High(value) 
            if line[0]=='I':
               value=int(line[1:])
-              tb.set_Rx_Filt_Low(value)
+              tb.set_Rx_Filt_Low(value) 
            if line[0]=='M':
               value=int(line[1:])
-              tb.set_Rx_Mode(value)
+              tb.set_Rx_Mode(value) 
               tb.set_Tx_Mode(value)
            if line=='R':
-              tb.set_PTT(False)
+              tb.set_PTT(False) 
            if line=='T':
               tb.set_PTT(True)
            if line[0]=='K':
               value=int(line[1:])
-              tb.set_KEY(value)
+              tb.set_KEY(value) 
            if line[0]=='B':
               value=int(line[1:])
-              tb.set_ToneBurst(value)
+              tb.set_ToneBurst(value) 
            if line[0]=='G':
               value=int(line[1:])
-              tb.set_MicGain(value)
+              tb.set_MicGain(value) 
            if line[0]=='g':
               value=int(line[1:])
               tb.set_FMMIC(value)
@@ -427,19 +502,23 @@ def docommands(tb):
               tb.set_AMMIC(value)
            if line[0]=='f':
               value=int(line[1:])
-              tb.set_Tx_Filt_High(value)
+              tb.set_Tx_Filt_High(value) 
            if line[0]=='i':
               value=int(line[1:])
-              tb.set_Tx_Filt_Low(value)
+              tb.set_Tx_Filt_Low(value)     
            if line[0]=='l':
               value=int(line[1:])
-              tb.set_Tx_LO(value)
+              tb.set_Tx_LO(value)  
            if line[0]=='a':
               value=int(line[1:])
-              tb.set_Tx_Gain(value)
+              tb.set_Tx_Gain(value)       
            if line[0]=='C':
               value=int(line[1:])
-              tb.set_CTCSS(value)
+              tb.set_CTCSS(value)   
+           if line[0]=='W':
+              value=int(line[1:])
+              tb.set_FFT_SEL(value) 
+                                                                
        except:
          break
 

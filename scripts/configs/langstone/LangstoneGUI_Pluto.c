@@ -105,6 +105,7 @@ void RFERX();
 void RFETX();
 void RFETXRX();
 void RFEClose();
+void setFFTBW(int bw);
 
 int minGain(double freq);
 int maxGain(double freq);
@@ -113,28 +114,8 @@ void setBeacon(int b);
 int firstpass=1;
 double freq;
 double freqInc=0.001;
-#define numband 12
+#define numband 24
 int band=3;
-double bandFreq[numband] = {70.200,144.200,432.200,1296.200,2320.200,2400.100,3400.100,5760.100,10368.200,24048.200,47088.2,10489.55};
-double bandTxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-9936.0,-23616.0,-46656.0,-10069.5};
-double bandRxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-9936.0,-23616.0,-46656.0,-10345.0};
-double bandRepShift[numband]={0,-0.6,1.6,-6.0,0,0,0,0,0,0,0,0};
-int bandTxHarmonic[numband]={1,1,1,1,1,1,1,1,1,1,1,1};
-int bandRxHarmonic[numband]={1,1,1,1,1,1,1,1,1,1,1,1};
-int bandMode[numband]={0,0,0,0,0,0,0,0,0,0,0,0};
-int bandBitsRx[numband]={0,1,2,3,4,5,6,7,8,9,10,11};
-int bandBitsTx[numband]={0,1,2,3,4,5,6,7,8,9,10,11};
-int bandSquelch[numband]={30,30,30,30,30,30,30,30,30,30,30,30};
-int bandFFTRef[numband]={-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10};
-int bandTxAtt[numband]={0,0,0,0,0,0,0,0,0,0,0,0};
-int bandRxGain[numband]={100,100,100,100,100,100,100,100,100,100,100,100};              //100 is automatic gain
-int bandDuplex[numband]={0,0,0,0,0,0,0,0,0,0,0,0};
-int bandCTCSS[numband]={0,0,0,0,0,0,0,0,0,0,0,0};
-int bandRFEPort[numband]= {0,0,0,0,0,0,0,0,0,0,0,1};
-float bandSmeterZero[numband]={-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80};
-int bandSSBFiltLow[numband]={300,300,300,300,300,300,300,300,300,300,300,300};
-int bandSSBFiltHigh[numband]={3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000};
-
 char ProgramName[255];         // used to pass rpidatvgui char string to listener
 int *web_x_ptr;                // pointer
 int *web_y_ptr;                // pointer
@@ -142,6 +123,26 @@ int web_x;                     // click x 0 - 799 from left
 int web_y;                     // click y 0 - 480 from top
 char WebClickForAction[7] = "no";  // no/yes
 pthread_t thwebclick;          //  Listens for mouse clicks from web interface
+double bandFreq[numband] = {70.200,144.200,432.200,1296.200,2320.200,2400.100,3400.100,5760.100,10368.200,24048.200,47088.2,10489.55,433.2,433.2,433.2,433.2,433.2,433.2,1296.2,1296.2,1296.2,1296.2,1296.2,1296.2};
+double bandTxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-9936.0,-23616.0,-46656.0,-10069.5,0,0,0,0,0,0,0,0,0,0,0,0};
+double bandRxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-9936.0,-23616.0,-46656.0,-10345.0,0,0,0,0,0,0,0,0,0,0,0,0};
+double bandRepShift[numband]={0,-0.6,1.6,-6.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int bandTxHarmonic[numband]={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+int bandRxHarmonic[numband]={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+int bandMode[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int bandBitsRx[numband]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23};
+int bandBitsTx[numband]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23};
+int bandSquelch[numband]={30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30};
+int bandFFTRef[numband]={-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10};
+int bandTxAtt[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int bandRxGain[numband]={100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100};              //100 is automatic gain
+int bandDuplex[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int bandCTCSS[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int bandRFEPort[numband]= {0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0};
+float bandSmeterZero[numband]={-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80};
+int bandSSBFiltLow[numband]={300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300};
+int bandSSBFiltHigh[numband]={3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000};
+int bandFFTBW[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 #define minFreq 0.0
 #define maxFreq 99999.99999
@@ -155,10 +156,10 @@ int lastmode=0;
 char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM "};
 enum {USB,LSB,CW,CWN,FM,AM};
 
-#define numSettings 22
+#define numSettings 23
 
-char * settingText[numSettings]={"Rx Gain= ","SSB Mic Gain= ","FM Mic Gain= ","AM Mic Gain= ","Repeater Shift= ","CTCSS= "," Rx Offset= ","Rx Harmonic Mixing= "," Tx Offset= ","Tx Harmonic Mixing= ","Band Bits (Rx)= ","Band Bits (Tx)= ","Copy Band Bits to Pluto=","LimeRFE Tx Port = ","FFT Ref= ","Tx Att= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ","CW Ident= ", "CWID Carrier= ", "CW Break-In Hang Time= "};
-enum {RX_GAIN,SSB_MIC,FM_MIC,AM_MIC,REP_SHIFT,CTCSS,RX_OFFSET,RX_HARMONIC,TX_OFFSET,TX_HARMONIC,BAND_BITS_RX,BAND_BITS_TX,BAND_BITS_TO_PLUTO,RFEPORT,FFT_REF,TX_ATT,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,CWID,CW_CARRIER,BREAK_IN_TIME};
+char * settingText[numSettings]={"Rx Gain= ","SSB Mic Gain= ","FM Mic Gain= ","AM Mic Gain= ","Repeater Shift= ","CTCSS= "," Rx Offset= ","Rx Harmonic Mixing= "," Tx Offset= ","Tx Harmonic Mixing= ","Band Bits (Rx)= ","Band Bits (Tx)= ","Copy Band Bits to Pluto=","LimeRFE Tx Port = ","FFT Ref= ","Tx Att= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ","CW Ident= ", "CWID Carrier= ", "CW Break-In Hang Time= ", "24 Bands= "};
+enum {RX_GAIN,SSB_MIC,FM_MIC,AM_MIC,REP_SHIFT,CTCSS,RX_OFFSET,RX_HARMONIC,TX_OFFSET,TX_HARMONIC,BAND_BITS_RX,BAND_BITS_TX,BAND_BITS_TO_PLUTO,RFEPORT,FFT_REF,TX_ATT,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,CWID,CW_CARRIER,BREAK_IN_TIME,BANDS24};
 int settingNo=RX_GAIN;
 int setIndex=0;
 int maxSetIndex=10;
@@ -217,7 +218,6 @@ int CTCSSTone[NUMCTCSS] = {0,670,693,719,744,770,797,825,854,885,915,948,974,100
 
 
 
-
 int ptt=0;
 int ptts=0;
 int moni=0;
@@ -226,6 +226,11 @@ int sendBeacon=0;
 int dotCount=0;
 int transmitting=0;
 int dialLock=0;
+
+int rxFilterLow;
+int rxFilterHigh;
+
+int bands24 = 0;
 
 int keyDownTimer=0;
 int CWIDkeyDownTime=1000;                     //time to put key down between CW Idents (100 per second)
@@ -683,6 +688,14 @@ void waterfall()
           //draw Bandwidth indicator
           int p=points/2;
 
+          bwBarStart=rxFilterLow/HzPerBin;
+          bwBarEnd=rxFilterHigh/HzPerBin;
+
+          if(bwBarStart < -255) bwBarStart = -255;
+          if(bwBarEnd  > 255) bwBarEnd = 255;
+
+
+
           if (((mode==CW) || (mode==CWN)) && (transmitting==0 && satMode()== 0))
           {
            centreShift=800/HzPerBin;
@@ -692,26 +705,72 @@ void waterfall()
            centreShift=0;
           }
 
-          drawLine(p+FFTX+bwBarStart-bwbaroffset, FFTY-spectrum_rows+5, p+FFTX+bwBarStart-bwbaroffset, FFTY-spectrum_rows,255,140,0);
+          if(bwBarStart > -255) drawLine(p+FFTX+bwBarStart-bwbaroffset, FFTY-spectrum_rows+5, p+FFTX+bwBarStart-bwbaroffset, FFTY-spectrum_rows,255,140,0);
           drawLine(p+FFTX+bwBarStart-bwbaroffset, FFTY-spectrum_rows, p+FFTX+bwBarEnd-bwbaroffset, FFTY-spectrum_rows,255,140,0);
-          drawLine(p+FFTX+bwBarEnd-bwbaroffset, FFTY-spectrum_rows+5, p+FFTX+bwBarEnd-bwbaroffset, FFTY-spectrum_rows,255,140,0);
+
+          if(bwBarEnd < 255) drawLine(p+FFTX+bwBarEnd-bwbaroffset, FFTY-spectrum_rows+5, p+FFTX+bwBarEnd-bwbaroffset, FFTY-spectrum_rows,255,140,0);
           //draw centre line (displayed frequency)
           drawLine(p+FFTX+centreShift, FFTY-10, p+FFTX+centreShift, FFTY-spectrum_rows,255,0,0);
 
 
-          //draw Scale.
+          //draw x Axis.
+          int ticks[11] = {0,21,43,64,85,107,128,149,171,192,213};    // Rounded tick spacing at 21.333 pixels per tick
+          drawLine(FFTX,FFTY +3,FFTX + points,FFTY+3,0,255,0);
+          for(int tick = 0;tick < 11;tick++)
+            {
+             drawLine(FFTX + p + ticks[tick],FFTY+3,FFTX + p + ticks[tick],FFTY +5,0,255,0);
+             drawLine(FFTX + p - ticks[tick],FFTY+3,FFTX + p - ticks[tick],FFTY +5,0,255,0);
+            }
+
+          //draw scale
           setForeColour(0,255,0);
           textSize=1;
-          gotoXY(p+centreShift+FFTX-12,FFTY+8);
+          gotoXY(p+FFTX-12,FFTY+8);
           displayStr(" 0 ");
-          gotoXY(p+centreShift+FFTX-10000/HzPerBin-24,FFTY+8);
-          displayStr(" -10k ");
-          gotoXY(p+centreShift+FFTX-20000/HzPerBin-24,FFTY+8);
-          displayStr(" -20k ");
-          gotoXY(p+centreShift+FFTX+10000/HzPerBin-24,FFTY+8);
-          displayStr(" +10k ");
-          gotoXY(p+centreShift+FFTX+20000/HzPerBin-24,FFTY+8);
-          displayStr(" +20k ");
+          switch(bandFFTBW[band])
+          {
+              case 0:                 //48KHz BW
+              gotoXY(p+FFTX-ticks[5]-24,FFTY+8);
+              displayStr(" -10k   ");
+              gotoXY(p+FFTX-ticks[10]-24,FFTY+8);
+              displayStr(" -20k   ");
+              gotoXY(p+FFTX+ticks[5]-24,FFTY+8);
+              displayStr(" +10k   ");
+              gotoXY(p+FFTX+ticks[10]-24,FFTY+8);
+              displayStr(" +20k   ");
+            break;
+            case 1:                 //24KHz BW
+              gotoXY(p+FFTX-ticks[5]-20,FFTY+8);
+              displayStr(" -5k   ");
+              gotoXY(p+FFTX-ticks[10]-24,FFTY+8);
+              displayStr(" -10k   ");
+              gotoXY(p+FFTX+ticks[5]-20,FFTY+8);
+              displayStr(" +5k   ");
+              gotoXY(p+FFTX+ticks[10]-24,FFTY+8);
+              displayStr(" +10k   ");
+            break;
+            case 2:                 //12KHz BW
+              gotoXY(p+FFTX-ticks[5]-28,FFTY+8);
+              displayStr(" -2.5k   ");
+              gotoXY(p+FFTX-ticks[10]-20,FFTY+8);
+              displayStr(" -5k   ");
+              gotoXY(p+FFTX+ticks[5]-28,FFTY+8);
+              displayStr(" +2.5k   ");
+              gotoXY(p+FFTX+ticks[10]-20,FFTY+8);
+              displayStr(" +5k   ");
+            break;
+            case 3:                 //6KHz BW
+              gotoXY(p+FFTX-ticks[5]-32,FFTY+8);
+              displayStr(" -1.25k   ");
+              gotoXY(p+FFTX-ticks[10]-28,FFTY+8);
+              displayStr(" -2.5k   ");
+              gotoXY(p+FFTX+ticks[5]-32,FFTY+8);
+              displayStr(" +1.25k   ");
+              gotoXY(p+FFTX+ticks[10]-28,FFTY+8);
+              displayStr(" +2.5k   ");
+            break;
+          }
+
 
 
           if((transmitting==0) || (satMode()==1))
@@ -1724,6 +1783,7 @@ displayButton("CWID");
 popupSel=BEACON;
 }
 
+
 void clearPopUp(void)
 {
 for(int py=popupY;py<popupY+buttonHeight+1;py++)
@@ -2350,6 +2410,17 @@ if((touchY>freqDisplayY) & (touchY < freqDisplayY+freqDisplayCharHeight) & (touc
   }
 
 
+//touch on spectrum display increments the FFT Bandwidth
+if((touchY < FFTY) & (touchY > FFTY - spectrum_rows) & (touchX > FFTX) & (touchX < FFTX + points))
+  {
+    bandFFTBW[band]++;
+    if(bandFFTBW[band] > 3)  bandFFTBW[band] = 0;
+    setFFTBW(bandFFTBW[band]);
+    return;
+  }
+
+
+
 if(popupSel==MODE)
 {
   for(int n=0;n<nummode;n++)
@@ -2368,7 +2439,14 @@ if(popupSel==BAND)
   if(buttonTouched(popupX,popupY))
   {
   popupFirstBand=popupFirstBand+6;
-  if(popupFirstBand>11) popupFirstBand=0;
+  if(bands24)
+  {
+    if(popupFirstBand>23) popupFirstBand=0;
+  }
+  else
+  {
+    if(popupFirstBand>11) popupFirstBand=0;
+  }
   displayPopupBand();
   }
 
@@ -2414,6 +2492,7 @@ void setBand(int b)
   setFreq(freq);
   mode=bandMode[band];
   setMode(mode);
+  setFFTBW(bandFFTBW[band]);
   setBandBits(bandBitsRx[band]);
   squelch=bandSquelch[band];
   setSquelch(squelch);
@@ -2703,9 +2782,8 @@ void setRxFilter(int low,int high)
   sprintf(filtStr,"F%d",high);
   sendFifo(filtStr);
 
-  bwBarStart=low/HzPerBin;
-  bwBarEnd=high/HzPerBin;
-
+  rxFilterLow = low;
+  rxFilterHigh = high;
 }
 
 void setTxFilter(int low,int high)
@@ -2715,6 +2793,30 @@ void setTxFilter(int low,int high)
   sendFifo(filtStr);
   sprintf(filtStr,"f%d",high);
   sendFifo(filtStr);
+}
+
+
+void setFFTBW(int bw)
+{
+  char BWStr[10];
+  sprintf(BWStr,"W%d",bw);
+  sendFifo(BWStr);
+
+  switch(bw)
+  {
+  case 0:             //48KHz   Sample rate
+  HzPerBin = 94;
+  break;
+  case 1:             //24KHz   Sample rate
+  HzPerBin = 47;
+  break;
+  case 2:             //12KHz   Sample rate
+  HzPerBin = 23;
+  break;
+  case 3:             //6KHz   Sample rate
+  HzPerBin = 12;
+  break;
+  }
 }
 
 
@@ -3647,6 +3749,14 @@ if(settingNo==BAND_BITS_TX)        // Band Bits Tx
       if(breakInTime> 200) breakInTime=200;
       displaySetting(settingNo);
       }
+
+  if(settingNo==BANDS24)        // 24 band mode
+      {
+      if(mouseScroll > 0)   bands24= 1;
+      if(mouseScroll < 0)   bands24= 0;
+      mouseScroll=0;
+      displaySetting(settingNo);
+      }
 }
 
 
@@ -3923,6 +4033,17 @@ if(se==BAND_BITS_TX)
   displayStr(valStr);
   }
 
+if(se==BANDS24)
+  {
+    if(bands24 == 0)
+    {
+      displayStr("No");
+    }
+    else
+    {
+        displayStr("Yes");
+    }
+  }
 }
 
 int readConfig(void)
@@ -4004,6 +4125,8 @@ while(fscanf(conffile,"%49s %99s [^\n]\n",variable,value) !=EOF)
     if(strstr(variable,vname)) sscanf(value,"%d",&bandSSBFiltLow[b]);
     sprintf(vname,"bandSSBFiltHigh%02d",b);
     if(strstr(variable,vname)) sscanf(value,"%d",&bandSSBFiltHigh[b]);
+    sprintf(vname,"bandFFTBW%02d",b);
+    if(strstr(variable,vname)) sscanf(value,"%d",&bandFFTBW[b]);
     }
 
 
@@ -4016,6 +4139,7 @@ while(fscanf(conffile,"%49s %99s [^\n]\n",variable,value) !=EOF)
     if(strstr(variable,"volume")) sscanf(value,"%d",&volume);
     if(strstr(variable,"breakInTime")) sscanf(value,"%d",&breakInTime);
     if(strstr(variable,"bandBitsToPluto")) sscanf(value,"%d",&bandBitsToPluto);
+    if(strstr(variable,"bands24")) sscanf(value,"%d",&bands24);
     if(mode>nummode-1) mode=0;
 
   }
@@ -4074,6 +4198,7 @@ for(int b=0;b<numband;b++)
   fprintf(conffile,"bandSmeterZero%02d %f\n",b,bandSmeterZero[b]);
   fprintf(conffile,"bandSSBFiltLow%02d %d\n",b,bandSSBFiltLow[b]);
   fprintf(conffile,"bandSSBFiltHigh%02d %d\n",b,bandSSBFiltHigh[b]);
+  fprintf(conffile,"bandFFTBW%02d %d\n",b,bandFFTBW[b]);
 }
 
 fprintf(conffile,"currentBand %d\n",band);
@@ -4085,6 +4210,7 @@ fprintf(conffile,"AMMic %d\n",AMMic);
 fprintf(conffile,"volume %d\n",volume);
 fprintf(conffile,"breakInTime %d\n",breakInTime);
 fprintf(conffile,"bandBitsToPluto %d\n",bandBitsToPluto);
+fprintf(conffile,"bands24 %d\n",bands24);
 
 fclose(conffile);
 return 0;

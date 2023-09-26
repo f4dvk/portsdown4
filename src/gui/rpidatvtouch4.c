@@ -2950,7 +2950,7 @@ void GetDevices(char DeviceName1[256], char DeviceName2[256])
   int card = 1;
 
   /* Open the command for reading. */
-  fp = popen("arecord -l", "r");
+  fp = popen("arecord -l | grep -v -e 'Loopback'", "r");
   if (fp == NULL) {
     printf("Failed to run command\n" );
     exit(1);
