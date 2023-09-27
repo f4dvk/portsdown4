@@ -5,9 +5,9 @@ clean:
 	indent -linux -c 60 -brf -l 132
 
 INCLUDEFLAGS2=-lpthread -I/opt/vc/include -I/opt/vc/include/interface/vmcs_host/linux -I/opt/vc/include/interface/vcos/pthreads -I..
-LIBFLAGS2=-L/opt/vc/lib -lbcm_host -lpthread -ljpeg -lrt -lm -ldl -liio -lfftw3f -lwiringPi
+LIBFLAGS2=-L/opt/vc/lib -lbcm_host -lpthread -ljpeg -lrt -lm -ldl -liio -lfftw3f -lwiringPi -lfcgi -rdynamic
 
-plutoview: plutoview.c 
+plutoview: plutoview.c
 	gcc -Wall -std=gnu11 -D_GNU_SOURCE -DNEON_OPTS -pthread $(INCLUDEFLAGS2) -o  plutoview \
 		screen.c \
 		graphics.c \
@@ -20,9 +20,9 @@ plutoview: plutoview.c
 		font/dejavu_sans_22.c \
 		font/dejavu_sans_28.c \
 		font/dejavu_sans_32.c \
+    /home/pi/rpidatv/src/gui/ffunc.c \
 		buffer/buffer_circular.c \
 		plutoview.c $(LIBFLAGS2)
 
 install:
 	cp plutoview ../../bin/
-
