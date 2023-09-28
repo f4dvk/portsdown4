@@ -1,11 +1,23 @@
-202309270
+202309271
 contrôle web pour rtlsdrview et plutoview
 
-202309260
+202309270
+Correct bin power calculation in all BandViewers and noise meters
+In SigGen, trial new touchscreen routine with better response.
+
+202309261
 Mise à jour fichiers Langstone V2 pour la dernière version
+
+202309260
+Correct bin power calculation in SDRPlay BandViewer
 
 202309240
 Masquer infos RX seulement si Lock
+
+202309230
+Add SDRplay BandViewer with waterfall and web control
+Improve MeteorViewer
+Update Web View during software update process
 
 202309220
 Ajout RX LeanDVB

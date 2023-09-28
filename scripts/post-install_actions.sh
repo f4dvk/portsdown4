@@ -22,11 +22,10 @@ make
 cp meteorview ../../bin/
 cd /home/pi
 
-# Compile the beacon and server files
-cd /home/pi/rpidatv/src/meteorbeacon
+# Compile sdrplayview
+cd /home/pi/rpidatv/src/sdrplayview
 make
-cp beacon ../../bin
-cp server ../../bin
+cp sdrplayview ../../bin
 
 cd /home/pi
 

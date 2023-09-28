@@ -63,6 +63,13 @@ ChooseBandViewerSDR()
     return
   fi
 
+  # Check for presence of SDRplay
+  lsusb | grep -q '1df7:'
+  if [ $? == 0 ]; then   ## Present
+    BANDVIEW_START_CODE=144
+    return
+  fi
+
   # Check for presence of Lime Mini
   lsusb | grep -q '0403:601f'
   if [ $? == 0 ]; then   ## Present
@@ -105,7 +112,6 @@ ChooseBandViewerSDR()
 # 128  Exit leaving system running
 # 129  Exit from any app requesting restart of main rpidatvgui
 # 130  Exit from rpidatvgui requesting start of siggen
-# 131  Exit from rpidatvgui requesting start of FreqShow (now deleted)
 # 132  Run Update Script for production load
 # 133  Run Update Script for development load
 # 134  Exit from rpidatvgui requesting start of XY Display
@@ -123,7 +129,6 @@ ChooseBandViewerSDR()
 # 146  Run the Langstone TRX V2 Pluto
 # 147  Exit from rpidatvgui requesting start of Noise Meter
 # 148  Exit from rpidatvgui requesting start of SDRPlay BeaconRX with its GUI
-# 149  SDRPlay BeaconRX no GUI
 # 150  Run the Meteor Viewer
 # 160  Shutdown from GUI
 # 192  Reboot from GUI
@@ -195,12 +200,6 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       /home/pi/rpidatv/bin/siggen
       GUI_RETURN_CODE=129
     ;;
-    131)
-      # cd /home/pi/FreqShow
-      # sudo python freqshow.py
-      # cd /home/pi
-      GUI_RETURN_CODE=129
-    ;;
     132)
       cd /home/pi
       /home/pi/update.sh -p
@@ -263,39 +262,8 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       /home/pi/rpidatv/bin/plutoview
       GUI_RETURN_CODE="$?"
     ;;
-    144)
+    144)                                    # SDRplayview
       sleep 1
-      /home/pi/rpidatv/bin/sdrplayview
-      GUI_RETURN_CODE="$?"
-    ;;
-    145)                              # Langstone V2 Lime
-      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
-      cd /home/pi
-      /home/pi/Langstone/run_lime
-      /home/pi/Langstone/stop_lime
-      /home/pi/rpidatv/scripts/stop_web_update.sh
-      sleep 2
-      GUI_RETURN_CODE="129"
-    ;;
-    146)                              # Langstone V2 Pluto
-      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
-      cd /home/pi
-      /home/pi/Langstone/run_pluto
-      /home/pi/Langstone/stop_pluto
-      /home/pi/rpidatv/scripts/stop_web_update.sh
-      PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
-      ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "$PLUTOIP" >/dev/null 2>/dev/null
-      # ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "pluto.local" >/dev/null 2>/dev/null
-      timeout 2 sshpass -p analog ssh -o StrictHostKeyChecking=no root@"$PLUTOIP" 'PATH=/bin:/sbin:/usr/bin:/usr/sbin;reboot'
-      sleep 2
-      GUI_RETURN_CODE="129"
-    ;;
-    147)
-      /home/pi/rpidatv/bin/noise_meter
-      GUI_RETURN_CODE="$?"
-    ;;
-
-    149)                              # SDRPlay Beacon RX Server no GUI
       RPISTATE="Not_Ready"
       while [[ "$RPISTATE" == "Not_Ready" ]]
       do
@@ -338,18 +306,40 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
         fi
       done
 
-      DisplayMsg "Starting the beacon RX server\n\nThis caption stays on while it is running\n"
-      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-
-      /home/pi/rpidatv/bin/beacon
+      /home/pi/rpidatv/bin/sdrplayview
       GUI_RETURN_CODE="$?"
 
       if [ $GUI_RETURN_CODE != 129 ]; then          # Not Portsdown
         DisplayMsg "Beacon RX server did not start properly\nTyring again\n"
         /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-
-        GUI_RETURN_CODE=149                         # So try to restart beacon
+        GUI_RETURN_CODE=144                         # So restart sdrplayview
       fi
+    ;;
+    145)                              # Langstone V2 Lime
+      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+      cd /home/pi
+      /home/pi/Langstone/run_lime
+      /home/pi/Langstone/stop_lime
+      /home/pi/rpidatv/scripts/stop_web_update.sh
+      sleep 2
+      GUI_RETURN_CODE="129"
+    ;;
+    146)                              # Langstone V2 Pluto
+      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+      cd /home/pi
+      /home/pi/Langstone/run_pluto
+      /home/pi/Langstone/stop_pluto
+      /home/pi/rpidatv/scripts/stop_web_update.sh
+      PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
+      ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "$PLUTOIP" >/dev/null 2>/dev/null
+      # ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "pluto.local" >/dev/null 2>/dev/null
+      timeout 2 sshpass -p analog ssh -o StrictHostKeyChecking=no root@"$PLUTOIP" 'PATH=/bin:/sbin:/usr/bin:/usr/sbin;reboot'
+      sleep 2
+      GUI_RETURN_CODE="129"
+    ;;
+    147)
+      /home/pi/rpidatv/bin/noise_meter
+      GUI_RETURN_CODE="$?"
     ;;
     150)                              # SDRPlay Meteor Viewer
       DisplayMsg "Restarting SDRPlay Service\n\nThis may take up to 90 seconds"

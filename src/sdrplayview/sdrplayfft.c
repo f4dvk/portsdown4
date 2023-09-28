@@ -16,16 +16,13 @@
 #include <math.h>
 #include <fftw3.h>
 #include <stdbool.h>
-#include <libwebsockets.h>
 
-#include "transport.h"
-#include "protocol.h"
-#include "websocket_server.h"
-
-#include "meteorview.h"
+#include "sdrplayview.h"
 #include "timing.h"
 #include "sdrplay_api.h"
 #include "sdrplayfft.h"
+
+#define PI 3.14159265358979323846
 
 int masterInitialised = 0;
 int slaveUninitialised = 0;
@@ -34,39 +31,34 @@ int callback_count = 0;
 
 sdrplay_api_DeviceT *chosenDevice = NULL;
 
-// transfer->sample_count is normally 1344
-//#define	SDRPLAY_BUFFER_COPY_SIZE 1344
 #define	SDRPLAY_BUFFER_COPY_SIZE 2048
 #define SHORT_EL_SIZE_BYTE (2)
-/* this is the assigned number for the radio client this code is running on */
-//#define RADIO_CLIENT_NUMBER 3
-
-
 
 extern bool NewFreq;                 // Set to true to indicate that frequency needs changing
 extern uint32_t CentreFreq;          // Frequency in Hz from main
+
 extern bool NewSpan;                 // Set to true to indicate that span needs changing
 extern bool prepnewscanwidth;
 extern bool readyfornewscanwidth;
 extern bool app_exit;
 
 extern bool NewGain;                 // Set to true to indicate that gain needs changing
-//extern float gain;                   // Gain (0 - 21) from main
 extern int RFgain;
 extern int IFgain;
-extern int remoteRFgain;
-extern int remoteIFgain;
 extern bool agc;
+extern bool Show20dBLower;
+
+extern bool NewPort;                 // Set to true to indicate that port or BiasT needs changing
+extern uint8_t Antenna_port;
+extern bool BiasT_volts;
+
 extern bool Range20dB;
 extern int BaseLine20dB;
 extern int fft_size;                 // Number of fft samples.  Depends on scan width
 extern float fft_time_smooth; 
 extern uint8_t decimation_factor;           // decimation applied by SDRPlay api
 extern int span;
-extern uint8_t clientnumber;
-
-extern uint8_t wfalloverlap;
-extern uint8_t wfallsamplefraction;
+extern float SampleRate;
 
 //extern pthread_t sdrplay_fft_thread_obj;
 
@@ -80,8 +72,6 @@ uint16_t y3[2048];               // Histogram values in range 0 - 399
 int force_exit = 0;
 
 pthread_t fftThread;
-
-extern char destination[15];
 
 double hanning_window_const[2048];
 
@@ -116,18 +106,8 @@ static float fft_output_data[2048];
 unsigned long long int total = 0;     /* for debug */
 unsigned long long int buf_total = 0; /* for debug */
 
-
-//#define FFT_BUFFER_SIZE 512
-//#define FFT_BUFFER_SIZE 1024
-//#define FFT_BUFFER_SIZE 2048  // Size of buffer, not size of fft
-#define DECIMATION 8      /* we need to do a further factor of 8 decimation to get from 80 KSPS to 10 KSPS */
-
 long int output_buffer_i[FFT_BUFFER_SIZE];
 long int output_buffer_q[FFT_BUFFER_SIZE];
-unsigned char transmit_buffer[LWS_PRE + FFT_BUFFER_SIZE*2*sizeof(short)];
-unsigned char server_buffer[TCP_DATA_PRE + FFT_BUFFER_SIZE*2*sizeof(short)]=
-      {'H','e','a','t','h','e','r','\0'}; 
-
 
 sdrplay_api_RxChannelParamsT *chParams;
 //sdrplay_api_DeviceT devs[6];
@@ -136,8 +116,11 @@ sdrplay_api_RxChannelParamsT *chParams;
 int k = 0;
 int m = 0;
 
+void setup_fft(void);
+void fft();
 void fft_to_buffer();
 int legal_gain(int demanded_Gain);
+void non_filter(short xi, short xq, int reset);
 
 void setup_fft(void)
 {
@@ -164,80 +147,45 @@ void setup_fft(void)
 
 
 /* --------------------------------------------------------------------- */
-void fft() {
-/* --------------------------------------------------------------------- */
 /* display the waterfall on the RPI 7" touch screen                      */
 /* --------------------------------------------------------------------- */
-
-    /**********************  DAVE's FFT CODE hooks into here **********************/
-    /* fft() gets called when there are 1024 points in the above 2 buffers        */
-    /* the buffer size is defined by   fft_size  in case 1024 isn't useful */
-    /* note the output buffer is long int (int32_t) sized, can be reduced if needed         */
-    /******************************************************************************/
-
+void fft()
+{
+  // note the output buffer is long int (int32_t) sized, max value = 32768 * 256 - 1
   // Called after fft_size samples are in output_buffer_i.
-  // each sample is decimated from 8 samples sent by the SDR to the CIC filter
-
+  //  rf_buffer2.idata is int16_t.
   int i;
 
-  if (strcmp(destination, "local") == 0)
-  {
-    pthread_mutex_lock(&rf_buffer2.mutex);
-    rf_buffer2.index = 0;
+  pthread_mutex_lock(&rf_buffer2.mutex);
+  rf_buffer2.index = 0;
 
-    for (i = 0; i < fft_size; i++)
+  // Set cal true to to calibrate dBfs
+  // It generates a sine wave at -20 dB with varying phase
+  bool cal = false;
+  float amplitude = 3276.70;
+  static float foffset = 2.55;
+  static float phaseoffset  = 0;
+  phaseoffset = phaseoffset + 0.0002;
+  foffset = foffset + 0.000001;
+
+  for (i = 0; i < fft_size; i++)
+  {
+    if (cal == false)
     {
-      rf_buffer2.idata[i]  = (int16_t)(output_buffer_i[i] / 128);
-      rf_buffer2.qdata[i]  = (int16_t)(output_buffer_q[i] / 128);
+      rf_buffer2.idata[i]  = (int16_t)(output_buffer_i[i] / 256);
+      rf_buffer2.qdata[i]  = (int16_t)(output_buffer_q[i] / 256);
+    }
+    else
+    {
+      rf_buffer2.idata[i]  = (int16_t)(amplitude * sin((((float)i / foffset) + phaseoffset) * 2.f * PI));
+      rf_buffer2.qdata[i]  = (int16_t)(amplitude * cos((((float)i / foffset) + phaseoffset) * 2.f * PI));
+    }
+  }   
 
-      //m++;
-      //if (m == 10000)
-      //{
-      //  printf("10000 decimated samples at time %lld\n", monotonic_ms());
-      //  m = 0;
-      //}
-
-
-      //if (i == 250)
-      //{
-      //  printf("i = %d, q = %d\n", rf_buffer2.idata[i], rf_buffer2.qdata[i]);
-      //}
-    }   
-
-
-//    rf_buffer2.size = SDRPLAY_BUFFER_COPY_SIZE / (fft_size * 2);
-
-
-    pthread_cond_signal(&rf_buffer2.signal);
-    pthread_mutex_unlock(&rf_buffer2.mutex);
-  }
+  pthread_cond_signal(&rf_buffer2.signal);
+  pthread_mutex_unlock(&rf_buffer2.mutex);
 }
 
-
-/* --------------------------------------------------------------------- */
-void buffer_send() {
-/* --------------------------------------------------------------------- */
-/* send the buffer over the internet to the central server               */
-/* --------------------------------------------------------------------- */
-  if (strcmp(destination, "remote") == 0)
-  {
-    //printf("TX\n");
-    //printf("IN: %li %li %li %li %li %li %li %li\n", output_buffer_i[0], output_buffer_q[0],
-    //                                        output_buffer_i[1], output_buffer_q[1],
-    //                                        output_buffer_i[1022], output_buffer_q[1022],
-    //                                        output_buffer_i[1023], output_buffer_q[1023]);
-    //printf("TX: %i %i %i %i %i %i %i %i\n", transmit_buffer[LWS_PRE], transmit_buffer[LWS_PRE+1],
-    //                              transmit_buffer[LWS_PRE+2], transmit_buffer[LWS_PRE+3],
-    //                              transmit_buffer[LWS_PRE+4092], transmit_buffer[LWS_PRE+4093],
-    //                              transmit_buffer[LWS_PRE+4094], transmit_buffer[LWS_PRE+4095]);
-
-    transport_send(server_buffer);
-
-    /* now we tell all our clients that we have data ready for them. That way when they  */
-    /* come back and say they are writeable, we will be able to send them the new buffer */
-    lws_callback_on_writable_all_protocol(context, protocol);
-  }
-}
 
 void non_filter(short xi, short xq, int reset)
 {
@@ -251,151 +199,41 @@ void non_filter(short xi, short xq, int reset)
   {
     //printf("Output buffer full\n");
     fft();
-    buffer_send();
     buf_ptr = 0;
   }
 }
 
-/* --------------------------------------------------------------------- */
-void cic_filter(short xi, short xq, int reset) {
-/* --------------------------------------------------------------------- */
-/* implementing a 3 stage CIC filter with R = D = 8                      */
-/* for 14 bits in, and decimation by 8, we need 14 + 3.log2(8) = 23 bits */
-/* this is a long int on the RPI                                         */
-/* the CIC looks like:                                                   */
-/*                                                                       */
-/*   int1 -> int2 -> int3 -> R(down) -> comb1 -> comb2 -> comb3          */
-/*                                                                       */
-/* --------------------------------------------------------------------- */
-    static int decimation_cnt;
-    static int buf_ptr;
 
-    static long int i_int1_out,     i_int2_out,      i_int3_out;
-    static long int i_comb1_out,    i_comb2_out,     i_comb3_out;
-    static long int i_int3_out_old, i_comb2_out_old, i_comb1_out_old;
-
-    static long int q_int1_out,     q_int2_out,      q_int3_out;
-    static long int q_comb1_out,    q_comb2_out,     q_comb3_out;
-    static long int q_int3_out_old, q_comb2_out_old, q_comb1_out_old;
-
-    if (reset) {
-
-        printf("Got reset\n"); /* for debugging */
-        /* need to reset all the filter delays and the counters */
-        decimation_cnt = DECIMATION;
-        buf_ptr = 0;
-  
-        i_int1_out  = 0;
-        i_int2_out  = 0;
-        i_int3_out  = 0;
-        i_comb1_out = 0;
-        i_comb2_out = 0;
-        i_comb3_out = 0;
-        i_int3_out_old  = 0;
-        i_comb2_out_old = 0;
-        i_comb1_out_old = 0;
-
-        q_int1_out  = 0;
-        q_int2_out  = 0;
-        q_int3_out  = 0;
-        q_comb1_out = 0;
-        q_comb2_out = 0;
-        q_comb3_out = 0;
-        q_int3_out_old  = 0;
-        q_comb2_out_old = 0;
-        q_comb1_out_old = 0;
-
-    } else {
-
-        /* for efficiency we do the decimation (by factor R) first */
-        decimation_cnt--;
-        if (decimation_cnt == 0) {
-            decimation_cnt = DECIMATION;
-
-            /* and then the comb filters (work right to left) */
-            i_comb3_out     = i_comb2_out - i_comb2_out_old;
-            i_comb2_out_old = i_comb2_out;
-            i_comb2_out     = i_comb1_out - i_comb1_out_old;
-            i_comb1_out_old = i_comb1_out;
-            i_comb1_out     = i_int3_out  - i_int3_out_old;
-            i_int3_out_old  = i_int3_out;
-
-            /* finally we have a data point to send out so off it goes */
-            output_buffer_i[buf_ptr]   = i_comb3_out;
-
-            /* and we fill a transmit buffer with interleaved I,Q samples */
-            *(short *)(transmit_buffer + LWS_PRE      + (2 * 2*buf_ptr)+2) = i_comb3_out;
-            *(short *)(server_buffer   + TCP_DATA_PRE + (2 * 2*buf_ptr)+2) = i_comb3_out;
-
-            /* since we always do the i and q in sync, no need for separate deimation counts or buffer pointers */
-            q_comb3_out     = q_comb2_out - q_comb2_out_old;
-            q_comb2_out_old = q_comb2_out;
-            q_comb2_out     = q_comb1_out - q_comb1_out_old;
-            q_comb1_out_old = q_comb1_out;
-            q_comb1_out     = q_int3_out  - q_int3_out_old;
-            q_int3_out_old  = q_int3_out;
-            
-            output_buffer_q[buf_ptr]     = q_comb3_out;
-            *(short *)(transmit_buffer + LWS_PRE      + (2 * 2*buf_ptr)) = q_comb3_out;  
-            *(short *)(server_buffer   + TCP_DATA_PRE + (2 * 2*buf_ptr)) = q_comb3_out;
-
-            /* if we have filled the output buffer, then we can output it to the FFT and the internet */
-            buf_ptr++;
-            if (buf_ptr == FFT_BUFFER_SIZE) {
-                fft();
-                buffer_send();
-                buf_ptr = 0;
-            }
-        }
-
-        /* for efficiency we do the integrators last, again right to left, so that we don't overwrite any values */
-        i_int3_out = i_int2_out   + i_int3_out;
-        i_int2_out = i_int1_out   + i_int2_out;
-        i_int1_out = (long int)xi + i_int1_out;
-
-        q_int3_out = q_int2_out   + q_int3_out;
-        q_int2_out = q_int1_out   + q_int2_out;
-        q_int1_out = (long int)xq + q_int1_out;
-    }
-}
+/* ---------------------------------------------------------------------------------- */
+/* the data comes into this callback and we feed it out  to the FFT for display       */
+/* ---------------------------------------------------------------------------------- */
 
 
-
-/* --------------------------------------------------------------------- */
-/* the data comes into this callback and we feed it out to the CIC       */
-/* and then on to the FFT for display and the internet for server access */
-/* --------------------------------------------------------------------- */
-
-/* --------------------------------------------------------------------- */
 void StreamACallback(short *xi, short *xq, sdrplay_api_StreamCbParamsT *params,
-                     unsigned int numSamples, unsigned int reset, void *cbContext) {
-/* --------------------------------------------------------------------- */
-/* the data comes into this callback and we feed it out to the CIC       */
-/* and then on to the FFT for display and the internet for server access */
-/* --------------------------------------------------------------------- */
-	short *p_xi, *p_xq;
-        int count;
+                     unsigned int numSamples, unsigned int reset, void *cbContext)
+{
+  short *p_xi, *p_xq;
+  int count;
 
-        if (reset) {
-            printf("sdrplay_api_StreamACallback: numSamples=%d\n", numSamples);
-            cic_filter(0,0, true);
-        }
+  if (reset)
+  {
+    printf("sdrplay_api_StreamACallback: numSamples=%d\n", numSamples);
+    non_filter(0,0, true);
+  }
 
-        /* note that the API decimation means that we only get 84 bytes each callback                */
-	/* We have already done API decimation to get from 2.56 MSPS down to 2.56/32 = 80 KSPS       */
-        /* so now we need to do the CIC filtering to get to an audio data stream of 10 kSPS          */
-        /* we do this by doing a CIC filter on each I and Q seperately, using factor of 8 decimation */
-        total += numSamples;  /* for debug purposes */
-        p_xi = xi;
-        p_xq = xq;
+  // note that the API decimation means that we only get 84?? bytes each callback
+
+  total += numSamples;  // for debug purposes
+  p_xi = xi;
+  p_xq = xq;
         
-        for (count=0; count<numSamples; count++) {
-            /* we may need to reset our CIC fiter to provide a good starting point */
-            cic_filter(*p_xi, *p_xq, false);
-            p_xi++; /* pointer maths ... ugggy but efficient */
-            p_xq++;
-        }
-        return;
+  for (count=0; count<numSamples; count++)
+  {
+    non_filter(*p_xi, *p_xq, false);
+    p_xi++; // pointer maths ... ugggy but efficient
+    p_xq++;
+  }
+  return;
 }
 
 
@@ -500,120 +338,30 @@ void *thread_fft(void *dummy)
 {
   (void) dummy;
   int i;
-  int offset;
-  uint8_t pass;
   fftw_complex pt;
   double pwr;
   double lpwr;
   double pwr_scale;
-  float fft_circ[4096][2];
-  int circ_write_index = 0;
-  int circ_read_pos = 0;
-  int window_open;
-  int window_close;
 
   pwr_scale = 1.0 / ((float)fft_size * (float)fft_size);       // App is restarted on change of fft size
 
   while (true)
   {
-    // Calculate the time definition window
-    window_open = fft_size / 2 - fft_size / (2 * wfallsamplefraction);
-    window_close = fft_size / 2 + fft_size / (2 * wfallsamplefraction);
-    if(debug)
-    {
-      printf("Window open at %d, Window Close at %d\n", window_open, window_close);
-    }
+      // Lock input buffer
+      pthread_mutex_lock(&rf_buffer2.mutex);
 
-    for(pass = 0; pass < 2 * wfalloverlap; pass++)           // Go round this loop twice the overlap, once round the overlap for each input write
-    {
-      if ((pass == 0) || (pass == wfalloverlap))          // So this pass needs an input write
-      {
-        // Lock input buffer
-        pthread_mutex_lock(&rf_buffer2.mutex);
+      // Wait for signalled input
+      pthread_cond_wait(&rf_buffer2.signal, &rf_buffer2.mutex);
 
-        // Wait for signalled input
-        pthread_cond_wait(&rf_buffer2.signal, &rf_buffer2.mutex);
-
-        if (pass == 0)                            // First and odd numbered input writes
-        {
-          circ_write_index = 1;
-        }
-        else
-        {
-          circ_write_index = 0;
-        }
-          
-
-        // offset = rf_buffer2.index * fft_size * 2;
-        offset = 0;
-
-        // Copy data out of rf buffer into fft_circ buffer in alternate stripes
-        for (i = 0; i < fft_size; i++)
-        {
-          //fft_circ[i + circ_write_index * fft_size][0] = (float)(rf_buffer2.idata[offset+(i)]) * hanning_window_const[i];
-          //fft_circ[i + circ_write_index * fft_size][1] = (float)(rf_buffer2.qdata[offset+(i)]) * hanning_window_const[i];
-          fft_circ[i + circ_write_index * fft_size][0] = (float)(rf_buffer2.idata[offset+(i)]);
-          fft_circ[i + circ_write_index * fft_size][1] = (float)(rf_buffer2.qdata[offset+(i)]);
-        }
-
-        if (debug)
-        {
-          printf("Write stripe %d\n", circ_write_index);
-        }
-
-	    rf_buffer2.index++;
-
-	    // Unlock input buffer
-        pthread_mutex_unlock(&rf_buffer2.mutex);
-      }                                                       // End of input write
-
-      // Add delay between overlap passes
-      if ((pass != 0) && (pass != wfalloverlap))
-      {
-        usleep((int)((80000 * fft_size) / (wfalloverlap * 1000)));  
-      }
-
-      //printf("delay = %d \n", (int)((80000 * fft_size) / (wfalloverlap * 1000)));
-
-      // Now read it out of the buffer 
+      // Now read it out of the buffer and apply window shaping
       for (i = 0; i < fft_size; i++)
       {
-        circ_read_pos = i + fft_size * pass / wfalloverlap;
-        if (circ_read_pos > 2 * fft_size)
-        {
-        circ_read_pos = circ_read_pos - 2 * fft_size;
-        }
-
-        fft_in[i][0] = fft_circ[circ_read_pos][0] * hanning_window_const[i];
-        fft_in[i][1] = fft_circ[circ_read_pos][1] * hanning_window_const[i];
-
-        // debug printing block
-        if ((i == 0) && (debug))
-        {
-          printf("pass %d: ", pass);
-        }
-        if (((i == 0) || (i == fft_size / 4 - 1 ) || (i == fft_size / 4) || (i == fft_size / 2 - 1 )
-          || (i == fft_size / 2) || (i == fft_size * 3 / 4 - 1 ) || (i == fft_size * 3 / 4)) && (debug))
-        {
-          printf("%d - ", circ_read_pos);
-        }
-        if ((i == fft_size - 1) && (debug))
-        {
-          printf("%d\n", circ_read_pos);
-        }
-
-        // Apply input time window for increased time definition
-        if ((i < window_open) || (i > window_close))
-        {
-          fft_in[i][0] = 0;
-          fft_in[i][1] = 0;
-        }
+        fft_in[i][0] = (float)(rf_buffer2.idata[i]) * hanning_window_const[i];
+        fft_in[i][1] = (float)(rf_buffer2.qdata[i]) * hanning_window_const[i];
 	  }
 
-      if(debug)
-      {
-        printf("Window open at %d, Window Close at %d\n", window_open, window_close);
-      }
+	  // Unlock input buffer
+      pthread_mutex_unlock(&rf_buffer2.mutex);
 
       // Run FFT
       fftw_execute(fft_plan);
@@ -637,10 +385,13 @@ void *thread_fft(void *dummy)
 	      pt[1] = fft_out[i - fft_size / 2][1] / fft_size;
 	    }
 
+        // Calculate power from I and Q voltages
 	    pwr = pwr_scale * ((pt[0] * pt[0]) + (pt[1] * pt[1]));
 
+        // Convert to dB
         lpwr = 10.f * log10(pwr + 1.0e-20);
 
+        // Time smooth
         fft_buffer.data[i] = (lpwr * (1.f - fft_time_smooth)) + (fft_buffer.data[i] * fft_time_smooth);
       }
 
@@ -648,8 +399,6 @@ void *thread_fft(void *dummy)
       pthread_mutex_unlock(&fft_buffer.mutex);
 
       fft_to_buffer();
-
-    }    // End of the read cycle
   }
   return NULL;
 }
@@ -673,8 +422,6 @@ void fft_to_buffer()
   pthread_mutex_unlock(&fft_buffer.mutex);
 
   // Calculate the centre of the fft
-  // for 512, 1024 2048 etc = fft_size / 2 - 256
-  // for 500, 1000, 2000 = fft_size / 2 - 250  // 500 -> -7, 1000 -> 250 - 7, 2000 750 - 7
   if (fft_size == 500)
   {
     fft_offset = -7;
@@ -683,29 +430,18 @@ void fft_to_buffer()
   {
     fft_offset = 0;
   }
-  if (fft_size == 1000)
-  {
-    fft_offset = 243;
-  }
-  if (fft_size == 1024)
-  {
-    fft_offset = 256;
-  }
-  if (fft_size == 2000)
-  {
-    fft_offset = 743;
-  }
-  if (fft_size == 2048)
-  {
-    fft_offset = 768;
-  }
-
 
   // Scale and limit the samples
   for(j = 0; j < fft_size; j++)
   {
     // Add a constant to position the baseline
-    fft_output_data[j] = fft_output_data[j] + 75.0;
+    fft_output_data[j] = fft_output_data[j] + 49.8; // 49.8 gives true dBfs (maybe 50??)
+
+    // Shift the display up by 20 dB if required
+    if(Show20dBLower == true)
+    {
+      fft_output_data[j] = fft_output_data[j] + 20.0;
+    }
 
     // Multiply by 5 (pixels per dB on display)
     fft_output_data[j] = fft_output_data[j] * 5;
@@ -843,10 +579,6 @@ void *sdrplay_fft_thread(void *arg) {
   uint64_t last_output;
   bool *exit_requested = (bool *)arg;
 
-  server_buffer[8] = clientnumber;
-
-  transport_init();
-
   // Initialise fft
   printf("Initialising FFT (%d bin).. \n", fft_size);
   setup_fft();
@@ -880,7 +612,6 @@ void *sdrplay_fft_thread(void *arg) {
     }
     if (ver != SDRPLAY_API_VERSION) {
       printf("API version don't match (local=%.2f dll=%.2f)\n", SDRPLAY_API_VERSION, ver);
-      // goto CloseApi;
     }
  
     // Lock API while device selection is performed
@@ -940,10 +671,11 @@ void *sdrplay_fft_thread(void *arg) {
       if (i == ndev)
       {
         printf("Couldn't find a suitable device to open - exiting\n");
-        //goto UnlockDeviceAndCloseApi;
       }
       printf("chosenDevice = %d\n", chosenIdx);
       chosenDevice = &devs[chosenIdx];
+      printf("chosenDevice->hwVer = %d\n", chosenDevice->hwVer);
+
  
       // If chosen device is an RSPduo, assign additional fields
       if (chosenDevice->hwVer == SDRPLAY_RSPduo_ID)
@@ -985,7 +717,7 @@ void *sdrplay_fft_thread(void *arg) {
       if ((err = sdrplay_api_SelectDevice(chosenDevice)) != sdrplay_api_Success)
       {
         printf("sdrplay_api_SelectDevice failed %s\n", sdrplay_api_GetErrorString(err));
-        //goto UnlockDeviceAndCloseApi;
+        cleanexit(150);
       }
 		
       // Unlock API now that device is selected
@@ -1012,8 +744,8 @@ void *sdrplay_fft_thread(void *arg) {
         // Only need to update non-default settings
         if (master_slave == 0)
         {
-          // We choose to sample at 256 * 10 KSPS to make decimation to 10 kSPS easier
-          deviceParams->devParams->fsFreq.fsHz = 2560000.0;
+          printf("Sample Rate: %.0f\n", SampleRate);
+          deviceParams->devParams->fsFreq.fsHz = SampleRate;
         }
         else
         {
@@ -1027,10 +759,33 @@ void *sdrplay_fft_thread(void *arg) {
       {
         // Set Frequency
         //chParams->tunerParams.rfFreq.rfHz = 50407000.0;
-        chParams->tunerParams.rfFreq.rfHz = (float)CentreFreq;
+        chParams->tunerParams.rfFreq.rfHz = (float)CentreFreq;  // Frequency is float in Hz
+        printf("Frequency: %.0f\n", (float)CentreFreq);
 
-        // Set the smallest bandwidth as we are going to narrow it down a lot more soon
-        chParams->tunerParams.bwType = sdrplay_api_BW_0_200;
+        // Set the bandwidth
+        switch (span)
+        {
+          case 100000:                                          // 100 kHz
+          case 200000:                                          // 200 kHz
+            chParams->tunerParams.bwType = sdrplay_api_BW_0_200;
+            break;
+          case 500000:                                          // 500 kHz
+            chParams->tunerParams.bwType = sdrplay_api_BW_0_600;
+            break;
+          case 1000000:                                         // 1000 kHz
+            chParams->tunerParams.bwType = sdrplay_api_BW_1_536;
+            break;
+          case 2000000:                                         // 2000 kHz
+            chParams->tunerParams.bwType = sdrplay_api_BW_5_000;
+            break;
+          case 5000000:                                         // 5000 kHz
+            chParams->tunerParams.bwType = sdrplay_api_BW_6_000;
+            break;
+          case 10000000:                                        // 10000 kHz
+            chParams->tunerParams.bwType = sdrplay_api_BW_8_000;
+            break;
+        }
+        printf("Span: %d kHz\n", span / 1000);
 
         // Change single tuner mode to ZIF
         if (master_slave == 0)
@@ -1039,29 +794,65 @@ void *sdrplay_fft_thread(void *arg) {
         }
 
         // Set the tuner gain
-        if (strcmp(destination, "local") == 0)
+        chParams->tunerParams.gain.gRdB = IFgain;          // Set between 20 and 59.
+        printf("IF Gain: %d\n", IFgain);
+
+        chParams->tunerParams.gain.LNAstate = legal_gain(RFgain);
+        printf("RF Gain: %d\n", legal_gain(RFgain));
+
+        // Set the Decimation
+        if (decimation_factor == 1)
         {
-          chParams->tunerParams.gain.gRdB = IFgain;          // Set between 20 and 59.
-          chParams->tunerParams.gain.LNAstate = legal_gain(RFgain);
+          chParams->ctrlParams.decimation.enable = 0;   // Decimation off
+          printf("Decimation in api: off\n");
         }
         else
         {
-          chParams->tunerParams.gain.gRdB = remoteIFgain;          // Set between 20 and 59.
-          chParams->tunerParams.gain.LNAstate = legal_gain(remoteRFgain);
+          chParams->ctrlParams.decimation.enable = 1;            // default 0 (off), 1=on
+          chParams->ctrlParams.decimation.decimationFactor = decimation_factor;
+          printf("Decimation in api: %d\n", decimation_factor);
         }
-
-        //chParams->tunerParams.gain.gRdB = 40;
-        //chParams->tunerParams.gain.LNAstate = 5;
-
-        // Set the Decimation to max
-        chParams->ctrlParams.decimation.enable = 1;            // default 0 (off), 1=on
-        chParams->ctrlParams.decimation.decimationFactor = 32; // default 1, max 32
 				
         // wideband = 1 uses better filters but less efficient on cpu usage
         chParams->ctrlParams.decimation.wideBandSignal = 1;    // default 0
 			
-        // Disable AGC
-        chParams->ctrlParams.agc.enable = sdrplay_api_AGC_DISABLE;
+        // Set AGC
+        if (agc == true)
+        {
+          chParams->ctrlParams.agc.enable = sdrplay_api_AGC_100HZ;
+        }
+        else
+        {
+          chParams->ctrlParams.agc.enable = sdrplay_api_AGC_DISABLE;
+        }
+
+        // Set extras if it is an RSPdx
+        if (chosenDevice->hwVer == SDRPLAY_RSPdx_ID)
+        {
+          // Set BiasT
+          if (BiasT_volts)
+          {
+            deviceParams->devParams->rspDxParams.biasTEnable = 1;
+          }
+          else
+          {
+            deviceParams->devParams->rspDxParams.biasTEnable = 0;
+          }
+
+          // Set Antenna Port
+          switch (Antenna_port)
+          {
+            case 0:
+              deviceParams->devParams->rspDxParams.antennaSel = sdrplay_api_RspDx_ANTENNA_A;
+              break;
+            case 1:
+              deviceParams->devParams->rspDxParams.antennaSel = sdrplay_api_RspDx_ANTENNA_B;
+              break;
+            case 2:
+              deviceParams->devParams->rspDxParams.antennaSel = sdrplay_api_RspDx_ANTENNA_C;
+              break;
+          }
+        }
       }
       else
       {
@@ -1101,192 +892,241 @@ void *sdrplay_fft_thread(void *arg) {
           sdrplay_api_ErrorInfoT *errInfo = sdrplay_api_GetLastError(NULL);
           if (errInfo != NULL) printf("Error in %s: %s(): line %d: %s\n", errInfo->file, errInfo->function, errInfo->line, errInfo->message);
           {
-            //goto CloseApi;
+            cleanexit(150);
           }
         }
       }
 
-      // If required, we start serving the data to the websocket interface
-      if (strcmp(destination, "remote") == 0)
-      {
-        websocket_create();
-      }
-      else                                 // Local display of waterfall
-      {
-        // Set initial parameters
-        last_output = monotonic_ms();
-
-        fft_offset = (fft_size / 2) - 250;
-
-        // zero all the buffers
-        for(i = 0; i < 2048; i++)
-        {
-          y3[i] = 1;
-          //hanning_window_const[i] = 0;
-          fft_buffer.data[i] = -20.0;
-          fft_output_data[i] = 1;
-        }
-
-        // Start fft thread
-        printf("Starting FFT Thread.. \n");
-        if (pthread_create(&fftThread, NULL, thread_fft, NULL))
-        {
-          printf("Error creating FFT thread\n");
-          //return -1;
-        }
-        pthread_setname_np(fftThread, "FFT Calculation");
-        printf("FFT thread running.\n");
-
-        // Copy fft scaled data to display buffer 
-        while ((false == *exit_requested) && (app_exit == false)) 
-        {
-          if(monotonic_ms() > (last_output + 50))  // so 20 Hz refresh
-          {
-
-      // Reset timer for 20 Hz refresh
+      // Set initial parameters for Local display of waterfall
       last_output = monotonic_ms();
 
-      // Check for parameter changes (loop ends here if none)
+      fft_offset = (fft_size / 2) - 250;
 
-      // Change of Frequency
-      if (NewFreq == true)
+      // zero all the buffers
+      for(i = 0; i < 2048; i++)
       {
-        sdrplay_api_Uninit(chosenDevice->dev);
-        chParams->tunerParams.rfFreq.rfHz = (float)CentreFreq;
-
-        if ((err = sdrplay_api_Init(chosenDevice->dev, &cbFns, NULL)) != sdrplay_api_Success)
-        {
-          printf("sdrplay_api_Init failed %s\n", sdrplay_api_GetErrorString(err));
-        }
-        NewFreq = false;
+        y3[i] = 1;
+        //hanning_window_const[i] = 0;
+        fft_buffer.data[i] = -20.0;
+        fft_output_data[i] = 1;
       }
 
-      // Change of gain
-      if (NewGain == true)
+      // Start fft thread
+      printf("Starting FFT Thread.. \n");
+      if (pthread_create(&fftThread, NULL, thread_fft, NULL))
       {
-        sdrplay_api_Uninit(chosenDevice->dev);
+        printf("Error creating FFT thread\n");
+        //return -1;
+      }
+      pthread_setname_np(fftThread, "FFT Calculation");
+      printf("FFT thread running.\n");
 
-        // Set AGC
-        if (agc == true)
+      // Copy fft scaled data to display buffer 
+      while ((false == *exit_requested) && (app_exit == false)) 
+      {
+        if(monotonic_ms() > (last_output + 50))  // so 20 Hz refresh
         {
-          chParams->ctrlParams.agc.enable = sdrplay_api_AGC_100HZ;
-        }
-        else
-        {
-          chParams->ctrlParams.agc.enable = sdrplay_api_AGC_DISABLE;
-        }
+          // Reset timer for 20 Hz refresh
+          last_output = monotonic_ms();
 
-        // Set RF Gain
-        chParams->tunerParams.gain.LNAstate = legal_gain(RFgain);
+         // Check for parameter changes (loop ends here if none)
 
-        // Set IF gain
-        chParams->tunerParams.gain.gRdB = IFgain;          // Set between 20 (max gain) and 59 (least)
+          // Change of Frequency //////////////////////////////////////////
+          if (NewFreq == true)
+          {
+            sdrplay_api_Uninit(chosenDevice->dev);
+            chParams->tunerParams.rfFreq.rfHz = (float)CentreFreq;
+
+            // Restart SDR
+            if ((err = sdrplay_api_Init(chosenDevice->dev, &cbFns, NULL)) != sdrplay_api_Success)
+            {
+              printf("sdrplay_api_Init failed %s\n", sdrplay_api_GetErrorString(err));
+            }
+            NewFreq = false;
+          }
+
+          // Change of gain ////////////////////////////////////////////////
+          if (NewGain == true)
+          {
+            sdrplay_api_Uninit(chosenDevice->dev);
+
+            // Set AGC
+            if (agc == true)
+            {
+              chParams->ctrlParams.agc.enable = sdrplay_api_AGC_100HZ;
+            }
+            else
+            {
+              chParams->ctrlParams.agc.enable = sdrplay_api_AGC_DISABLE;
+            }
+
+            // Set RF Gain
+            chParams->tunerParams.gain.LNAstate = legal_gain(RFgain);
+
+            // Set IF gain
+            chParams->tunerParams.gain.gRdB = IFgain;          // Set between 20 (max gain) and 59 (least)
         
-        if ((err = sdrplay_api_Init(chosenDevice->dev, &cbFns, NULL)) != sdrplay_api_Success)
-        {
-          printf("sdrplay_api_Init failed %s\n", sdrplay_api_GetErrorString(err));
+            // Restart SDR
+            if ((err = sdrplay_api_Init(chosenDevice->dev, &cbFns, NULL)) != sdrplay_api_Success)
+            {
+              printf("sdrplay_api_Init failed %s\n", sdrplay_api_GetErrorString(err));
+            }
+            NewGain = false;
+          }
+
+          // Change of Display Span /////////////////////////////////////////
+          if (prepnewscanwidth == true)
+          {
+            sdrplay_api_Uninit(chosenDevice->dev);
+
+            printf("prepnewscanwidth == true\n");
+            // Notify touchscreen that parameters can be changed
+            readyfornewscanwidth = true;
+            printf("readyfornewscanwidth == true\n");
+
+            // Wait for new parameters to be calculated
+            while (NewSpan == false)
+            {
+              usleep(100);
+            }
+            printf("NewSpan == true\n");
+
+            // Set the fft centre offset
+            if (fft_size == 500)
+            {
+              fft_offset = -7;
+            }
+            if (fft_size == 512)
+            {
+              fft_offset = 0;
+            }
+            printf("new fft_size = %d\n", fft_size);
+            printf("new fft_offset = %d\n", fft_offset);
+
+            // Reset trigger parameters
+            NewSpan = false;
+            prepnewscanwidth = false;
+            readyfornewscanwidth = false;
+
+            // Initialise fft
+            printf("Initialising FFT (%d bin).. \n", fft_size);
+            setup_fft();
+            for (i = 0; i < fft_size; i++)
+            {
+              hanning_window_const[i] = 0.5 * (1.0 - cos(2*M_PI*(((double)i)/fft_size)));
+            }
+            printf("FFT Intitialised\n");
+
+            // Set the new sample rate
+            if (deviceParams->devParams != NULL)
+            {
+              // This will be NULL for slave devices, only the master can change these parameters
+              if (master_slave == 0)
+              {
+                printf("Sample Rate: %.0f\n", SampleRate);
+                deviceParams->devParams->fsFreq.fsHz = SampleRate;
+              }
+            }
+
+            // Set the new Decimation
+            if (decimation_factor == 1)
+            {
+              chParams->ctrlParams.decimation.enable = 0;   // Decimation off
+              printf("Decimation in api: off\n");
+            }
+            else
+            {
+              chParams->ctrlParams.decimation.enable = 1;            // default 0 (off), 1=on
+              chParams->ctrlParams.decimation.decimationFactor = decimation_factor;
+              printf("Decimation in api: %d\n", decimation_factor);
+            }
+
+             // Set the new bandwidth
+            switch (span)
+            {
+              case 100000:                                          // 100 kHz
+              case 200000:                                          // 200 kHz
+                chParams->tunerParams.bwType = sdrplay_api_BW_0_200;
+                break;
+              case 500000:                                          // 500 kHz
+                chParams->tunerParams.bwType = sdrplay_api_BW_0_600;
+                break;
+              case 1000000:                                         // 1000 kHz
+                chParams->tunerParams.bwType = sdrplay_api_BW_1_536;
+                break;
+              case 2000000:                                         // 2000 kHz
+                chParams->tunerParams.bwType = sdrplay_api_BW_5_000;
+                break;
+              case 5000000:                                         // 5000 kHz
+                chParams->tunerParams.bwType = sdrplay_api_BW_6_000;
+                break;
+              case 10000000:                                        // 10000 kHz
+                chParams->tunerParams.bwType = sdrplay_api_BW_8_000;
+                break;
+            }
+
+            printf("end of change\n");
+
+            // Restart SDR
+            if ((err = sdrplay_api_Init(chosenDevice->dev, &cbFns, NULL)) != sdrplay_api_Success)
+            {
+              printf("sdrplay_api_Init failed %s\n", sdrplay_api_GetErrorString(err));
+            }
+
+          }
+
+          // Change of Port or BiasT /////////////////////////////////////////
+          if (NewPort == true)
+          {
+            sdrplay_api_Uninit(chosenDevice->dev);
+
+            if (chosenDevice->hwVer == SDRPLAY_RSPdx_ID)
+            {
+              // Set BiasT
+              if (BiasT_volts)
+              {
+                deviceParams->devParams->rspDxParams.biasTEnable = 1;
+              }
+              else
+              {
+                deviceParams->devParams->rspDxParams.biasTEnable = 0;
+              }
+
+              // Set Antenna Port
+              switch (Antenna_port)
+              {
+                case 0:
+                  deviceParams->devParams->rspDxParams.antennaSel = sdrplay_api_RspDx_ANTENNA_A;
+                  break;
+                case 1:
+                  deviceParams->devParams->rspDxParams.antennaSel = sdrplay_api_RspDx_ANTENNA_B;
+                  break;
+                case 2:
+                  deviceParams->devParams->rspDxParams.antennaSel = sdrplay_api_RspDx_ANTENNA_C;
+                  break;
+              }
+            }
+            printf("Port or BiasT change for rspDX complete\n");
+            NewPort = false;
+
+            // Restart SDR
+            if ((err = sdrplay_api_Init(chosenDevice->dev, &cbFns, NULL)) != sdrplay_api_Success)
+            {
+              printf("sdrplay_api_Init failed %s\n", sdrplay_api_GetErrorString(err));
+            }
+          }
+          else
+          {
+            usleep(100);
+          }
+
+          if (*exit_requested == true)
+          {
+            printf("Exit Requested before delay\n");
+          }
+          sleep_ms(1);
         }
-        NewGain = false;
       }
-
-      // Change of Display Span
-      if (prepnewscanwidth == true)
-      {
-
-  //printf("Waiting for SDR Play FFT Thread to exit..\n");
-  //pthread_join(sdrplay_fft_thread_obj, NULL);
-  //printf("FFT Thread exited\n");
-
-
-
-        printf("prepnewscanwidth == true\n");
-        // Notify touchscreen that parameters can be changed
-        readyfornewscanwidth = true;
-        printf("readyfornewscanwidth == true\n");
-
-        // Wait for new parameters to be calculated
-        while (NewSpan == false)
-        {
-          usleep(100);
-        }
-        printf("NewSpan == true\n");
-
-  if (fft_size == 500)
-  {
-    fft_offset = -7;
-  }
-  if (fft_size == 512)
-  {
-    fft_offset = 0;
-  }
-  if (fft_size == 1000)
-  {
-    fft_offset = 243;
-  }
-  if (fft_size == 1024)
-  {
-    fft_offset = 256;
-  }
-  if (fft_size == 2000)
-  {
-    fft_offset = 743;
-  }
-  if (fft_size == 2048)
-  {
-    fft_offset = 768;
-  }
-        printf("new fft_size = %d\n", fft_size);
-        printf("new fft_offset = %d\n", fft_offset);
-
-
-        // Reset trigger parameters
-        NewSpan = false;
-        prepnewscanwidth = false;
-        readyfornewscanwidth = false;
-
-  // Initialise fft
-  printf("Initialising FFT (%d bin).. \n", fft_size);
-  setup_fft();
-  for (i = 0; i < fft_size; i++)
-  {
-    hanning_window_const[i] = 0.5 * (1.0 - cos(2*M_PI*(((double)i)/fft_size)));
-  }
-  printf("FFT Intitialised\n");
-
-
-
-  //printf("Starting FFT Thread.. \n");
-  //if (pthread_create(&fftThread, NULL, thread_fft, NULL))
-  //{
-  //  printf("Error creating FFT thread\n");
-    //return -1;
-  //}
-  //pthread_setname_np(fftThread, "FFT Calculation");
-  //printf("FFT thread running.\n");
-
-
-        printf("end of change\n");
-
-      }
-    }  // remote/local
-    else
-    {
-     usleep(100);
-    }
-
-    if (*exit_requested == true)
-    {
-      printf("Exit Requested before delay\n");
-    }
-    sleep_ms(1);
-  }
-
-
-
-      }
-
-
-
                         
       // Finished with device so uninitialise it
       if ((err = sdrplay_api_Uninit(chosenDevice->dev)) != sdrplay_api_Success)
@@ -1309,23 +1149,16 @@ void *sdrplay_fft_thread(void *arg) {
                 printf("sdrplay_api_Uninit failed %s\n", sdrplay_api_GetErrorString(err));
               }
               slaveUninitialised = 0;
-              // goto CloseApi;
             }
             printf("Waiting for slave to uninitialise\n");
           }
         }
-        //goto CloseApi;
       }
       // Release device (make it available to other applications)
       sdrplay_api_ReleaseDevice(chosenDevice);
     }
  
-//UnlockDeviceAndCloseApi:
-    // Unlock API
     sdrplay_api_UnlockDeviceApi();
-
-//CloseApi:
-    // Close API
     sdrplay_api_Close();
   }
 
@@ -1333,8 +1166,6 @@ void *sdrplay_fft_thread(void *arg) {
   closelog();
   printf("Main fft Thread Closed\n");
 
-  // For debug purposes
-  // printf("Final total = %llu words, rate=%llu words/second, number of buffers=%llu\n", total, total/10, buf_total);
   return 0;
 }
 

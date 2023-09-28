@@ -137,7 +137,7 @@ float fft_time_smooth;       // Set for scan width
 uint32_t span = 10000;
 int limegain = 15;
 uint32_t pfreq1 = 49969000;
-uint32_t pfreq2 = 50407000;
+uint32_t pfreq2 = 50407500;
 uint32_t pfreq3 = 143049000;
 uint32_t pfreq4 = 437000000;
 uint32_t pfreq5 = 1296000000;
@@ -2010,6 +2010,11 @@ void SetSpan(int button)
 {  
   char ValueToSave[63];
 
+  if (strcmp(destination, "local") != 0)
+  {
+    return;
+  }
+
   // Stop the scan at the end of the current one and wait for it to stop
   freeze = true;
   while(! frozen)
@@ -2487,12 +2492,15 @@ void SetStream(int button)
   uint16_t newport = 0;
   bool reboot_required = false;
 
-  // Stop the scan at the end of the current one and wait for it to stop
-//  freeze = true;
-//  while(! frozen)
-//  {
-//    usleep(10);                                   // wait till the end of the scan
-//  }
+  // If required, stop the scan at the end of the current one and wait for it to stop
+  if (strcmp(destination, "local") == 0)
+  {
+    freeze = true;
+    while(! frozen)
+    {
+      usleep(10);                                   // wait till the end of the scan
+    }
+  }
 
   switch (button)
   {
@@ -2578,9 +2586,13 @@ void SetStream(int button)
 
       break;
     case 5:
-      if (strcmp(destination, "local") == 0)  // currently local, so change to remote
+      if (strcmp(destination, "local") == 0)  // currently local, so change to remote and set span width to 10 kHz.
       {
         strcpy(destination, "remote");
+        span = 10000;
+        // Store the new span
+        SetConfigParam(PATH_CONFIG, "span", "10000");
+        printf("Span set to %d Hz\n", span);
       }
       else                                    // currently remote, so change to local
       {
@@ -2590,11 +2602,10 @@ void SetStream(int button)
       printf("Destination set to %s\n", destination); 
       break;
     case 6:
-        
       break;
   }
 
-  if (reboot_required)
+  if ((reboot_required) && (strcmp(destination, "remote") == 0))
   {
     MsgBox4("Restarting application", "with new settings", "", "");
     UpdateWeb();
@@ -3316,7 +3327,7 @@ void *WaitButtonEvent(void * arg)
           UpdateWindow();
           freeze = false;
           break;
-        case 2:                                            // 1
+        //case 2:                                            // 1
         case 3:                                            // 2
         case 4:                                            // 5
         case 5:                                            // 10
@@ -3806,6 +3817,14 @@ void *WaitButtonEvent(void * arg)
           SetWfall(i + 10);
           UpdateWindow();
           break;
+        case 5:                                            //   Factory Reset Requested
+          system("cp -f /home/pi/rpidatv/src/meteorview/meteorview_config.txt /home/pi/rpidatv/src/meteorview/meteorview_config.txt.bak");
+          system("cp -f /home/pi/rpidatv/src/meteorview/meteorview_config.txt.factory /home/pi/rpidatv/src/meteorview/meteorview_config.txt");
+          MsgBox4("Restarting application", "with new settings", "", "");
+          UpdateWeb();
+          usleep (2000000);
+          cleanexit(150);
+          break;
         case 6:                                            // 
           printf("Freq Presets Menu 10 Requested\n");
           CurrentMenu = 10;
@@ -4157,10 +4176,12 @@ void Define_Menu6()                                           // Span Menu
   button = CreateButton(6, 3);
   AddButtonStatus(button, "2.5 kHz", &Blue);
   AddButtonStatus(button, "2.5 kHz", &Green);
+  AddButtonStatus(button, "2.5 kHz", &Grey);
 
   button = CreateButton(6, 4);
   AddButtonStatus(button, "5 kHz", &Blue);
   AddButtonStatus(button, "5 kHz", &Green);
+  AddButtonStatus(button, "5 kHz", &Grey);
 
   button = CreateButton(6, 5);
   AddButtonStatus(button, "10 kHz", &Blue);
@@ -4207,6 +4228,11 @@ void Start_Highlights_Menu6()
   else
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+  }
+  if (strcmp(destination, "local") != 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 2);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 4), 2);
   }
 }
 
@@ -4339,10 +4365,10 @@ void Define_Menu8()                                    // Gain Menu
   AddButtonStatus(button, "AGC^On", &Blue);
 
   button = CreateButton(8, 5);
-  AddButtonStatus(button, "Remote^RF Gain", &Blue);
+  AddButtonStatus(button, "Streaming^RF Gain", &Blue);
 
   button = CreateButton(8, 6);
-  AddButtonStatus(button, "Remote^IF Gain", &Blue);
+  AddButtonStatus(button, "Streaming^IF Gain", &Blue);
 
   button = CreateButton(8, 7);
   AddButtonStatus(button, "Back to^Settings", &DBlue);
@@ -4692,8 +4718,8 @@ void Define_Menu14()                                          // More Waterfall 
   //button = CreateButton(14, 4);
   //AddButtonStatus(button, "Set Wfall^Overlap", &Blue);
 
-  //button = CreateButton(14, 5);
-  //AddButtonStatus(button, "Set Wfall^Fraction", &Blue);
+  button = CreateButton(14, 5);
+  AddButtonStatus(button, "Factory^Reset", &Blue);
 
   button = CreateButton(14, 6);
   AddButtonStatus(button, "Set Freq^Presets", &Blue);
@@ -5430,7 +5456,7 @@ int main(int argc, char **argv)
   int i;
   int pixel;
   int PeakValueZeroCounter = 0;
-  int nextwebupdate = 10;
+  uint64_t nextwebupdate = monotonic_ms() + 1000;
   uint64_t next_paint = monotonic_ms();
   uint16_t y4[625];
   bool paint_line;
@@ -5463,10 +5489,21 @@ int main(int argc, char **argv)
       if(getTouchScreenDetails(&screenXmin, &screenXmax, &screenYmin, &screenYmax) == 1) break;
     }
   }
+
   if(NoDeviceEvent != 7)  // Touchscreen detected
   {
     // Create Touchscreen thread
     pthread_create (&thtouchscreen, NULL, &WaitTouchscreenEvent, NULL);
+  }
+  else // No touchscreen detected
+  {
+    if(strcmp(DisplayType, "Browser") != 0)  // Web control not enabled, so set it up and reboot
+    {
+      SetConfigParam(PATH_PCONFIG, "webcontrol", "enabled");
+      SetConfigParam(PATH_PCONFIG, "display", "Browser");
+      system ("/home/pi/rpidatv/scripts/set_display_config.sh");
+      system ("sudo reboot now");
+    }
   }
 
   // Calculate screen parameters
@@ -5519,10 +5556,11 @@ int main(int argc, char **argv)
   // Check that an SDRPlay is accessible
   if (CheckSDRPlay() != 0)
   {
-    MsgBox4("No SDRPlay detected", "Please ensure that it is", "plugged in to a USB2 socket", "Touch screen to return to Portsdown");
-    wait_touch();     // Wait here till screen is touched
+    MsgBox4("No SDRPlay detected", "Please ensure that it is", "plugged in to a USB2 socket", " ");
+    usleep(2000000);
+    //wait_touch();     // Wait here till screen is touched
     MsgBox4(" ", " ", " ", " ");
-    cleanexit(129);   // Exit to portsdown 
+    cleanexit(150);   //  
   }
 
   // SDR FFT Thread
@@ -5643,7 +5681,7 @@ int main(int argc, char **argv)
 
             y4[j] = 0;          // zero the peaks for next time
           }
-          next_paint = next_paint + (wfalltimespan * 1000) / (wfall_height + 1);
+          next_paint =  monotonic_ms() + (wfalltimespan * 25) / 10;
         }
         else
         {
@@ -5717,15 +5755,8 @@ int main(int argc, char **argv)
         }
       }
       tracecount++;
-
-      if (tracecount >= nextwebupdate)
-      {
-        // printf("tracecount = %d, Time ms = %llu \n", tracecount, monotonic_ms());
-        UpdateWeb();
-        usleep(10000);
-        nextwebupdate = tracecount + 220;  // About 780 ms between updates
-      }
       //printf("Tracecount = %d\n", tracecount);
+
     }
     else  // remote display
     {
@@ -5745,8 +5776,13 @@ int main(int argc, char **argv)
         RemoteCaptionDisplayed = true;
       }
     }
+    if (monotonic_ms() >= nextwebupdate)
+    {
+      UpdateWeb();
+      usleep(10000);  // Alow time for paint
+      nextwebupdate = nextwebupdate + 1000;
+    }
   }
-
 
   printf("Waiting for SDR Play FFT Thread to exit..\n");
   pthread_join(sdrplay_fft_thread_obj, NULL);

@@ -67,6 +67,7 @@ Rewitten by Dave, G8GKQ
 #define PATH_AS_CONFIG "/home/pi/rpidatv/src/airspyview/airspyview_config.txt"
 #define PATH_RS_CONFIG "/home/pi/rpidatv/src/rtlsdrview/rtlsdrview_config.txt"
 #define PATH_PB_CONFIG "/home/pi/rpidatv/src/plutoview/plutoview_config.txt"
+#define PATH_SV_CONFIG "/home/pi/rpidatv/src/sdrplayview/sdrplayview_config.txt"
 #define PATH_TC_CONFIG "/home/pi/rpidatv/scripts/images/testcard_config.txt"
 
 #define PI 3.14159265358979323846
@@ -1590,6 +1591,7 @@ void ExecuteUpdate(int NoButton)
       // Display the updating message
       strcpy(Step, "Step 1 of 10\\nDownloading Update\\n\\nX---------");
       DisplayUpdateMsg("Latest" , Step);
+      UpdateWeb();
 
       // Delete any old update
       strcpy(LinuxCommand, "rm /home/pi/update.sh >/dev/null 2>/dev/null");
@@ -1602,6 +1604,7 @@ void ExecuteUpdate(int NoButton)
 
       strcpy(Step, "Step 2 of 10\\nLoading Update Script\\n\\nXX--------");
       DisplayUpdateMsg("Latest Portsdown 4", Step);
+      UpdateWeb();
 
       strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");
       system(LinuxCommand);
@@ -1622,6 +1625,7 @@ void ExecuteUpdate(int NoButton)
       // Display the updating message
       strcpy(Step, "Step 1 of 10\\nDownloading Update\\n\\nX---------");
       DisplayUpdateMsg("Development", Step);
+      UpdateWeb();
 
       // Delete any old update
       strcpy(LinuxCommand, "rm /home/pi/update.sh >/dev/null 2>/dev/null");
@@ -1634,6 +1638,7 @@ void ExecuteUpdate(int NoButton)
 
       strcpy(Step, "Step 2 of 10\\nLoading Update Script\\n\\nXX--------");
       DisplayUpdateMsg("Development", Step);
+      UpdateWeb();
 
       strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");
       system(LinuxCommand);
@@ -6860,8 +6865,8 @@ int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure)
     {
       if (ev[i].type ==  EV_SYN)
       {
-        //printf("Event type is %s%s%s = Start of New Event\n",
-        //        KYEL, events[ev[i].type], KWHT);
+        printf("Event type is %s%s%s = Start of New Event\n",
+                KYEL, events[ev[i].type], KWHT);
       }
 
       else if (ev[i].type == EV_KEY && ev[i].code == 330 && ev[i].value == 1)
@@ -6873,7 +6878,7 @@ int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure)
 
       else if (ev[i].type == EV_KEY && ev[i].code == 330 && ev[i].value == 0)
       {
-        //StartTouch=0;
+        StartTouch=0;
         //printf("Event type is %s%s%s & Event code is %sTOUCH(330)%s & Event value is %s0%s = Touch Finished\n",
         //        KYEL,events[ev[i].type],KWHT,KYEL,KWHT,KYEL,KWHT);
       }
@@ -17034,10 +17039,6 @@ void ChangeStartApp(int NoButton)
     SetConfigParam(PATH_PCONFIG, "startup", "Meteorview_boot");
     strcpy(StartApp, "Meteorview_boot");
     break;
-  case 9:
-    SetConfigParam(PATH_PCONFIG, "startup", "Meteorbeacon_boot");
-    strcpy(StartApp, "Meteorbeacon_boot");
-    break;
   default:
     break;
   }
@@ -18768,7 +18769,7 @@ void waituntil(int w,int h)
           DisplayLogo();
           cleanexit(130);
           break;
-        case 17:                              //  Band Viewer.  Check for Airspy first, them LimeSDR then RTL-SDR
+        case 17:                              //  Band Viewer.  Check for Airspy, SDRPlay, LimeSDR, Pluto then RTL-SDR
           if (CheckAirspyConnect() == 0)
           {
             DisplayLogo();
@@ -18776,29 +18777,37 @@ void waituntil(int w,int h)
           }
           else
           {
-            if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
+            if(CheckSDRPlay() == 0)
             {
               DisplayLogo();
-              cleanexit(136);
+              cleanexit(144);
             }
             else
             {
-              if(CheckPlutoIPConnect() == 0)
+              if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
               {
                 DisplayLogo();
-                cleanexit(143);
+                cleanexit(136);
               }
               else
               {
-                if(CheckRTL() == 0)
+                if(CheckPlutoIPConnect() == 0)
                 {
                   DisplayLogo();
-                  cleanexit(141);
+                  cleanexit(143);
                 }
                 else
                 {
-                  MsgBox("No LimeSDR, Airspy, Pluto or RTL-SDR Connected");
-                  wait_touch();
+                  if(CheckRTL() == 0)
+                  {
+                    DisplayLogo();
+                    cleanexit(141);
+                  }
+                  else
+                  {
+                    MsgBox2("No LimeSDR, Airspy, SDRplay,", "Pluto or RTL-SDR Connected");
+                    wait_touch();
+                  }
                 }
               }
             }
@@ -19535,18 +19544,18 @@ void waituntil(int w,int h)
           }
           UpdateWindow();
           break;
-        case 4:                                                 // SDR Play BandViewer when written
-          //if(CheckSDRPlay() == 0)
-          //{
-          //  DisplayLogo();
-          //  cleanexit(144);
-          //}
-          //else
-          //{
-            //MsgBox("No SDR Play Connected");
-            //wait_touch();
-          //}
-          //UpdateWindow();
+        case 4:                                                 // SDR Play BandViewer
+          if(CheckSDRPlay() == 0)
+          {
+            DisplayLogo();
+            cleanexit(144);
+          }
+          else
+          {
+            MsgBox("No SDR Play Connected");
+            wait_touch();
+          }
+          UpdateWindow();
           break;
         case 5:                                                 // Button Script 1
           SelectInGroupOnMenu(CurrentMenu, 5, 9, 5, 1);
@@ -19672,42 +19681,52 @@ void waituntil(int w,int h)
           {
             if (CheckAirspyConnect() == 0)
             {
-              snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
+              snprintf(ValueToSave, 63, "%d", LMRXfreq[0]);
               SetConfigParam(PATH_AS_CONFIG, "centrefreq", ValueToSave);
               DisplayLogo();
               cleanexit(140);
             }
             else
             {
-              if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
+              if(CheckSDRPlay() == 0)
               {
-                snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
-                SetConfigParam(PATH_BV_CONFIG, "centrefreq", ValueToSave);
+                snprintf(ValueToSave, 63, "%d", LMRXfreq[0] * 1000);
+                SetConfigParam(PATH_SV_CONFIG, "centrefreq", ValueToSave);
                 DisplayLogo();
-                cleanexit(136);
+                cleanexit(144);
               }
               else
               {
-                if(CheckPlutoIPConnect() == 0)
+                if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
                 {
-                  snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
-                  SetConfigParam(PATH_PB_CONFIG, "centrefreq", ValueToSave);
+                  snprintf(ValueToSave, 63, "%d", LMRXfreq[0]);
+                  SetConfigParam(PATH_BV_CONFIG, "centrefreq", ValueToSave);
                   DisplayLogo();
-                  cleanexit(143);
+                  cleanexit(136);
                 }
                 else
                 {
-                  if(CheckRTL() == 0)
+                  if(CheckPlutoIPConnect() == 0)
                   {
-                    snprintf(ValueToSave, 63, "%d", LMRXfreq[0]); //
-                    SetConfigParam(PATH_RS_CONFIG, "centrefreq", ValueToSave);
+                    snprintf(ValueToSave, 63, "%d", LMRXfreq[0]);
+                    SetConfigParam(PATH_PB_CONFIG, "centrefreq", ValueToSave);
                     DisplayLogo();
-                    cleanexit(141);
+                    cleanexit(143);
                   }
                   else
                   {
-                    MsgBox("No LimeSDR, Pluto, Airspy or RTL-SDR Connected");
-                    wait_touch();
+                    if(CheckRTL() == 0)
+                    {
+                      snprintf(ValueToSave, 63, "%d", LMRXfreq[0]);
+                      SetConfigParam(PATH_RS_CONFIG, "centrefreq", ValueToSave);
+                      DisplayLogo();
+                      cleanexit(141);
+                    }
+                    else
+                    {
+                      MsgBox2("No LimeSDR, Airspy, SDRplay,", "Pluto or RTL-SDR Connected");
+                      wait_touch();
+                    }
                   }
                 }
               }
@@ -21158,7 +21177,6 @@ void waituntil(int w,int h)
         case 6:                               // Boot to Langstone
         case 7:                               // Boot to Band Viewer
         case 8:                               // Boot to Meteor Viewer
-        case 9:                               // Boot to Meteor RX Svr
           ChangeStartApp(i);
           //wait_touch();
           setBackColour(0, 0, 0);
@@ -23911,7 +23929,7 @@ void Define_Menu7()
   AddButtonStatus(button, "RTL-SDR^BandViewer", &Blue);
 
   button = CreateButton(7, 4);
-  AddButtonStatus(button, "SDR Play^BandViewer", &Grey);
+  AddButtonStatus(button, "SDR Play^BandViewer", &Blue);
 
   // 2nd line up Menu 7:
 
@@ -24118,7 +24136,8 @@ void Start_Highlights_Menu8()
   if (strcmp(LMRXmode, "terr") == 0)
   {
     indexoffset = 10;
-    if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0) || (CheckAirspyConnect() == 0) || (CheckRTL() == 0))
+    if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0) || (CheckAirspyConnect() == 0) || (CheckRTL() == 0)
+        || (CheckSDRPlay() == 0) || (CheckPlutoIPConnect() == 0))
     {
       SetButtonStatus(ButtonNumber(CurrentMenu, 4), 2);
     }
@@ -26923,9 +26942,9 @@ void Define_Menu34()
   AddButtonStatus(button, "Boot to^Meteor Viewer", &Blue);
   AddButtonStatus(button, "Boot to^Meteor Viewer", &Green);
 
-  button = CreateButton(34, 9);
-  AddButtonStatus(button, "Boot to^Meteor Bcn RX", &Blue);
-  AddButtonStatus(button, "Boot to^Meteor Bcn RX", &Green);
+  //button = CreateButton(34, 9);
+  //AddButtonStatus(button, "Boot to^Meteor Bcn RX", &Blue);
+  //AddButtonStatus(button, "Boot to^Meteor Bcn RX", &Green);
 }
 
 
@@ -26962,14 +26981,6 @@ void Start_Highlights_Menu34()         // Start-up App
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 8), 1);
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
-  }
-  else if (strcmp(StartApp, "Meteorbeacon_boot") == 0)
-  {
-    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
-    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
-    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
-    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
-    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 1);
   }
   else
   {
@@ -28986,9 +28997,6 @@ int main(int argc, char *argv[])
 
   // Check if DATV Express Server required and, if so, start it
   CheckExpress();
-
-  // Check Lime connected if selected
-  CheckLimeReady();
 
   // Check Pluto reboot status
   if (strcmp(CurrentModeOP, "PLUTO") == 0)

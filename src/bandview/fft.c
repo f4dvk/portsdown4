@@ -100,7 +100,7 @@ void *fft_thread(void *arg)
     pthread_cond_init (&lime_fft_buffer.signal, &attr);
     pthread_condattr_destroy(&attr);
 
-    while((false == *exit_requested)) 
+    while((false == *exit_requested))
     {
         /* Lock input buffer */
         pthread_mutex_lock(&lime_fft_buffer.mutex);
@@ -153,7 +153,7 @@ void *fft_thread(void *arg)
                 pt[0] = fft_out[i - FFT_SIZE / 2][0] / FFT_SIZE;
                 pt[1] = fft_out[i - FFT_SIZE / 2][1] / FFT_SIZE;
             }
-            pwr = pwr_scale * (pt[0] * pt[0]) + (pt[1] * pt[1]);
+            pwr = pwr_scale * ((pt[0] * pt[0]) + (pt[1] * pt[1]));
             lpwr = 10.f * log10(pwr + 1.0e-20);
 
             fft_data_staging[i] = (lpwr * (1.f - FFT_TIME_SMOOTH)) + (fft_data_staging[i] * FFT_TIME_SMOOTH);
@@ -178,7 +178,7 @@ void *fft_thread(void *arg)
             {
               // Set the scaling and vertical offset
               //fft_scaled_data[i] = 5 * (fft_data_staging[i] + 88);
-              fft_scaled_data[i] = 5 * (fft_data_staging[i] + 106);  
+              fft_scaled_data[i] = 5 * (fft_data_staging[i] + 146);  
 
               // Apply some time smoothing if not NF Measuring
 
@@ -208,8 +208,8 @@ void *fft_thread(void *arg)
 
               if (Range20dB) // Range20dB
               {
-                
-                fft_scaled_data[i] = fft_scaled_data[i] - 5 * (80 + BaseLine20dB);  
+
+                fft_scaled_data[i] = fft_scaled_data[i] - 5 * (80 + BaseLine20dB);
                 fft_scaled_data[i] = 4 * fft_scaled_data[i];
               }
               // Make sure that the data is within bounds
@@ -238,4 +238,3 @@ void *fft_thread(void *arg)
     printf("fft Thread Closed\n");
     return NULL;
 }
-
