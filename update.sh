@@ -605,12 +605,10 @@ else
   cp meteorview ../../bin/
   cd /home/pi
 
-  # Compile the meteor beacon and server files
-  cd /home/pi/rpidatv/src/meteorbeacon
+  # Compile sdrplayview
+  cd /home/pi/rpidatv/src/sdrplayview
   make
-  cp beacon ../../bin
-  cp server ../../bin
-  cd /home/pi
+  cp sdrplayview ../../bin
 fi
 
 # Compile Power Meter
