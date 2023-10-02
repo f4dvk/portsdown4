@@ -16,6 +16,7 @@ DisplayUpdateMsg() {
   # Display the update message on the desktop
   sudo fbi -T 1 -noverbose -a /home/pi/tmp/update.jpg >/dev/null 2>/dev/null
   (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
+  /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 }
 
 DisplayRebootMsg() {
@@ -32,6 +33,7 @@ DisplayRebootMsg() {
   # Display the update message on the desktop
   sudo fbi -T 1 -noverbose -a /home/pi/tmp/update.jpg >/dev/null 2>/dev/null
   (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
+  /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 }
 
 ############ Function to Read from Config File ###############
@@ -91,7 +93,6 @@ sudo killall keyedtx >/dev/null 2>/dev/null
 sudo killall ffmpeg >/dev/null 2>/dev/null
 
 DisplayUpdateMsg "Step 3 of 10\nSaving Current Config\n\nXXX-------"
-/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
 PATHSCRIPT="/home/pi/rpidatv/scripts"
 PATHUBACKUP="/home/pi/user_backups"
@@ -178,7 +179,6 @@ cp -f -r "$PATHSCRIPT"/images "$PATHUBACKUP"/images
 cp -f -r "$PATHSCRIPT"/hotspot_config.txt "$PATHUBACKUP"/hotspot_config.txt
 
 DisplayUpdateMsg "Step 4 of 10\nUpdating Software Package List\n\nXXXX------"
-/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
 # Download and install the VLC apt Preferences File 202212010
 cd /home/pi
@@ -217,7 +217,6 @@ if apt-mark showhold | grep -q 'vlc'; then
 fi
 
 DisplayUpdateMsg "Step 5 of 10\nUpdating Software Packages\n\nXXXX------"
-/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
 # --------- Update Packages ------
 
@@ -275,21 +274,6 @@ if [ ! -d  /home/pi/libwebsockets ]; then
   make all
   sudo make install
   sudo ldconfig
-  cd /home/pi
-fi
-
-# Install the sdrplay drivers if required
-if [ ! -f  /usr/local/include/sdrplay_api.h ]; then
-  cd /home/pi/rpidatv/src/meteorview
-
-  # Download api if required
-  if [ ! -f  SDRplay_RSP_API-ARM-3.09.1.run ]; then
-    wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
-  fi
-  chmod +x SDRplay_RSP_API-ARM-3.09.1.run
-
-  # Create file to trigger install on next reboot
-  touch /home/pi/rpidatv/.post-install_actions
   cd /home/pi
 fi
 
@@ -368,7 +352,6 @@ fi
 # ---------- Update rpidatv -----------
 
 DisplayUpdateMsg "Step 6 of 10\nDownloading Portsdown SW\n\nXXXXX-----"
-/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
 echo
 echo "-------------------------------------------------------"
@@ -405,13 +388,11 @@ rm -rf portsdown4-master
 cd /home/pi
 
 DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\n\nXXXXXX----"
-/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
 # Compile rpidatv gui
 sudo killall -9 rpidatvgui
 echo "Installing rpidatvgui"
 cd /home/pi/rpidatv/src/gui
-#make clean
 make
 sudo make install
 
@@ -545,9 +526,9 @@ cd /home/pi
 
 # Compile Band Viewer
 echo
-echo "---------------------------------"
-echo "----- Compiling Band Viewer -----"
-echo "---------------------------------"
+echo "-----------------------------------------"
+echo "----- Compiling LimeSDR Band Viewer -----"
+echo "-----------------------------------------"
 cd /home/pi/rpidatv/src/bandview
 make
 cp bandview ../../bin/
@@ -586,29 +567,55 @@ make
 cp plutoview ../../bin/
 cd /home/pi
 
-# Install SDRPlay API and compile MeteorViewer
-if [ ! -f  /home/pi/rpidatv/bin/beacon ]; then
+# Install SDRPlay API and compile MeteorViewer and sdrplayview
+# Install the sdrplay drivers if required
+if [ ! -f  /usr/local/include/sdrplay_api.h ]; then
   echo
   echo "-------------------------------------------------"
   echo "----- Setting SDRPlay for install on reboot -----"
   echo "-------------------------------------------------"
 
+  cd /home/pi/rpidatv/src/meteorview
+
+  # Download api if required
+  if [ ! -f  SDRplay_RSP_API-ARM-3.09.1.run ]; then
+    wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
+  fi
+  chmod +x SDRplay_RSP_API-ARM-3.09.1.run
+
+  # Create file to trigger install on next reboot
   touch /home/pi/rpidatv/.post-install_actions
-else
+  cd /home/pi
+
+else            # api is intalled, so try to compile SDRplay apps
   echo
   echo "----------------------------------"
   echo "----- Compiling MeteorViewer -----"
   echo "----------------------------------"
   cd /home/pi/rpidatv/src/meteorview
-  # Compile meteorview
+  # Compile meteorview.  Do it on next boot if it fails
   make
-  cp meteorview ../../bin/
-  cd /home/pi
-
-  # Compile sdrplayview
-  cd /home/pi/rpidatv/src/sdrplayview
-  make
-  cp sdrplayview ../../bin
+  if [[ "$?" == "0" ]]; then     # Successful compile
+    cp meteorview ../../bin/
+    echo
+    echo "-----------------------------------------"
+    echo "----- Compiling SDRplay Band Viewer -----"
+    echo "-----------------------------------------"
+    cd /home/pi/rpidatv/src/sdrplayview
+    make
+    if [[ "$?" == "0" ]]; then     # Successful compile
+      cp sdrplayview ../../bin
+      cd /home/pi
+    else
+      # Create file to trigger install on next reboot
+      touch /home/pi/rpidatv/.post-install_actions
+      cd /home/pi
+    fi
+  else
+    # Create file to trigger install on next reboot
+    touch /home/pi/rpidatv/.post-install_actions
+    cd /home/pi
+  fi
 fi
 
 # Compile Power Meter
@@ -690,7 +697,6 @@ cp /home/pi/rpidatv/src/wav2lime/wav2lime /home/pi/rpidatv/bin/wav2lime
 cd /home/pi
 
 DisplayUpdateMsg "Step 8 of 10\nRestoring Config\n\nXXXXXXXX--"
-/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
 # Restore portsdown_config.txt and portsdown_presets.txt
 cp -f -r "$PATHUBACKUP"/portsdown_config.txt "$PATHSCRIPT"/portsdown_config.txt
@@ -935,7 +941,6 @@ cp -r /home/pi/rpidatv/scripts/configs/webroot /home/pi/webroot
 sudo cp /home/pi/rpidatv/scripts/configs/nginx.conf /etc/nginx/nginx.conf
 
 DisplayUpdateMsg "Step 9 of 10\nFinishing Off\n\nXXXXXXXXX-"
-/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 
 # Update the version number
 
@@ -944,7 +949,7 @@ rm /home/pi/prev_installed_version.txt
 rm /home/pi/rpidatv/scripts/installed_version.txt
 cp /home/pi/rpidatv/scripts/latest_version.txt /home/pi/rpidatv/scripts/installed_version.txt
 
-# Save (overwrite) the git source used
+# Save (overwrite) the git source location used
 echo "${GIT_SRC}" > /home/pi/${GIT_SRC_FILE}
 
 # Installation décodage 406
@@ -976,7 +981,7 @@ DisplayRebootMsg "Step 10 of 10\nRebooting\n\nUpdate Complete"
 /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
 printf "\nRebooting\n"
 
-sleep 1
+sleep 2  ## Allow rebooting message to be displayed on web view
 # Turn off swap to prevent reboot hang
 sudo swapoff -a
 sudo shutdown -r now  # Seems to be more reliable than reboot
