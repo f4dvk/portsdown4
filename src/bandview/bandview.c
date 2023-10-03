@@ -96,6 +96,7 @@ bool PeakPlot = false;
 //int y[501];               // Actual displayed values on the chart
 bool PortsdownExitRequested = false;
 
+char ProgramName[255];             // used to pass rpidatvgui char string to listener
 int *web_x_ptr;                // pointer
 int *web_y_ptr;                // pointer
 int web_x;                     // click x 0 - 799 from left
