@@ -21,7 +21,7 @@ bandview: bandview.c
 		font/dejavu_sans_22.c \
 		font/dejavu_sans_28.c \
 		font/dejavu_sans_32.c \
-    /home/pi/rpidatv/src/gui/ffunc.c \
+		/home/pi/rpidatv/src/gui/ffunc.c \
 		buffer/buffer_circular.c \
 		bandview.c $(LIBFLAGS2)
 
