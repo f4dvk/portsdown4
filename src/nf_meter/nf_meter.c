@@ -193,8 +193,8 @@ void Start_Highlights_Menu6();
 void Start_Highlights_Menu7();
 void Start_Highlights_Menu10();
 
-void DrawEmptyScreen();  
-void DrawYaxisLabels();  
+void DrawEmptyScreen();
+void DrawYaxisLabels();
 void DrawSettings();
 void DrawTrace(int, int, int, int);
 void DrawMeterArc();
@@ -372,12 +372,12 @@ void do_snapcheck()
 
   // Fetch the Next Snap serial number
   fp = popen("cat /home/pi/snaps/snap_index.txt", "r");
-  if (fp == NULL) 
+  if (fp == NULL)
   {
     printf("Failed to run command\n" );
     exit(1);
   }
-  // Read the output a line at a time - output it. 
+  // Read the output a line at a time - output it.
   while (fgets(SnapIndex, 20, fp) != NULL)
   {
     printf("%s", SnapIndex);
@@ -483,7 +483,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
   char PreCuttext[63];
   char PostCuttext[63];
   bool refreshed;
-  
+
   // Store away currentMenu
   PreviousMenu = CurrentMenu;
 
@@ -523,7 +523,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         {
           SetButtonStatus(i, ShiftStatus);
         }
-      }  
+      }
 
       // Display the keyboard here as it would overwrite the text later
       UpdateWindow();
@@ -583,7 +583,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
 
     if (token == 8)  // Enter pressed
     {
-      if (strlen(EditText) > MaxLength) 
+      if (strlen(EditText) > MaxLength)
       {
         strncpy(KeyboardReturn, &EditText[0], MaxLength);
         KeyboardReturn[MaxLength] = '\0';
@@ -597,7 +597,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       break;
     }
     else
-    {    
+    {
       if (KeyboardShift == 1)     // Upper Case
       {
         switch (token)
@@ -762,7 +762,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       else if ((token == 0) || (token == 4) || ((token >=10) && (token <= 49)))
       {
         // character Key has been touched, so highlight it for 300 ms
- 
+
         ShiftStatus = 3 - (2 * KeyboardShift); // 1 = Upper, 3 = lower
         SetButtonStatus(ButtonNumber(41, token), ShiftStatus);
         DrawButton(ButtonNumber(41, token));
@@ -778,7 +778,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         // Copy the text to the left of the insert point
         strncpy(PreCuttext, &EditText[0], CursorPos);
         PreCuttext[CursorPos] = '\0';
-          
+
         // Append the new character to the pre-insert string
         strcat(PreCuttext, KeyPressed);
 
@@ -881,8 +881,8 @@ int getTouchScreenDetails(int *screenXmin, int *screenXmax,int *screenYmin,int *
 void TransformTouchMap(int x, int y)
 {
   // This function takes the raw (0 - 4095 on each axis) touch data x and y
-  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX 
-  // and scaledY prior to final correction by CorrectTouchMap  
+  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX
+  // and scaledY prior to final correction by CorrectTouchMap
 
   scaledX = x / scaleXvalue;
   scaledY = hscreen - y / scaleYvalue;
@@ -929,7 +929,7 @@ int IsMenuButtonPushed(int x, int y)
    && (scaledY <= 470) && (scaledY >= 270))
   {
     ChangeSmallMeterScale(scaledX);
-  } 
+  }
 
   for (i = 0; i <cmsize; i++)
   {
@@ -994,7 +994,7 @@ void ChangeSmallMeterScale(int scaledX)
     break;
     }
     ModeChanged = true;
-} 
+}
 
 
 int InitialiseButtons()
@@ -1100,7 +1100,7 @@ int CreateButton(int MenuIndex, int ButtonPosition)
     }
     if (ButtonPosition == 5) // Left hand arrow
     {
-      x = normal_xpos;  
+      x = normal_xpos;
       y = 480 - (5 * 60);
       w = 50;
       h = 50;
@@ -1139,7 +1139,7 @@ int CreateButton(int MenuIndex, int ButtonPosition)
     }
     if (ButtonPosition == 6) // 10
     {
-      x = normal_xpos;  
+      x = normal_xpos;
       y = 480 - (6 * 60);
       w = 50;
       h = 50;
@@ -1276,7 +1276,7 @@ void DrawButton(int ButtonIndex)
   strcpy(label, Button->Status[Button->NoStatus].Text);
 
   // Draw the basic button
-  rectangle(Button->x, Button->y + 1, Button->w, Button->h, 
+  rectangle(Button->x, Button->y + 1, Button->w, Button->h,
     Button->Status[Button->NoStatus].Color.r,
     Button->Status[Button->NoStatus].Color.g,
     Button->Status[Button->NoStatus].Color.b);
@@ -1289,7 +1289,7 @@ void DrawButton(int ButtonIndex)
 
 
 
-  // Separate button text into 2 lines if required  
+  // Separate button text into 2 lines if required
   char find = '^';                                  // Line separator is ^
   const char *ptr = strchr(label, find);            // pointer to ^ in string
 
@@ -1301,8 +1301,8 @@ void DrawButton(int ButtonIndex)
 
     // Display the text on the button
     pthread_mutex_lock(&text_lock);
-    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 11 /16, line1, &font_dejavu_sans_20);	
-    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 3 / 16, line2, &font_dejavu_sans_20);	
+    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 11 /16, line1, &font_dejavu_sans_20);
+    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 3 / 16, line2, &font_dejavu_sans_20);
     pthread_mutex_unlock(&text_lock);
   }
   else                                              // One line only
@@ -1421,7 +1421,7 @@ void wait_touch()
 
 
 void SetSpanWidth(int button)
-{  
+{
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1469,7 +1469,7 @@ void SetSpanWidth(int button)
 
 
 void SetLimeGain(int button)
-{  
+{
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1511,7 +1511,7 @@ void SetLimeGain(int button)
 }
 
 void AdjustLimeGain(int button)
-{  
+{
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1559,7 +1559,7 @@ void AdjustLimeGain(int button)
 
 
 void SetENR()
-{  
+{
   char ValueToSave[63];
   char RequestText[64];
   char InitText[63];
@@ -1577,7 +1577,7 @@ void SetENR()
 
   // Define initial value
   snprintf(InitText, 10, "%.2f", ENR);
- 
+
   // Ask for the new value
   do
   {
@@ -1607,7 +1607,7 @@ void SetENR()
 }
 
 void SetRF_ENR()
-{  
+{
   char RequestText[64];
   char InitText[63];
   float newENR;
@@ -1624,7 +1624,7 @@ void SetRF_ENR()
 
   // Define initial value
   snprintf(InitText, 10, "%.2f", RF_ENR);
- 
+
   // Ask for the new value
   do
   {
@@ -1646,7 +1646,7 @@ void SetRF_ENR()
 
 
 void SetFreqPreset(int button)
-{  
+{
   char ValueToSave[63];
   char RequestText[64];
   char InitText[63];
@@ -1820,7 +1820,7 @@ void SetFreqPreset(int button)
 
 
 void ShiftFrequency(int button)
-{  
+{
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1909,7 +1909,7 @@ void ChangeLabel(int button)
   div_t div_100;
   div_t div_1000;
   char ValueToSave[63];
-  
+
   // Stop the scan at the end of the current one and wait for it to stop
   freeze = true;
   while(! frozen)
@@ -1979,7 +1979,7 @@ void ChangeLabel(int button)
       }
 
       Keyboard(RequestText, InitText, 30);
-  
+
       if(strlen(KeyboardReturn) > 0)
       {
         strcpy(PlotTitle, KeyboardReturn);
@@ -2041,8 +2041,8 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
-          SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);  // hide the capture button 
+          freeze = true;
+          SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);  // hide the capture button
           UpdateWindow();                                    // paint the hide
           while(! frozen);                                   // wait till the end of the scan
           system("/home/pi/rpidatv/scripts/snap2.sh");
@@ -2126,7 +2126,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2202,7 +2202,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2214,7 +2214,7 @@ void *WaitButtonEvent(void * arg)
         case 2:                                            // Centre Freq
           ChangeLabel(i);
           CurrentMenu = 3;
-          UpdateWindow();          
+          UpdateWindow();
           break;
         case 3:                                            // Frequency Presets
           printf("Frequency Preset Menu 7 Requested\n");
@@ -2236,7 +2236,7 @@ void *WaitButtonEvent(void * arg)
           break;
         case 6:                                            // Title
           ChangeLabel(i);
-          UpdateWindow();          
+          UpdateWindow();
           break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
@@ -2270,7 +2270,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2350,7 +2350,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2367,7 +2367,7 @@ void *WaitButtonEvent(void * arg)
           break;
         case 4:                                            // Full Screen Gain
           break;
-        case 5:                                            // 
+        case 5:                                            //
           break;
         case 6:                                            // Config Menu
           printf("Config Menu 9 Requested\n");
@@ -2406,7 +2406,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2458,7 +2458,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2468,7 +2468,7 @@ void *WaitButtonEvent(void * arg)
           freeze = false;
           break;
         case 2:                                            // pfreq1
-        case 3:                                            // pfreq2 
+        case 3:                                            // pfreq2
         case 4:                                            // pfreq3
         case 5:                                            // pfreq4
         case 6:                                            // pfreq5
@@ -2507,7 +2507,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2522,13 +2522,13 @@ void *WaitButtonEvent(void * arg)
           Start_Highlights_Menu10();
           UpdateWindow();
           break;
-        case 3:                                            // 
+        case 3:                                            //
           break;
-        case 4:                                            // 
+        case 4:                                            //
           break;
-        case 5:                                            // 
+        case 5:                                            //
           break;
-        case 6:                                            // 
+        case 6:                                            //
           break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
@@ -2561,7 +2561,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true; 
+          freeze = true;
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2571,7 +2571,7 @@ void *WaitButtonEvent(void * arg)
           freeze = false;
           break;
         case 2:                                            // pfreq1
-        case 3:                                            // pfreq2 
+        case 3:                                            // pfreq2
         case 4:                                            // pfreq3
         case 5:                                            // pfreq4
         case 6:                                            // pfreq5
@@ -2716,7 +2716,7 @@ void Start_Highlights_Menu2()
   snprintf(ButtText, 30, "Gain=%d%%", limegain);
   AmendButtonStatus(ButtonNumber(CurrentMenu, 4), 0, ButtText, &Black);
 
-  if (Calibrated == true)  // 
+  if (Calibrated == true)  //
   {
     SetButtonStatus(ButtonNumber(2, 2), 1);
     SetButtonStatus(ButtonNumber(2, 3), 1);
@@ -3505,7 +3505,7 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
   int thisStep;
   int column[401];
   int ypos;
-  int ypospix;  // ypos corrected for pixel map  
+  int ypospix;  // ypos corrected for pixel map
   int ymax;     // inclusive upper limit of this plot
   int ymin;     // inclusive lower limit of this plot
 
@@ -3584,10 +3584,10 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
   // Draw the trace in the column
 
   for(ypos = ymin; ypos <= ymax; ypos++)
-  
+
   {
     ypospix = 409 - ypos;  //409 = 479 - 70
-    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);  
+    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);
   }
 
   // Draw the background and grid (except in the active trace) to erase the previous scan
@@ -3809,7 +3809,7 @@ void *MeterMovement(void * arg)
     }
 
 
-    if (meter_deflection != current_meter_deflection )        
+    if (meter_deflection != current_meter_deflection )
     {
       // Physics
       meter_move = (meter_deflection - current_meter_deflection) / 5;  // Reduce movement speed
@@ -3952,10 +3952,14 @@ int main(void)
       if(getTouchScreenDetails(&screenXmin, &screenXmax, &screenYmin, &screenYmax) == 1) break;
     }
   }
-  if(NoDeviceEvent == 7) 
+  if(NoDeviceEvent == 7)
   {
     perror("No Touchscreen found");
-    exit(1);
+    screenXmin=0;
+    screenXmax=800;
+    screenYmin=0;
+    screenYmax=480;
+    //exit(1);
   }
 
   // Calculate screen parameters
@@ -4084,7 +4088,7 @@ int main(void)
       NFScans = 0;
 
       // Draw Meter Surround
-      
+
       if (ModeChanged == true)
       {
         setBackColour(0, 0, 0);
@@ -4093,7 +4097,7 @@ int main(void)
         DrawMeterArc();
         DrawMeterTicks(5, 1);
         Draw5MeterLabels(ActiveZero, ActiveFSD);
-        
+
         ModeChanged = false;
       }
 
@@ -4177,7 +4181,7 @@ int main(void)
           // Add values to average
           CalpwrTotalHot = CalpwrTotalHot + pwrTotalHot;
           CalpwrTotalCold = CalpwrTotalCold + pwrTotalCold;
-          CalNFsys = CalNFsys + NFsys;     
+          CalNFsys = CalNFsys + NFsys;
         }
         if (CalibrateSmoothCount >= 19)
         {
@@ -4298,7 +4302,7 @@ int main(void)
           snprintf(NFText, 20, "Device NF %0.1f dB", meterNF);
         }
       }
-      
+
       rectangle(360, 250, 280, 40, 0, 0, 0);  // Blank area
       setBackColour(0, 0, 0);
       pthread_mutex_lock(&text_lock);
@@ -4374,4 +4378,3 @@ int main(void)
   pthread_join(thbutton, NULL);
   pthread_mutex_destroy(&text_lock);
 }
-

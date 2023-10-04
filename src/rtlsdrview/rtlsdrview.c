@@ -4506,7 +4506,11 @@ int main(int argc, char* argv[])
   if(NoDeviceEvent == 7)
   {
     perror("No Touchscreen found");
-    exit(1);
+    screenXmin=0;
+    screenXmax=800;
+    screenYmin=0;
+    screenYmax=480;
+    //exit(1);
   }
 
   // Calculate screen parameters
