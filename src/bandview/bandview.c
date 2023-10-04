@@ -657,6 +657,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
 
       // Display the keyboard here as it would overwrite the text later
       UpdateWindow();
+      UpdateWeb();
 
       // Display Instruction Text
       setForeColour(255, 255, 255);    // White text
@@ -689,7 +690,16 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
     }
 
     // Wait for key press
-    if (getTouchSample(&rawX, &rawY, &rawPressure)==0) continue;
+    if ((getTouchSample(&rawX, &rawY, &rawPressure)==0) && (strcmp(WebClickForAction, "no") == 0)) continue;
+
+    if (strcmp(WebClickForAction, "yes") == 0)
+    {
+       rawX = web_x;
+       rawY = web_y;
+       rawPressure = 0;
+       strcpy(WebClickForAction, "no");
+    }
+
     refreshed = false;
 
     token = IsMenuButtonPushed(rawX, rawY);
@@ -701,10 +711,12 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       SetButtonStatus(ButtonNumber(41, token), 1);
       DrawButton(ButtonNumber(41, token));
       UpdateWindow();
+      UpdateWeb();
       usleep(300000);
       SetButtonStatus(ButtonNumber(41, token), 0);
       DrawButton(ButtonNumber(41, token));
       UpdateWindow();
+      UpdateWeb();
     }
 
     if (token == 8)  // Enter pressed
