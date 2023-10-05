@@ -1,3 +1,7 @@
+202310042
+Improve update script with decisions and feedback
+Add 100 kHz and 200 kHz spans to LimeSDR BandViewer
+
 202310041
 Correction clavier bandview via web
 
