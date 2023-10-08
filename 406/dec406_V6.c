@@ -116,7 +116,7 @@ void  GeogToUTM(double llatd, double llngd){
         //https://github.com/daniel-bryant/CoordinateConversion/blob/master/conversion.cpp
 
 		    if ((llatd>127)||(llngd>255)||(llatd<0)||(llngd<0))
-                {fprintf(stderr,"\n\rCoordonnées invalides!! ");
+                {fprintf(stderr,"\n\rCoordonnees invalides!! ");
                 }
             else{
                 if (opt_osm)  afficher_carte_osm(llatd,llngd);
@@ -882,7 +882,7 @@ void Non_Emergency_code_use_()
        }
        if (s[111]=='1')
        {
-           fprintf(stderr,"Non specifié");
+           fprintf(stderr,"Non specifie");
            //contenu.append("Non specifié\r\n");
        }
   }
@@ -1623,7 +1623,7 @@ int affiche_trame(){
     //fprintf(stderr,"\n\r%s",s);
     //test_crc1();
     //if (s[24]=='1') test_crc2();
-    fprintf(stderr,"\nContenu hexadécimal: ");
+    fprintf(stderr,"\nContenu hexadecimal: ");
     affiche_hexa();
     decodage_LCD();
     }
