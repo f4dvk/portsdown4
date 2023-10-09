@@ -116,7 +116,7 @@ int pfreq2 = 437000;
 int pfreq3 = 748000;
 int pfreq4 = 1255000;
 int pfreq5 = 2409000;
-char mode[31];           // absolute or differential or carrier
+char mode[31];           // absolute or differential or carrier or abscarrier
 int smoothing;           // 1 to 1000
 float noiseSmoothingFactor = 0.9;  // = 1.0 - (1 / (smoothing + 1))
 float carrierSmoothingFactor;
@@ -133,7 +133,7 @@ int sigendpixel;         // 1 to 249
 int peakPixel;           // 1 to 249
 int peakLine;           // 1 to 249
 
-int levelhistory[255];   //
+int levelhistory[255];   // 
 int levelhistoryindex = 0;
 
 float MAIN_SPECTRUM_TIME_SMOOTH;
@@ -217,8 +217,8 @@ void Start_Highlights_Menu6();
 void Start_Highlights_Menu7();
 void Start_Highlights_Menu10();
 
-void DrawEmptyScreen();
-void DrawYaxisLabels();
+void DrawEmptyScreen();  
+void DrawYaxisLabels();  
 void DrawSettings();
 void DrawTrace(int, int, int, int);
 void DrawHistTrace(int, int, int, int);
@@ -370,7 +370,7 @@ int CheckWebCtlExists()
   {
     printf("webcontrol not detected\n");
     return 1;
-  }
+  } 
 }
 
 
@@ -451,7 +451,7 @@ void ReadSavedParams()
     if (strcmp(response, "enabled") == 0)
     {
       webcontrol = true;
-    }
+    } 
   }
 }
 
@@ -470,12 +470,12 @@ void do_snapcheck()
 
   // Fetch the Next Snap serial number
   fp = popen("cat /home/pi/snaps/snap_index.txt", "r");
-  if (fp == NULL)
+  if (fp == NULL) 
   {
     printf("Failed to run command\n" );
     exit(1);
   }
-  // Read the output a line at a time - output it.
+  // Read the output a line at a time - output it. 
   while (fgets(SnapIndex, 20, fp) != NULL)
   {
     printf("%s", SnapIndex);
@@ -592,7 +592,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
   char PreCuttext[63];
   char PostCuttext[63];
   bool refreshed;
-
+  
   // Store away currentMenu
   PreviousMenu = CurrentMenu;
 
@@ -632,7 +632,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         {
           SetButtonStatus(i, ShiftStatus);
         }
-      }
+      }  
 
       // Display the keyboard here as it would overwrite the text later
       UpdateWindow();
@@ -692,7 +692,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
 
     if (token == 8)  // Enter pressed
     {
-      if (strlen(EditText) > MaxLength)
+      if (strlen(EditText) > MaxLength) 
       {
         strncpy(KeyboardReturn, &EditText[0], MaxLength);
         KeyboardReturn[MaxLength] = '\0';
@@ -706,7 +706,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       break;
     }
     else
-    {
+    {    
       if (KeyboardShift == 1)     // Upper Case
       {
         switch (token)
@@ -871,7 +871,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       else if ((token == 0) || (token == 4) || ((token >=10) && (token <= 49)))
       {
         // character Key has been touched, so highlight it for 300 ms
-
+ 
         ShiftStatus = 3 - (2 * KeyboardShift); // 1 = Upper, 3 = lower
         SetButtonStatus(ButtonNumber(41, token), ShiftStatus);
         DrawButton(ButtonNumber(41, token));
@@ -887,7 +887,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         // Copy the text to the left of the insert point
         strncpy(PreCuttext, &EditText[0], CursorPos);
         PreCuttext[CursorPos] = '\0';
-
+          
         // Append the new character to the pre-insert string
         strcat(PreCuttext, KeyPressed);
 
@@ -990,8 +990,8 @@ int getTouchScreenDetails(int *screenXmin, int *screenXmax,int *screenYmin,int *
 void TransformTouchMap(int x, int y)
 {
   // This function takes the raw (0 - 4095 on each axis) touch data x and y
-  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX
-  // and scaledY prior to final correction by CorrectTouchMap
+  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX 
+  // and scaledY prior to final correction by CorrectTouchMap  
 
   scaledX = x / scaleXvalue;
   scaledY = hscreen - y / scaleYvalue;
@@ -1038,7 +1038,7 @@ int IsMenuButtonPushed(int x, int y)
    && (scaledY <= 470) && (scaledY >= 270))
   {
     ChangeSmallMeterScale(scaledX);
-  }
+  } 
 
   for (i = 0; i <cmsize; i++)
   {
@@ -1113,7 +1113,7 @@ void ChangeSmallMeterScale(int scaledX)
   }
   ModeChanged = true;
   DrawYaxisLabels();
-}
+} 
 
 
 int InitialiseButtons()
@@ -1219,7 +1219,7 @@ int CreateButton(int MenuIndex, int ButtonPosition)
     }
     if (ButtonPosition == 5) // Left hand arrow
     {
-      x = normal_xpos;
+      x = normal_xpos;  
       y = 480 - (5 * 60);
       w = 50;
       h = 50;
@@ -1258,7 +1258,7 @@ int CreateButton(int MenuIndex, int ButtonPosition)
     }
     if (ButtonPosition == 6) // 10
     {
-      x = normal_xpos;
+      x = normal_xpos;  
       y = 480 - (6 * 60);
       w = 50;
       h = 50;
@@ -1395,7 +1395,7 @@ void DrawButton(int ButtonIndex)
   strcpy(label, Button->Status[Button->NoStatus].Text);
 
   // Draw the basic button
-  rectangle(Button->x, Button->y + 1, Button->w, Button->h,
+  rectangle(Button->x, Button->y + 1, Button->w, Button->h, 
     Button->Status[Button->NoStatus].Color.r,
     Button->Status[Button->NoStatus].Color.g,
     Button->Status[Button->NoStatus].Color.b);
@@ -1408,7 +1408,7 @@ void DrawButton(int ButtonIndex)
 
 
 
-  // Separate button text into 2 lines if required
+  // Separate button text into 2 lines if required  
   char find = '^';                                  // Line separator is ^
   const char *ptr = strchr(label, find);            // pointer to ^ in string
 
@@ -1420,8 +1420,8 @@ void DrawButton(int ButtonIndex)
 
     // Display the text on the button
     pthread_mutex_lock(&text_lock);
-    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 11 /16, line1, &font_dejavu_sans_20);
-    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 3 / 16, line2, &font_dejavu_sans_20);
+    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 11 /16, line1, &font_dejavu_sans_20);	
+    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 3 / 16, line2, &font_dejavu_sans_20);	
     pthread_mutex_unlock(&text_lock);
   }
   else                                              // One line only
@@ -1540,7 +1540,7 @@ void wait_touch()
 
 
 void SetSpanWidth(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1588,7 +1588,7 @@ void SetSpanWidth(int button)
 
 
 void SetLimeGain(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1630,7 +1630,7 @@ void SetLimeGain(int button)
 }
 
 void AdjustLimeGain(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1684,8 +1684,8 @@ void SetBaseline()
   char InitText[63];
   float newBaseline;
 
-  // Don't do anything (so return) unless "absolute" mode is selected
-  if (strcmp(mode, "absolute") != 0)
+  // Don't do anything (so return) unless "absolute" or "absolute carrier mode is selected
+  if ((strcmp(mode, "absolute") != 0) && (strcmp(mode, "abscarrier") != 0))
   {
     return;
   }
@@ -1702,7 +1702,7 @@ void SetBaseline()
 
   // Define initial value
   snprintf(InitText, 10, "%.1f", baseline);
-
+ 
   // Ask for the new value
   do
   {
@@ -1730,7 +1730,7 @@ void SetBaseline()
 
 
 void SetSmoothing()
-{
+{  
   char ValueToSave[63];
   char RequestText[64];
   char InitText[63];
@@ -1748,7 +1748,7 @@ void SetSmoothing()
 
   // Define initial value
   snprintf(InitText, 10, "%d", smoothing);
-
+ 
   // Ask for the new value
   do
   {
@@ -1778,7 +1778,7 @@ void SetSmoothing()
 
 
 void SetHistSpan()
-{
+{  
   char ValueToSave[63];
   char RequestText[64];
   char InitText[63];
@@ -1796,7 +1796,7 @@ void SetHistSpan()
 
   // Define initial value
   snprintf(InitText, 10, "%d", historyspan);
-
+ 
   // Ask for the new value
   do
   {
@@ -1845,7 +1845,7 @@ void SetFreqLimits(int button)
 
       // Define initial value
       snprintf(InitText, 10, "%d", refstart);
-
+ 
       // Ask for the new value
       do
       {
@@ -1868,7 +1868,7 @@ void SetFreqLimits(int button)
 
       // Define initial value
       snprintf(InitText, 10, "%d", refend);
-
+ 
       // Ask for the new value
       do
       {
@@ -1891,7 +1891,7 @@ void SetFreqLimits(int button)
 
       // Define initial value
       snprintf(InitText, 10, "%d", sigstart);
-
+ 
       // Ask for the new value
       do
       {
@@ -1914,7 +1914,7 @@ void SetFreqLimits(int button)
 
       // Define initial value
       snprintf(InitText, 10, "%d", sigend);
-
+ 
       // Ask for the new value
       do
       {
@@ -1945,7 +1945,7 @@ void SetFreqLimits(int button)
 
 
 void SetFreqPreset(int button)
-{
+{  
   char ValueToSave[63];
   char RequestText[64];
   char InitText[63];
@@ -2119,7 +2119,7 @@ void SetFreqPreset(int button)
 
 
 void ShiftFrequency(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -2208,7 +2208,7 @@ void ChangeLabel(int button)
   div_t div_100;
   div_t div_1000;
   char ValueToSave[63];
-
+  
   // Stop the scan at the end of the current one and wait for it to stop
   freeze = true;
   while(! frozen)
@@ -2278,7 +2278,7 @@ void ChangeLabel(int button)
       }
 
       Keyboard(RequestText, InitText, 30);
-
+  
       if(strlen(KeyboardReturn) > 0)
       {
         strcpy(PlotTitle, KeyboardReturn);
@@ -2341,8 +2341,8 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
-          SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);  // hide the capture button
+          freeze = true; 
+          SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);  // hide the capture button 
           UpdateWindow();                                    // paint the hide
           while(! frozen);                                   // wait till the end of the scan
           system("/home/pi/rpidatv/scripts/snap2.sh");
@@ -2364,6 +2364,7 @@ void *WaitButtonEvent(void * arg)
         case 4:                                            // Mode
           printf("Mode Menu 5 Requested\n");
           CurrentMenu = 5;
+          Start_Highlights_Menu5();
           UpdateWindow();
           break;
         case 5:                                            // Left Arrow
@@ -2426,7 +2427,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2450,10 +2451,13 @@ void *WaitButtonEvent(void * arg)
           break;
         case 4:                                            // No action, show Lime Gain
           break;
-        case 6:                                            // Establish baseline
-          CalibrateBLRequested = true;
-          Start_Highlights_Menu2();
-          UpdateWindow();
+        case 6:                                            // Establish baseline in absolute noise mode
+          if (strcmp(mode, "absolute") == 0)
+          {
+            CalibrateBLRequested = true;
+            Start_Highlights_Menu2();
+            UpdateWindow();
+          }
           break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
@@ -2487,7 +2491,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2499,7 +2503,7 @@ void *WaitButtonEvent(void * arg)
         case 2:                                            // Centre Freq
           ChangeLabel(i);
           CurrentMenu = 3;
-          UpdateWindow();
+          UpdateWindow();          
           break;
         case 3:                                            // Frequency Presets
           printf("Frequency Preset Menu 7 Requested\n");
@@ -2523,7 +2527,7 @@ void *WaitButtonEvent(void * arg)
           printf("Config Menu 9 Requested\n");
           CurrentMenu=9;
           //Start_Highlights_Menu9();
-          UpdateWindow();
+          UpdateWindow();          
           break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
@@ -2557,7 +2561,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2637,7 +2641,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2658,13 +2662,17 @@ void *WaitButtonEvent(void * arg)
           Start_Highlights_Menu5();
           UpdateWindow();
           break;
-        case 4:                                            // Carrier Level Measurement
+        case 4:                                            // Carrier over Noise Level Measurement
           strcpy(mode, "carrier");
           SetConfigParam(PATH_CONFIG, "mode", "carrier");
           Start_Highlights_Menu5();
           UpdateWindow();
           break;
-        case 5:                                            //
+        case 5:                                            // Absolute Carrier Level Measurement
+          strcpy(mode, "abscarrier");
+          SetConfigParam(PATH_CONFIG, "mode", "abscarrier");
+          Start_Highlights_Menu5();
+          UpdateWindow();
           break;
         case 6:                                            // Config Menu
           printf("Config Menu 9 Requested\n");
@@ -2703,7 +2711,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2755,7 +2763,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2765,7 +2773,7 @@ void *WaitButtonEvent(void * arg)
           freeze = false;
           break;
         case 2:                                            // pfreq1
-        case 3:                                            // pfreq2
+        case 3:                                            // pfreq2 
         case 4:                                            // pfreq3
         case 5:                                            // pfreq4
         case 6:                                            // pfreq5
@@ -2804,7 +2812,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2828,7 +2836,7 @@ void *WaitButtonEvent(void * arg)
         case 5:                                            // Set the history span
           SetHistSpan();
           break;
-        case 6:                                            //
+        case 6:                                            // 
           break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
@@ -2862,7 +2870,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2872,12 +2880,12 @@ void *WaitButtonEvent(void * arg)
           freeze = false;
           break;
         case 2:                                            // Freq Limits for differential
-        case 3:                                            //
-        case 4:                                            //
+        case 3:                                            // 
+        case 4:                                            // 
         case 5:                                            //
-          SetFreqLimits(i);
+          SetFreqLimits(i); 
           break;
-        case 6:                                            //
+        case 6:                                            // 
           printf("2nd Config Menu 8 Requested\n");
           CurrentMenu=8;
           UpdateWindow();
@@ -2913,7 +2921,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2923,7 +2931,7 @@ void *WaitButtonEvent(void * arg)
           freeze = false;
           break;
         case 2:                                            // pfreq1
-        case 3:                                            // pfreq2
+        case 3:                                            // pfreq2 
         case 4:                                            // pfreq3
         case 5:                                            // pfreq4
         case 6:                                            // pfreq5
@@ -3069,7 +3077,7 @@ void Start_Highlights_Menu2()
   snprintf(ButtText, 30, "Gain=%d%%", limegain);
   AmendButtonStatus(ButtonNumber(CurrentMenu, 4), 0, ButtText, &Black);
 
-  if (Calibrated == true)  //
+  if (Calibrated == true)  // 
   {
     SetButtonStatus(ButtonNumber(2, 2), 1);
     SetButtonStatus(ButtonNumber(2, 3), 1);
@@ -3091,10 +3099,15 @@ void Start_Highlights_Menu2()
       SetButtonStatus(ButtonNumber(2, 6), 0);
     }
   }
-  if ((strcmp(mode, "differential") == 0) || (strcmp(mode, "carrier") == 0))
+  if ((strcmp(mode, "differential") == 0) || (strcmp(mode, "carrier") == 0) || (strcmp(mode, "abscarrier") == 0))
   {
     SetButtonStatus(ButtonNumber(2, 2), 1);
     SetButtonStatus(ButtonNumber(2, 6), 3);
+
+    if (strcmp(mode, "abscarrier") == 0)
+    {
+      SetButtonStatus(ButtonNumber(2, 2), 0);  // Allow baseline to be established for absolute carrier mode
+    }
   }
   else
   {
@@ -3216,11 +3229,12 @@ void Define_Menu5()                                          // Mode Menu
   AddButtonStatus(button, "Differential^Noise", &Green);
 
   button = CreateButton(5, 4);
-  AddButtonStatus(button, "Carrier^Level", &Blue);
-  AddButtonStatus(button, "Carrier^Level", &Green);
+  AddButtonStatus(button, "Carrier/^Noise Level", &Blue);
+  AddButtonStatus(button, "Carrier/^Noise Level", &Green);
 
   button = CreateButton(5, 5);
-  AddButtonStatus(button, " ", &Blue);
+  AddButtonStatus(button, "Carrier^Abs Level", &Blue);
+  AddButtonStatus(button, "Carrier^Abs Level", &Green);
 
   button = CreateButton(5, 6);
   AddButtonStatus(button, "Config^Menu", &Blue);
@@ -3241,18 +3255,28 @@ void Start_Highlights_Menu5()
     SetButtonStatus(ButtonNumber(5, 2), 1);
     SetButtonStatus(ButtonNumber(5, 3), 0);
     SetButtonStatus(ButtonNumber(5, 4), 0);
+    SetButtonStatus(ButtonNumber(5, 5), 0);
   }
   if (strcmp(mode, "differential") == 0)
   {
     SetButtonStatus(ButtonNumber(5, 2), 0);
     SetButtonStatus(ButtonNumber(5, 3), 1);
     SetButtonStatus(ButtonNumber(5, 4), 0);
+    SetButtonStatus(ButtonNumber(5, 5), 0);
   }
   if (strcmp(mode, "carrier") == 0)
   {
     SetButtonStatus(ButtonNumber(5, 2), 0);
     SetButtonStatus(ButtonNumber(5, 3), 0);
     SetButtonStatus(ButtonNumber(5, 4), 1);
+    SetButtonStatus(ButtonNumber(5, 5), 0);
+  }
+  if (strcmp(mode, "abscarrier") == 0)
+  {
+    SetButtonStatus(ButtonNumber(5, 2), 0);
+    SetButtonStatus(ButtonNumber(5, 3), 0);
+    SetButtonStatus(ButtonNumber(5, 4), 0);
+    SetButtonStatus(ButtonNumber(5, 5), 1);
   }
 }
 
@@ -3970,7 +3994,7 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
   int thisStep;
   int column[401];
   int ypos;
-  int ypospix;  // ypos corrected for pixel map
+  int ypospix;  // ypos corrected for pixel map  
   int ymax;     // inclusive upper limit of this plot
   int ymin;     // inclusive lower limit of this plot
 
@@ -4049,10 +4073,10 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
   // Draw the trace in the column
 
   for(ypos = ymin; ypos <= ymax; ypos++)
-
+  
   {
     ypospix = 409 - ypos;  //409 = 479 - 70
-    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);
+    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);  
   }
 
   // Draw the background and grid (except in the active trace) to erase the previous scan
@@ -4080,13 +4104,13 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
       }
       else
       {
-        if (((strcmp(mode, "differential") == 0) || (strcmp(mode, "carrier") == 0)) &&
+        if (((strcmp(mode, "differential") == 0) || (strcmp(mode, "carrier") == 0) || (strcmp(mode, "abscarrier") == 0)) && 
             (((xpos > 97 + refstartpixel ) && (xpos < 97 + refendpixel)) ||
             ((xpos > 97 + sigstartpixel) && (xpos < 97 + sigendpixel)))) // Show measurement frquencies
         {
           setPixelNoAGra(xpos, ypospix);
 
-          if ((strcmp(mode, "carrier") == 0) && (xpos == peakLine + 98))  // Draw carrier marker line
+          if (((strcmp(mode, "carrier") == 0) || (strcmp(mode, "abscarrier") == 0)) && (xpos == peakLine + 98))  // Draw carrier marker line
           {
             setPixelNoA(xpos, ypospix, 0, 255, 0);
           }
@@ -4120,7 +4144,7 @@ void DrawHistTrace(int xoffset, int prev2, int prev1, int current)
   int thisStep;
   int column[401];
   int ypos;
-  int ypospix;  // ypos corrected for pixel map
+  int ypospix;  // ypos corrected for pixel map  
   int ymax;     // inclusive upper limit of this plot
   int ymin;     // inclusive lower limit of this plot
 
@@ -4203,7 +4227,7 @@ void DrawHistTrace(int xoffset, int prev2, int prev1, int current)
   {
     //ypospix = 409 - ypos;  //409 = 479 - 70
     ypospix = 639 - ypos;  //639 = 479 - 70 + 230
-    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);
+    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);  
   }
 
   // Draw the background and grid (except in the active trace) to erase the previous scan
@@ -4429,7 +4453,7 @@ void *MeterMovement(void * arg)
     }
 
 
-    if (meter_deflection != current_meter_deflection )
+    if (meter_deflection != current_meter_deflection )        
     {
       // Physics
       meter_move = (meter_deflection - current_meter_deflection) / 5;  // Reduce movement speed
@@ -4523,7 +4547,7 @@ int main(void)
 
   char dBText[31];
   float meterdB = 30.0;
-
+ 
   float baselineSum = 0;
   float passbandNoiseSum = 0;
   int baselineCount = 0;
@@ -4571,14 +4595,10 @@ int main(void)
       if(getTouchScreenDetails(&screenXmin, &screenXmax, &screenYmin, &screenYmax) == 1) break;
     }
   }
-  if(NoDeviceEvent == 7)
+  if(NoDeviceEvent == 7) 
   {
     perror("No Touchscreen found");
-    screenXmin=0;
-    screenXmax=800;
-    screenYmin=0;
-    screenYmax=480;
-    //exit(1);
+    exit(1);
   }
 
   // Calculate screen parameters
@@ -4683,7 +4703,7 @@ int main(void)
       {
         baseline = (baselineSum / 237) / 100 - 80.0;          // 237 readings in each scan
         // printf ("Baseline =  %.1f dB\n", baseline);
-        snprintf(ValueToSave, 61, "%.1f", baseline);
+        snprintf(ValueToSave, 61, "%.1f", baseline);  
         SetConfigParam(PATH_CONFIG, "baseline", ValueToSave);  // Store the new Baseline
 
         BLCalibrated = true;
@@ -4705,8 +4725,8 @@ int main(void)
     }
     else if (strcmp(mode, "differential") == 0)
     {
-      signalNoise = (signalNoiseSum / (sigendpixel - sigstartpixel - 1))/ 5 - 80.0;          //
-      baseNoise = (baseNoiseSum / (refendpixel - refstartpixel - 1))/ 5 - 80.0;          //
+      signalNoise = (signalNoiseSum / (sigendpixel - sigstartpixel - 1))/ 5 - 80.0;          // 
+      baseNoise = (baseNoiseSum / (refendpixel - refstartpixel - 1))/ 5 - 80.0;          // 
       smoothedSignalNoise = (signalNoise * (1.f - noiseSmoothingFactor)) + (smoothedSignalNoise * noiseSmoothingFactor);
       smoothedBaseNoise = (baseNoise * (1.f - noiseSmoothingFactor)) + (smoothedBaseNoise * noiseSmoothingFactor);
       relativeNoise = smoothedSignalNoise - smoothedBaseNoise;
@@ -4717,12 +4737,20 @@ int main(void)
     else if (strcmp(mode, "carrier") == 0)
     {
       signalNoise = (signalNoiseSum)/ 5 - 80.0;
-      baseNoise = (baseNoiseSum / (refendpixel - refstartpixel - 1))/ 5 - 80.0;          //
+      baseNoise = (baseNoiseSum / (refendpixel - refstartpixel - 1))/ 5 - 80.0;          // 
       smoothedSignalNoise = (signalNoise * (1.f - carrierSmoothingFactor)) + (smoothedSignalNoise * carrierSmoothingFactor);
       smoothedBaseNoise = (baseNoise * (1.f - carrierSmoothingFactor)) + (smoothedBaseNoise * carrierSmoothingFactor);
       relativeNoise = smoothedSignalNoise - smoothedBaseNoise;
       signalNoiseSum = 0;
       baseNoiseSum = 0;
+      meterdB = relativeNoise;
+    }
+    else if (strcmp(mode, "abscarrier") == 0)
+    {
+      signalNoise = (signalNoiseSum)/ 5 - 80.0;
+      smoothedSignalNoise = (signalNoise * (1.f - carrierSmoothingFactor)) + (smoothedSignalNoise * carrierSmoothingFactor);
+      relativeNoise = smoothedSignalNoise - baseline;
+      signalNoiseSum = 0;
       meterdB = relativeNoise;
     }
 
@@ -4741,7 +4769,7 @@ int main(void)
         DrawMeterArc();
         DrawMeterTicks(5, 1);
         Draw5MeterLabels();
-
+        
         ModeChanged = false;
       }
 
@@ -4755,7 +4783,7 @@ int main(void)
       {
         snprintf(dBText, 20, "Signal %0.1f dB", smoothedSignalNoise);
       }
-      else if (strcmp(mode, "carrier") == 0)
+      else if ((strcmp(mode, "carrier") == 0) || (strcmp(mode, "abscarrier") == 0))
       {
         snprintf(dBText, 20, "Carrier %0.1f dB", smoothedSignalNoise);
       }
@@ -4766,7 +4794,7 @@ int main(void)
 
       // Display Lower Power Level
       rectangle(100, 130, 200, 22, 0, 0, 0);  // Blank area
-      if (strcmp(mode, "absolute") == 0)
+      if ((strcmp(mode, "absolute") == 0) || (strcmp(mode, "abscarrier") == 0))
       {
         snprintf(dBText, 20, "Baseline %0.1f dB", baseline);
       }
@@ -4776,7 +4804,7 @@ int main(void)
       }
       pthread_mutex_lock(&text_lock);
       setBackColour(0, 0, 0);
-      if (smoothedBaseNoise < -65.0)                         // Warn if outside linear region
+      if ((smoothedBaseNoise < -65.0) && (strcmp(mode, "abscarrier") != 0))           // Warn if outside linear region
       {
         setForeColour(255, 127, 127);
       }
@@ -4798,7 +4826,7 @@ int main(void)
           pthread_mutex_unlock(&text_lock);
         }
       }
-      else
+      else if ((strcmp(mode, "differential") == 0) || (strcmp(mode, "carrier") == 0))
       {
         if (smoothedBaseNoise < -65.0)
         {
@@ -4843,7 +4871,7 @@ int main(void)
         break;
       }
 
-      if (strcmp(mode, "carrier") != 0)
+      if ((strcmp(mode, "absolute") == 0) || (strcmp(mode, "differential") == 0))
       {
         snprintf(dBText, 20, "Noise Delta %0.1f dB", meterdB);
       }
@@ -4965,7 +4993,7 @@ int main(void)
           signalNoiseSum = signalNoiseSum + 2 * (y[pixel - 1] - 200);
         }
       }
-      else if (strcmp(mode, "carrier") == 0)
+      else if ((strcmp(mode, "carrier") == 0) || (strcmp(mode, "abscarrier") == 0))
       {
         // pixels go from 4 to 252
 
@@ -4975,8 +5003,6 @@ int main(void)
         }
         if ((pixel > sigstartpixel) && (pixel < sigendpixel))
         {
-          //signalNoiseSum = signalNoiseSum + 2 * (y[pixel - 1] - 200);
-
           if (y[pixel - 1] > peakY)
           {
             peakY = y[pixel - 1];
@@ -4992,9 +5018,9 @@ int main(void)
       frozen = false;
     }
 
-    if (strcmp(mode, "carrier") == 0)
+    if ((strcmp(mode, "carrier") == 0) || (strcmp(mode, "abscarrier") == 0))
     {
-      signalNoiseSum = signalNoiseSum + 2 * (y[peakPixel - 1] - 200);
+      signalNoiseSum = signalNoiseSum + 2 * (y[peakPixel - 1] - 200 + 3);  // 0 dB is at pixel 3
       peakLine = peakPixel;
       peakY = 0;
     }
@@ -5021,3 +5047,4 @@ int main(void)
   pthread_join(thbutton, NULL);
   pthread_mutex_destroy(&text_lock);
 }
+

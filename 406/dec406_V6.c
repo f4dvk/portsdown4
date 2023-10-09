@@ -1598,8 +1598,8 @@ for(j=0;j<13;j++)
 		}
 if (ss==0)   fprintf(stderr,"\n CRC_2 OK");
 else
-    {if((no_checksum) && (zero==0)) {fprintf(stderr,"\n CRC_2 null? ");ss=0;}
-    else fprintf(stderr,"\n CRC_2 Mauvais. ATTENTION: il y a des erreurs ");
+    {if((no_checksum) && (zero==0)) {fprintf(stderr,"\n CRC_2 null?");ss=0;}
+    else fprintf(stderr,"\n CRC_2 KO ATTENTION: il y a des erreurs");
     }
 return ss;
 }

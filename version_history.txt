@@ -1,5 +1,11 @@
+202310081
+Bugfix crash on Lime BandViewer 20 dB range selection
+
 202310080
 Correction accents Sarsat
+
+202310060
+Add absolute carrier level measurement to noise meter
 
 202310042
 Improve update script with decisions and feedback
