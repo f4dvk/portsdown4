@@ -4454,7 +4454,7 @@ void RTLstart()
     char mic[15];
 
     GetMicAudioCard(mic);
-    if (strlen(mic) == 1)   // Use USB audio output if present
+    if ((strlen(mic) == 1) && (strcmp(LMRXaudio, "usb") == 0))   // Use USB audio output if present
     {
       strcpy(card, mic);
     }
@@ -14202,7 +14202,7 @@ void SARSAT_DECODER()
   char mic[10];
 
   GetMicAudioCard(mic);
-  if (strlen(mic) == 1)   // Use USB audio output if present
+  if ((strlen(mic) == 1) && (strcmp(LMRXaudio, "usb") == 0))   // Use USB audio output if present
   {
     strcpy(card, mic);
   }
