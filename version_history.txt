@@ -1,3 +1,6 @@
+202311240
+Correction detection carte audio
+
 202310260
 Add Waterfall to LimeSDR BandViewer
 

@@ -78,7 +78,7 @@ detect_audio()
   printf "Video Input is $PIC_INPUT \n"
 
   # First check if any audio card is present
-  arecord -l | grep -q 'card' | grep -v -e 'Loopback'
+  arecord -l | grep -v -e 'Loopback' | grep -q 'card'
   if [ $? != 0 ]; then   ## not present
     printf "Audio card not present\n"
     # No known card detected so take the safe option and go for beeps
