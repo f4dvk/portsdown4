@@ -356,6 +356,46 @@ if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
   fi
 fi
 
+if [ ! -f  /usr/local/bin/dsdccx ]; then
+  sudo apt-get install portaudio19-dev
+
+  git clone https://github.com/szechyjs/mbelib.git
+  cd mbelib
+  mkdir build && cd build
+  cmake ..
+  make
+  sudo make install
+  cd /home/pi
+  sudo rm -r mbelib
+
+  wget -O itpp-latest.tar.bz2 http://sourceforge.net/projects/itpp/files/latest/download?source=files
+  tar xjf itpp-latest.tar.bz2
+  cd itpp-4.3.1
+  mkdir build && cd build
+  cmake ..
+  make -j4
+  sudo make install
+  cd /home/pi
+  sudo rm -r itpp-4.3.1
+
+  git clone https://github.com/f4exb/dsdcc.git
+  cd dsdcc
+  mkdir build && cd build
+  cmake -DUSE_MBELIB=ON ..
+  make -j4
+  sudo make install
+  cd /home/pi
+  sudo rm -r dsdcc
+
+  git clone https://github.com/f4dvk/dsd.git
+  cd dsd
+  mkdir build && cd build
+  cmake ..
+  make -j4
+  sudo make install
+  cd /home/pi
+  sudo rm -r dsd
+fi
 
 # ---------- Update rpidatv -----------
 
