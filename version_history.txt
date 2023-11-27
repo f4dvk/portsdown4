@@ -1,3 +1,6 @@
+202311271
+Correction install
+
 202311270
 Ajout modes numeriques rtl_fm
 

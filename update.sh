@@ -357,7 +357,7 @@ if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
 fi
 
 if [ ! -f  /usr/local/bin/dsdccx ]; then
-  sudo apt-get install portaudio19-dev
+  sudo apt-get -y install portaudio19-dev
 
   git clone https://github.com/szechyjs/mbelib.git
   cd mbelib
