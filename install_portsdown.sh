@@ -132,6 +132,7 @@ mkdir build && cd build
 cmake ..
 make
 sudo make install
+sudo ldconfig
 cd /home/pi
 sudo rm -r mbelib
 
@@ -142,6 +143,7 @@ mkdir build && cd build
 cmake ..
 make -j4
 sudo make install
+sudo ldconfig
 cd /home/pi
 sudo rm -r itpp-4.3.1
 

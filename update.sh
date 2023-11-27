@@ -365,6 +365,7 @@ if [ ! -f  /usr/local/bin/dsdccx ]; then
   cmake ..
   make
   sudo make install
+  sudo ldconfig
   cd /home/pi
   sudo rm -r mbelib
 
@@ -375,6 +376,7 @@ if [ ! -f  /usr/local/bin/dsdccx ]; then
   cmake ..
   make -j4
   sudo make install
+  sudo ldconfig
   cd /home/pi
   sudo rm -r itpp-4.3.1
 
