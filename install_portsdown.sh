@@ -124,7 +124,7 @@ sudo make install
 sudo ldconfig
 cd /home/pi
 
-sudo apt-get -y install portaudio19-dev
+sudo apt-get -y install libsndfile1-dev fftw3-dev liblapack-dev portaudio19-dev
 
 git clone https://github.com/szechyjs/mbelib.git
 cd mbelib
