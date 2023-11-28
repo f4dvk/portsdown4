@@ -3617,20 +3617,24 @@ void SaveRTLPreset(int PresetButton)
   char Value[255];
   char Prompt[63];
   int index;
-  int Spaces;
+  int Spaces = 1;
   int j;
 
   // Transform button number into preset index
-  index = PresetButton + 6;  // works for bottom row
-  if (PresetButton > 4)      // second row
-  {
-    index = PresetButton - 4;
-  }
+  index = PresetButton + 1;  // works for bottom row
+  //index = PresetButton + 6;  // works for bottom row
+  //if (PresetButton > 4)      // second row
+  //{
+  //  index = PresetButton - 4;
+  //}
+
+  printf("index value: %d\n", index);
 
   if (index != 0)
   {
     // Read the current preset label and ask for a new value
     snprintf(Prompt, 62, "Enter the new label for RTL Preset %d (no spaces):", index);
+    printf("Titre %d: %s\n", index, RTLlabel[index]);
 
     // Check that there are no spaces
     while (Spaces >= 1)
@@ -3649,6 +3653,7 @@ void SaveRTLPreset(int PresetButton)
     }
     strcpy(RTLlabel[index], KeyboardReturn);
     snprintf(Param, 10, "r%dtitle", index);
+    printf("Titre enregistré %d: %s\n", index, KeyboardReturn);
     SetConfigParam(PATH_RTLPRESETS, Param, KeyboardReturn);
   }
 
@@ -19377,7 +19382,7 @@ void waituntil(int w,int h)
         printf("Button Event %d, Entering Menu 6 Case Statement\n",i);
 
         // Clear RTL Preset store trigger if not a preset
-        if ((i > 9) && (RTLStoreTrigger == 1))
+        if ((i > 4) && (RTLStoreTrigger == 1))
         {
           RTLStoreTrigger = 0;
           SetButtonStatus(ButtonNumber(CurrentMenu, 4), 0);
@@ -19418,8 +19423,8 @@ void waituntil(int w,int h)
             SaveRTLPreset(i);  // Set preset
             RTLStoreTrigger = 0;
             SetButtonStatus(ButtonNumber(CurrentMenu, 4), 0);
-          setBackColour(0, 0, 0);
-          clearScreen();
+            setBackColour(0, 0, 0);
+            clearScreen();
           }
           RTLstop();
           RTLstart();
@@ -19492,7 +19497,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 18:                             // Save
-          SaveRTLPreset(-6);                 // Saves current state
+          SaveRTLPreset(-1);                 // Saves current state
           SetButtonStatus(ButtonNumber(CurrentMenu, i), 1);
           Start_Highlights_Menu6();    // Refresh button labels
           UpdateWindow();
