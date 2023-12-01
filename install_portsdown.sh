@@ -130,7 +130,7 @@ git clone https://github.com/szechyjs/mbelib.git
 cd mbelib
 mkdir build && cd build
 cmake ..
-make
+make -j4
 sudo make install
 sudo ldconfig
 cd /home/pi

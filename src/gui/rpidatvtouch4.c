@@ -3628,13 +3628,10 @@ void SaveRTLPreset(int PresetButton)
   //  index = PresetButton - 4;
   //}
 
-  printf("index value: %d\n", index);
-
   if (index != 0)
   {
     // Read the current preset label and ask for a new value
     snprintf(Prompt, 62, "Enter the new label for RTL Preset %d (no spaces):", index);
-    printf("Titre %d: %s\n", index, RTLlabel[index]);
 
     // Check that there are no spaces
     while (Spaces >= 1)
@@ -3653,7 +3650,6 @@ void SaveRTLPreset(int PresetButton)
     }
     strcpy(RTLlabel[index], KeyboardReturn);
     snprintf(Param, 10, "r%dtitle", index);
-    printf("Titre enregistré %d: %s\n", index, KeyboardReturn);
     SetConfigParam(PATH_RTLPRESETS, Param, KeyboardReturn);
   }
 
@@ -3734,6 +3730,7 @@ void ChangeRTLFreq()
 
   // Store Response
   strcpy(RTLfreq[0], KeyboardReturn);
+  SetConfigParam(PATH_RTLPRESETS, "r0freq", RTLfreq[0]);
 }
 
 /***************************************************************************//**
@@ -3762,7 +3759,6 @@ void ChangeRTLSquelch()
 
   // Store Response
   RTLsquelch[0] = atoi(KeyboardReturn);
-
   SetConfigParam(PATH_RTLPRESETS, "r0squelch", KeyboardReturn);
 }
 
@@ -3792,6 +3788,7 @@ void ChangeRTLGain()
 
   // Store Response
   RTLgain[0] = atoi(KeyboardReturn);
+  SetConfigParam(PATH_RTLPRESETS, "r0gain", KeyboardReturn);
 }
 
 /***************************************************************************//**
@@ -4525,11 +4522,11 @@ void RTLstart()
       }
       if (strcmp(RTLmode[0], "ysf") == 0)
       {
-        strcat(rtlcall, " | dsdccx -i - -fy -o - 2>/dev/null");
+        strcat(rtlcall, " | dsdccx -i - -fy -o - -U 6 2>/dev/null");
       }
       if (strcmp(RTLmode[0], "dstar") == 0)
       {
-        strcat(rtlcall, " | dsdccx -i - -fd -o - 2>/dev/null");
+        strcat(rtlcall, " | dsdccx -i - -fd -o - -U 6 2>/dev/null");
       }
     }
 		if ((strcmp(RTLmode[0], "am") == 0) || (strcmp(RTLmode[0], "fm") == 0))
@@ -4544,16 +4541,23 @@ void RTLstart()
     {
       strcat(rtlcall, " | sox -t raw -r 6k -e s -b 16 -c 1 - -t wav - 2>/dev/null");
     }
-    if ((strcmp(RTLmode[0], "dmr") == 0) || (strcmp(RTLmode[0], "ysf") == 0) || (strcmp(RTLmode[0], "dstar") == 0))
+    if ((strcmp(RTLmode[0], "ysf") == 0) || (strcmp(RTLmode[0], "dstar") == 0))
     {
-      strcat(rtlcall, " | tee >(aplay2 -q -f S16_LE -D plughw:Loopback,0,2) >(aplay -q -f S16_LE -D plughw:");
+      strcat(rtlcall, " | tee >(aplay2 -q -f S16_LE -D plughw:Loopback,0,2 -r 48) >(aplay -q -f S16_LE -D plughw:");
     }
     else
     {
-      strcat(rtlcall, " | tee >(aplay2 -q -D plughw:Loopback,0,2) >(aplay -q -D plughw:");
+      strcat(rtlcall, " | tee >(aplay2 -q -f S16_LE -D plughw:Loopback,0,2) >(aplay -q -f S16_LE -D plughw:");
     }
     strcat(rtlcall, card);
-		strcat(rtlcall, ",0) >/dev/null) &'");
+    if ((strcmp(RTLmode[0], "ysf") == 0) || (strcmp(RTLmode[0], "dstar") == 0))
+    {
+      strcat(rtlcall, ",0 -r 48) >/dev/null) &'");
+    }
+    else
+    {
+      strcat(rtlcall, ",0) >/dev/null) &'");
+    }
     printf("RTL_FM called with: %s\n", rtlcall);
     system(rtlcall);
   }

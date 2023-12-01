@@ -356,14 +356,14 @@ if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
   fi
 fi
 
-if [ ! -f  /usr/local/bin/dsdccx ]; then
+if [ ! -f  /usr/local/bin/dsd ]; then
   sudo apt-get -y install libsndfile1-dev fftw3-dev liblapack-dev portaudio19-dev
 
   git clone https://github.com/szechyjs/mbelib.git
   cd mbelib
   mkdir build && cd build
   cmake ..
-  make
+  make -j4
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -388,19 +388,6 @@ if [ ! -f  /usr/local/bin/dsdccx ]; then
   sudo make install
   cd /home/pi
   sudo rm -r dsdcc
-
-  git clone https://github.com/f4dvk/dsd.git
-  cd dsd
-  mkdir build && cd build
-  cmake ..
-  make -j4
-  sudo make install
-  cd /home/pi
-  sudo rm -r dsd
-fi
-
-if [ ! -f  /usr/local/bin/dsd ]; then
-  sudo apt-get -y install libsndfile1-dev fftw3-dev liblapack-dev
 
   git clone https://github.com/f4dvk/dsd.git
   cd dsd
