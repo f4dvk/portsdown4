@@ -938,7 +938,7 @@ if ! grep -q webcontrol= "$PATHSCRIPT"/portsdown_config.txt; then
   # Delete any blank lines first
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
   # Add the new entry and a new line
-  echo "webcontrol=disabled" >> "$PATHSCRIPT"/portsdown_config.txt
+  echo "webcontrol=enabled" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
 # Add langstone setting to config file if not included  202203070
@@ -953,6 +953,15 @@ if ! grep -q langstone= "$PATHSCRIPT"/portsdown_config.txt; then
   else
     echo "langstone=none" >> "$PATHSCRIPT"/portsdown_config.txt
   fi
+fi
+
+# Add gpio setting to config file if not included
+if ! grep -q gpio= "$PATHSCRIPT"/portsdown_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
+  # Add the new entry and a new line
+  echo "gpio=on" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
 # Add New presets and LimeRFE controls to presets file if not included  202107010

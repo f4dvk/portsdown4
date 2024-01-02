@@ -79,6 +79,8 @@ LKVUDP=$(get_config_var lkvudp $JCONFIGFILE)
 LKVPORT=$(get_config_var lkvport $JCONFIGFILE)
 PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
 
+GPIO=$(get_config_var gpio $PCONFIGFILE)
+
 OUTPUT_IP=""
 LIMETYPE=""
 
@@ -285,7 +287,9 @@ case "$MODE_OUTPUT" in
     echo "set fec "$FECNUM"/"$FECDEN >> /tmp/expctrl
     echo "set srate "$SYMBOLRATE >> /tmp/expctrl
     # Set the ports
-    $PATHSCRIPT"/ctlfilter.sh"
+    if [ "$GPIO" == "on" ]; then
+      $PATHSCRIPT"/ctlfilter.sh"
+    fi
 
     # Set the output level
     GAIN=$(get_config_var explevel $PCONFIGFILE);
@@ -329,7 +333,9 @@ case "$MODE_OUTPUT" in
     fi
 
     LIME_GAIN=$(get_config_var limegain $PCONFIGFILE)
-    $PATHSCRIPT"/ctlfilter.sh"
+    if [ "$GPIO" == "on" ]; then
+      $PATHSCRIPT"/ctlfilter.sh"
+    fi
 
     if [ "$MODE_OUTPUT" == "LIMEUSB" ]; then
       LIMETYPE="-U"

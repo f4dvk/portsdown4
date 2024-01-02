@@ -382,6 +382,9 @@ int web_y;                     // click y 0 - 480 from top
 bool webclicklistenerrunning = false; // Used to only start thread if required
 char WebClickForAction[7] = "no";  // no/yes
 
+// GPIO
+char Gpio[4] = "on";
+
 // Threads for Touchscreen monitoring
 
 pthread_t thbutton;         //
@@ -430,6 +433,7 @@ void ReadPiCamOrientation();
 void ReadCaptionState();
 void ReadTestCardState();
 void ReadAudioState();
+int GetAudioVol2(char Vol[20]);
 void ReadWebControl();
 void ReadAttenState();
 void ReadBand();
@@ -1010,7 +1014,7 @@ void GetPiUsbCard(char card[15])
   FILE *fp;
 
   /* Open the command for reading. */
-  fp = popen("aplay -l | grep USB | head -1 | cut -c6-6", "r");
+  fp = popen("aplay -l | grep -E \"USB|wm8960\" | head -1 | cut -c6-6", "r");
   if (fp == NULL) {
     printf("Failed to run command\n" );
     exit(1);
@@ -1034,12 +1038,89 @@ void GetPiUsbCard(char card[15])
  * @return void
 *******************************************************************************/
 
+void GetAudioLevel(char AudioLevel[256])
+{
+  FILE *fp;
+
+  /* Open the command for reading. */
+  fp = popen("amixer -M sget -c 1 Headphone | grep 'Mono:' | awk -F'[][]' '{ print $2 }'", "r");
+  if (fp == NULL) {
+    printf("Failed to run first command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(AudioLevel, 6, fp) != NULL)
+  {
+    //printf("%s", AudioLevel);
+  }
+
+  /* close */
+  pclose(fp);
+}
+
+void GetAudioLevel2(char AudioLevel[256])
+{
+  FILE *fp;
+  char Vol[20];
+  char Command[100];
+
+  /* Open the command for reading. */
+  GetAudioVol2(Vol);
+  snprintf(Command, 100, "amixer -M sget -c 2 %s | grep 'Left:' | awk -F'[][]' '{ print $2 }'", Vol);
+
+  fp = popen(Command, "r");
+  //fp = popen("amixer sget -c 2 Speaker | grep 'Left:' | awk -F'[][]' '{ print $2 }'", "r");
+  if (fp == NULL) {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(AudioLevel, 6, fp) != NULL)
+  {
+    //printf("%s", AudioLevel);
+  }
+
+  /* close */
+  pclose(fp);
+}
+
+int GetAudioVol2(char Vol[20])
+{
+  FILE *fp;
+  //char Command[60];
+  char reponse[20];
+
+  /* Open the command for reading. */
+
+  //snprintf(Command, 60,"amixer -c %d scontrols |  cut -d\"'\" -f2", Card);
+  fp = popen("amixer -c 2 scontrols | grep -E \"PCM|Speaker\" | cut -d\"'\" -f2 | awk '{print $1; exit}'", "r");
+  if (fp == NULL) {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(reponse, 20, fp) != NULL)
+  {
+    //printf("%s", AudioVol);
+  }
+
+  reponse[strcspn(reponse, "\n")] = 0;
+  strcpy(Vol, reponse);
+
+  /* close */
+  pclose(fp);
+  return 0;
+}
+
 void GetMicAudioCard(char mic[15])
 {
   FILE *fp;
 
   /* Open the command for reading. */
-  fp = popen("cat /proc/asound/modules | grep \"usb_audio\" | head -c 2 | tail -c 1", "r");
+  fp = popen("cat /proc/asound/modules | grep -E \"usb_audio|simple_card\" | head -c 2 | tail -c 1", "r");
   if (fp == NULL) {
     printf("Failed to run command\n" );
     exit(1);
@@ -1831,16 +1912,16 @@ void SetAudioLevels()
   MicLevelPercent = (MicLevel * 10) / 3;
 
   // Apply to cards 1 and 2 in case the EasyCap has grabbed the card 1 ID
-  snprintf(aMixerCmd, 126, "amixer -c 1 -- sset Mic Capture %d%% > /dev/null 2>&1", MicLevelPercent);
+  snprintf(aMixerCmd, 126, "amixer -M -c 1 -- sset Mic Capture %d%% > /dev/null 2>&1", MicLevelPercent);
   system(aMixerCmd);
 
-  snprintf(aMixerCmd, 126, "amixer -c 2 -- sset Mic Capture %d%% > /dev/null 2>&1", MicLevelPercent);
+  snprintf(aMixerCmd, 126, "amixer -M -c 2 -- sset Mic Capture %d%% > /dev/null 2>&1", MicLevelPercent);
   system(aMixerCmd);
 
   // And set all the output levels to Max
-  system("amixer -c 0 -- sset Headphone 100% > /dev/null 2>&1");
-  system("amixer -c 1 -- sset Speaker 100% > /dev/null 2>&1");
-  system("amixer -c 2 -- sset Speaker 100% > /dev/null 2>&1");
+  //system("amixer -M -c 1 -- sset Headphone 100% > /dev/null 2>&1");
+  //system("amixer -M -c 1 -- sset Speaker 100% > /dev/null 2>&1");
+  //system("amixer -M -c 2 -- sset Speaker 30% > /dev/null 2>&1");
 }
 
 
@@ -3776,7 +3857,7 @@ void ChangeRTLGain()
   char InitText[64];
 
   //Define request string
-  strcpy(RequestText, "Enter new gain setting 0 (min) to 50 (max):");
+  strcpy(RequestText, "Enter new gain setting 0 (Auto) to 50 (max):");
   snprintf(InitText, 3, "%d", RTLgain[0]);
 
   // Ask for response and check validity
@@ -10147,11 +10228,14 @@ void DoFreqChange()
     LimeRFEClose();
   }
 
-  // Set the Band (and filter) Switching
-  printf("CTLfilter called\n");
-  system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
-  // And wait for it to finish using portsdown_config.txt
-  usleep(100000);
+  if (strcmp(Gpio, "on") == 0)
+  {
+    // Set the Band (and filter) Switching
+    printf("CTLfilter called\n");
+    system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
+    // And wait for it to finish using portsdown_config.txt
+    usleep(100000);
+  }
 
   // Now check if the Receive upconverter LO needs to be started or stopped
   ReceiveLOStart();
@@ -10365,8 +10449,11 @@ void SetAttenLevel()
     strcpy(Param, "attenlevel");
     SetConfigParam(PATH_PCONFIG, Param, KeyboardReturn);
 
-    // Now set the new level
-    system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
+    if (strcmp(Gpio, "on") == 0)
+    {
+      // Now set the new level
+      system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
+    }
   }
 }
 
@@ -10765,10 +10852,15 @@ void ReceiveLOStart()
 void CompVidInitialise()
 {
   VidPTT = 1;
-  digitalWrite(GPIO_Band_LSB, LOW);
-  digitalWrite(GPIO_Band_MSB, LOW);
-  digitalWrite(GPIO_Tverter, LOW);
-  digitalWrite(GPIO_PTT, HIGH);
+
+  if (strcmp(Gpio, "on") == 0)
+  {
+    digitalWrite(GPIO_Band_LSB, LOW);
+    digitalWrite(GPIO_Band_MSB, LOW);
+    digitalWrite(GPIO_Tverter, LOW);
+    digitalWrite(GPIO_PTT, HIGH);
+  }
+
   char mic[15] = "xx";
   // char card[15];
   char commnd[255];
@@ -10992,16 +11084,20 @@ void CompVidStop()
 {
   // Set PTT low
   VidPTT = 0;
+  if (strcmp(Gpio, "on") == 0)
   digitalWrite(GPIO_PTT, LOW);
 
   // Stop the audio relay
   system("killall arecord >/dev/null 2>/dev/null");
   system("killall aplay >/dev/null 2>/dev/null");
 
-  // Reset the Band Switching
-  system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
-  // and wait for it to finish using rpidatvconfig.txt
-  usleep(100000);
+  if (strcmp(Gpio, "on") == 0)
+  {
+    // Reset the Band Switching
+    system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
+    // and wait for it to finish using rpidatvconfig.txt
+    usleep(100000);
+  }
 }
 
 void TransmitStart()
@@ -11179,6 +11275,7 @@ void TransmitStop()
   {
     //  Ensure that Transverter line does not float
     //  As it is released when rpidatv terminates
+    if (strcmp(Gpio, "on") == 0)
     pinMode(GPIO_Tverter, OUTPUT);
   }
 
@@ -11206,12 +11303,15 @@ void TransmitStop()
   system("sudo killall -9 rpidatv >/dev/null 2>/dev/null");
   system("sudo killall -9 dvb_t_stack >/dev/null 2>/dev/null");
 
-  // Ensure PTT off.  Required for carrier mode
-  pinMode(GPIO_PTT, OUTPUT);
-  digitalWrite(GPIO_PTT, LOW);
+  if (strcmp(Gpio, "on") == 0)
+  {
+    // Ensure PTT off.  Required for carrier mode
+    pinMode(GPIO_PTT, OUTPUT);
+    digitalWrite(GPIO_PTT, LOW);
 
-  // Re-enable SR selection which might have been set all high by a LimeSDR
-  system("/home/pi/rpidatv/scripts/ctlSR.sh");
+    // Re-enable SR selection which might have been set all high by a LimeSDR
+    system("/home/pi/rpidatv/scripts/ctlSR.sh");
+  }
 
   // Make sure that a.sh has stopped
   system("sudo killall a.sh >/dev/null 2>/dev/null");
@@ -18640,13 +18740,16 @@ void waituntil(int w,int h)
           }
           else     // Transmit
           {
-            if ((strcmp(CurrentModeOP, "LIMEMINI") == 0) || (strcmp(CurrentModeOP, "LIMEUSB") == 0) || (strcmp(CurrentModeOP, "LIMEDVB") == 0))
+            if (strcmp(Gpio, "on") == 0)
             {
-              system("/home/pi/rpidatv/scripts/lime_ptt.sh &");
-            }
-            if (strcmp(CurrentModeOP, "PLUTO") == 0)
-            {
-              system("/home/pi/rpidatv/scripts/pluto_ptt.sh &");
+              if ((strcmp(CurrentModeOP, "LIMEMINI") == 0) || (strcmp(CurrentModeOP, "LIMEUSB") == 0) || (strcmp(CurrentModeOP, "LIMEDVB") == 0))
+              {
+                system("/home/pi/rpidatv/scripts/lime_ptt.sh &");
+              }
+              if (strcmp(CurrentModeOP, "PLUTO") == 0)
+              {
+                system("/home/pi/rpidatv/scripts/pluto_ptt.sh &");
+              }
             }
             SelectPTT(i, 1);
             UpdateWindow();
@@ -19384,7 +19487,7 @@ void waituntil(int w,int h)
       if (CurrentMenu == 6)  // Menu 6 RTL-FM
       {
         printf("Button Event %d, Entering Menu 6 Case Statement\n",i);
-
+        CallingMenu = 6;
         // Clear RTL Preset store trigger if not a preset
         if ((i > 4) && (RTLStoreTrigger == 1))
         {
@@ -19549,7 +19652,14 @@ void waituntil(int w,int h)
           Start_Highlights_Menu1();
           UpdateWindow();
           break;
-        case 23:                            // Blank
+        case 23:                            // Config
+          printf("MENU 53\n");
+          CurrentMenu=53;
+          setBackColour(0, 0, 0);
+          ReadLMRXPresets();
+          clearScreen();
+          Start_Highlights_Menu53();
+          UpdateWindow();
           break;
         default:
           printf("Menu 6 Error\n");
@@ -22429,41 +22539,85 @@ void waituntil(int w,int h)
         printf("Button Event %d, Entering Menu 53 Case Statement\n",i);
         char mic[15];
         char Up[255];
+        char Vol[20];
+        char Command[60];
         GetConfigParam(PATH_RXPRESETS,"upsample",Up);
         switch (i)
         {
-        case 4:                               // Cancel
+        case 4:                               // Exit
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
-          printf("Cancelling LeanDVB Config Menu\n");
+          printf("Exit Config Menu\n");
           UpdateWindow();
           usleep(500000);
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 0); // Reset cancel (even if not selected)
-          printf("Returning to MENU 5 from Menu 53\n");
-          CurrentMenu=5;
-          setBackColour(0, 0, 0);
-          Start_Highlights_Menu5();
+          if (CallingMenu == 5)
+          {
+            printf("Returning to MENU 5 from Menu 53\n");
+            CurrentMenu=5;
+            setBackColour(0, 0, 0);
+            Start_Highlights_Menu5();
+          }
+          else
+          {
+            printf("Returning to MENU 6 from Menu 53\n");
+            CurrentMenu=6;
+            setBackColour(0, 0, 0);
+            Start_Highlights_Menu6();
+          }
           UpdateWindow();
           break;
-        case 0:                                         // Output UDP IP
-          ChangeLMRXIP();
-          CurrentMenu=53;
-          setBackColour(0, 0, 0);
-          clearScreen();
-          Start_Highlights_Menu53();
-          UpdateWindow();
-          break;
-        case 1:                                         // Output UDP port
-          ChangeLMRXPort();
-          CurrentMenu=53;
-          setBackColour(0, 0, 0);
-          clearScreen();
-          Start_Highlights_Menu53();
-          UpdateWindow();
-          break;
-        case 2:
+        case 0:
+           if (strcmp(LMRXaudio, "rpi") == 0)
+           {
+             system("amixer -M -q sset -c 1 Headphone 2%-");
+           }
+           else
+           {
+             GetAudioVol2(Vol);
+             snprintf(Command, 60, "amixer -M -q sset -c 2 %s 2%%-", Vol);
+             system(Command);
+             //system("amixer -q sset -c 2 Speaker 1db-");
+           }
+           Start_Highlights_Menu53();
+           UpdateWindow();
            break;
-        case 3:
+        case 1:
+           if (strcmp(LMRXaudio, "rpi") == 0)
+           {
+             system("amixer -M -q sset -c 1 Headphone 2%+");
+           }
+           else
+           {
+             GetAudioVol2(Vol);
+             snprintf(Command, 60, "amixer -M -q sset -c 2 %s 2%%+", Vol);
+             system(Command);
+             //system("amixer -q sset -c 2 Speaker 1db+");
+           }
+           Start_Highlights_Menu53();
+           UpdateWindow();
            break;
+        case 2:                                         // Output UDP IP
+          if (CallingMenu == 5)
+          {
+            ChangeLMRXIP();
+            CurrentMenu=53;
+            setBackColour(0, 0, 0);
+            clearScreen();
+            Start_Highlights_Menu53();
+            UpdateWindow();
+          }
+          break;
+        case 3:                                         // Output UDP port
+          if (CallingMenu == 5)
+          {
+            ChangeLMRXPort();
+            CurrentMenu=53;
+            setBackColour(0, 0, 0);
+            clearScreen();
+            Start_Highlights_Menu53();
+            UpdateWindow();
+          }
+          break;
         case 5:
            GetPiUsbCard(mic);
            if ((strcmp(LMRXaudio, "rpi") == 0) && (strlen(mic) == 1))
@@ -22479,10 +22633,10 @@ void waituntil(int w,int h)
            UpdateWindow();
            break;
         case 6:
-           UpdateWindow();
+           //UpdateWindow();
            break;
         case 7:
-           if (strcmp(RXKEY, "LIMEMINI") == 0)
+           if ((strcmp(RXKEY, "LIMEMINI") == 0) && (CallingMenu == 5))
            {
              if (strcmp(Up, "1") == 0)
              {
@@ -22496,9 +22650,9 @@ void waituntil(int w,int h)
              {
                SetConfigParam(PATH_RXPRESETS, "upsample", "1");
              }
+             Start_Highlights_Menu53();
+             UpdateWindow();
            }
-           Start_Highlights_Menu53();
-           UpdateWindow();
            break;
         case 8:
            break;
@@ -22511,7 +22665,7 @@ void waituntil(int w,int h)
         continue;   // Completed Menu 53 action, go and wait for touch
       }
 
-			if (CurrentMenu == 57)  // Menu 57 Sarsat Decoder
+      if (CurrentMenu == 57)  // Menu 57 Sarsat Decoder
       {
         printf("Button Event %d, Entering Menu 57 Case Statement\n",i);
         char Checksum[4];
@@ -23879,6 +24033,9 @@ void Define_Menu6()
   button = CreateButton(6, 22);
   AddButtonStatus(button,"EXIT",&Blue);
   AddButtonStatus(button,"EXIT",&Green);
+
+  button = CreateButton(6, 23);
+  AddButtonStatus(button,"Config",&Blue);
 }
 
 void Start_Highlights_Menu6()
@@ -23910,7 +24067,14 @@ void Start_Highlights_Menu6()
   }
 
   // Display the Gain
-  snprintf(RTLBtext, 20, "Gain^%d", RTLgain[0]);
+  if (RTLgain[0] == 0)
+  {
+    snprintf(RTLBtext, 20, "Gain^Auto");
+  }
+  else
+  {
+    snprintf(RTLBtext, 20, "Gain^%d", RTLgain[0]);
+  }
   AmendButtonStatus(ButtonNumber(6, 19), 0, RTLBtext, &Blue);
   AmendButtonStatus(ButtonNumber(6, 19), 1, RTLBtext, &Green);
 
@@ -25781,17 +25945,25 @@ void Start_Highlights_Menu17()
   char Value[255];
   int SR;
 
-  if (strcmp(CurrentTXMode, "DVB-T") != 0)  //not DVB-T
+  if (CallingMenu == 5)
   {
-    strcpy(MenuTitle[17], "Transmit Symbol Rate Selection Menu (17)");
+    strcpy(MenuTitle[17], "Receive Symbol Rate Selection Menu (17)");
+    GetConfigParam(PATH_RXPRESETS, "rx0sr", Value);
   }
   else
   {
-    strcpy(MenuTitle[17], "DVB-T Transmit Bandwidth Selection Menu (17)");
+    if (strcmp(CurrentTXMode, "DVB-T") != 0)  //not DVB-T
+    {
+      strcpy(MenuTitle[17], "Transmit Symbol Rate Selection Menu (17)");
+    }
+    else
+    {
+      strcpy(MenuTitle[17], "DVB-T Transmit Bandwidth Selection Menu (17)");
+    }
+    strcpy(Param,"symbolrate");
+    GetConfigParam(PATH_PCONFIG,Param,Value);
   }
 
-  strcpy(Param,"symbolrate");
-  GetConfigParam(PATH_PCONFIG,Param,Value);
   SR=atoi(Value);
   printf("Value=%s %s\n",Value,"SR");
 
@@ -28453,12 +28625,22 @@ void Define_Menu53()
   strcpy(MenuTitle[53], "LeanDVB RX Config (53)");
 
   button = CreateButton(53, 0);
-  AddButtonStatus(button, "UDP^IP", &Blue);
-  AddButtonStatus(button, "UDP^IP", &Blue);
+  AddButtonStatus(button, "Level^-", &Blue);
+  AddButtonStatus(button, "Level^-", &Blue);
 
   button = CreateButton(53, 1);
+  AddButtonStatus(button, "Level^+", &Blue);
+  AddButtonStatus(button, "Level^+", &Blue);
+
+  button = CreateButton(53, 2);
+  AddButtonStatus(button, "UDP^IP", &Blue);
+  AddButtonStatus(button, "UDP^IP", &Blue);
+  AddButtonStatus(button, "", &Grey);
+
+  button = CreateButton(53, 3);
   AddButtonStatus(button, "UDP^Port", &Blue);
   AddButtonStatus(button, "UDP^Port", &Blue);
+  AddButtonStatus(button, "", &Grey);
 
   button = CreateButton(53, 4);
   AddButtonStatus(button, "Exit", &DBlue);
@@ -28468,48 +28650,82 @@ void Define_Menu53()
   AddButtonStatus(button, "Audio out^RPi Jack", &Blue);
   AddButtonStatus(button, "Audio out^RPi Jack", &Blue);
 
-  //button = CreateButton(53, 6);
-  //AddButtonStatus(button, " ", &Blue);
-  //AddButtonStatus(button, " ", &Blue);
+  button = CreateButton(53, 6);
+  AddButtonStatus(button, "Level^0%", &Blue);
+  AddButtonStatus(button, "Level^0%", &Blue);
 
   button = CreateButton(53, 7);
   AddButtonStatus(button, "UpSample^0", &Blue);
   AddButtonStatus(button, "UpSample^0", &Grey);
-
+  AddButtonStatus(button, "", &Grey);
 }
 
 void Start_Highlights_Menu53()
 {
+  char result[256];
+  char level[256];
+
+  if (CallingMenu == 5)
+  {
+    strcpy(MenuTitle[53], "LeanDVB RX Config (53)");
+  }
+  else
+  {
+    strcpy(MenuTitle[53], "RTL_FM Audio Level Config (53)");
+  }
+
   if (strcmp(LMRXaudio, "rpi") == 0)
   {
     AmendButtonStatus(ButtonNumber(53, 5), 0, "Audio out^RPi Jack", &Blue);
+    strcpy(result, "0%");
+    GetAudioLevel(result);
+    strcpy(level, "Level^");
+    strcat(level, result);
+    AmendButtonStatus(ButtonNumber(53, 6), 0, level, &Blue);
   }
   else
   {
     AmendButtonStatus(ButtonNumber(53, 5), 0, "Audio out^USB dongle", &Blue);
+    strcpy(result, "0%");
+    GetAudioLevel2(result);
+    strcpy(level, "Level^");
+    strcat(level, result);
+    AmendButtonStatus(ButtonNumber(53, 6), 0, level, &Blue);
   }
 
-    char Param[255];
-    char Value[255];
-    char UpSample[255];
-    strcpy(Value, "None");
-    strcpy(Param,"upsample");
-    GetConfigParam(PATH_RXPRESETS,Param,Value);
-    printf("Value=%s %s\n", Value, " UpSample RX Value");
-    strcpy (UpSample, "UpSample^");
-    strcat (UpSample, Value);
+  if (CallingMenu == 5)
+  {
+     char Param[255];
+     char Value[255];
+     char UpSample[255];
+     strcpy(Value, "None");
+     strcpy(Param,"upsample");
+     GetConfigParam(PATH_RXPRESETS,Param,Value);
+     printf("Value=%s %s\n", Value, " UpSample RX Value");
+     strcpy (UpSample, "UpSample^");
+     strcat (UpSample, Value);
 
-    AmendButtonStatus(ButtonNumber(53, 7), 0, UpSample, &Blue);
-    AmendButtonStatus(ButtonNumber(53, 7), 1, UpSample, &Grey);
+     SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+     SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
 
-    if (strcmp(RXKEY, "LIMEMINI") == 0)
-    {
-      SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
-    }
-    else
-    {
-      SetButtonStatus(ButtonNumber(CurrentMenu, 7), 1);
-    }
+     AmendButtonStatus(ButtonNumber(53, 7), 0, UpSample, &Blue);
+     AmendButtonStatus(ButtonNumber(53, 7), 1, UpSample, &Grey);
+
+     if (strcmp(RXKEY, "LIMEMINI") == 0)
+     {
+       SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
+     }
+     else
+     {
+       SetButtonStatus(ButtonNumber(CurrentMenu, 7), 1);
+     }
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 2);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 2);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 2);
+  }
 }
 
 void Define_Menu57()
@@ -28928,14 +29144,20 @@ int main(int argc, char *argv[])
     sigaction(i, &sa, NULL);
   }
 
-  // Set up wiringPi module
-  if (wiringPiSetup() < 0)
-  {
-    return 0;
-  }
+  // Check gpio status
+  GetConfigParam(PATH_PCONFIG, "gpio", Gpio);
 
-  // Initialise all the spi GPIO ports to the correct state
-  InitialiseGPIO();
+  if (strcmp(Gpio, "on") == 0)
+  {
+    // Set up wiringPi module
+    if (wiringPiSetup() < 0)
+    {
+      return 0;
+    }
+
+    // Initialise all the spi GPIO ports to the correct state
+    InitialiseGPIO();
+  }
 
   // Set the Analog Capture (input) Standard
   GetUSBVidDev(USBVidDevice);
@@ -29091,10 +29313,13 @@ int main(int argc, char *argv[])
   // Check for LimeNET Micro
   LimeNETMicroDet = DetectLimeNETMicro();
 
-  // Set the Band (and filter) Switching
-  // Must be done after (not before) starting DATV Express Server
-  system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
-  // and wait for it to finish using portsdown_config.txt
+  if (strcmp(Gpio, "on") == 0)
+  {
+    // Set the Band (and filter) Switching
+    // Must be done after (not before) starting DATV Express Server
+    system ("sudo /home/pi/rpidatv/scripts/ctlfilter.sh");
+    // and wait for it to finish using portsdown_config.txt
+  }
   usleep(100000);
 
   // Start the receive downconverter LO if required
