@@ -152,6 +152,9 @@ cp -f -r /home/pi/rpidatv/src/rtlsdrview/rtlsdrview_config.txt "$PATHUBACKUP"/rt
 # Make a safe copy of the Pluto Band Viewer config
 cp -f -r /home/pi/rpidatv/src/plutoview/plutoview_config.txt "$PATHUBACKUP"/plutoview_config.txt
 
+# Make a safe copy of the Pluto Band Viewer Bands config
+cp -f -r /home/pi/rpidatv/src/plutoview/plutoview_bands.txt "$PATHUBACKUP"/plutoview_bands.txt
+
 # Make a safe copy of the SDRplay Band Viewer config
 cp -f -r /home/pi/rpidatv/src/sdrplayview/sdrplayview_config.txt "$PATHUBACKUP"/sdrplayview_config.txt
 
@@ -272,6 +275,16 @@ sudo apt-get -y install expect                                          # For un
 sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
 sudo apt-get -y install libssl-dev                                      # For libwebsockets
 sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
+sudo apt-get -y install arp-scan                                        # For List Network Devices
+
+sudo apt-get -y install pi-bluetooth
+sudo apt-get -y install bluealsa
+sudo adduser pi bluetooth
+if ! grep -q noplugin=sap /lib/systemd/system/bluetooth.service; then
+  sudo cp /lib/systemd/system/bluetooth.service /lib/systemd/system/bluetooth.service-org
+  sudo sed -i 's|^ExecStart=/usr/lib/bluetooth/bluetoothd$|ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap|' /lib/systemd/system/bluetooth.service
+fi
+
 
 # Install libwebsockets if required
 if [ ! -d  /home/pi/libwebsockets ]; then
@@ -803,6 +816,11 @@ cp -f -r "$PATHUBACKUP"/rtlsdrview_config.txt /home/pi/rpidatv/src/rtlsdrview/rt
 # Restore the user's original Pluto Band Viewer config
 cp -f -r "$PATHUBACKUP"/plutoview_config.txt /home/pi/rpidatv/src/plutoview/plutoview_config.txt
 
+if [ -f  "$PATHUBACKUP"/plutoview_bands.txt ]; then
+  # Restore the user's original Pluto Band Viewer Bands
+  cp -f -r "$PATHUBACKUP"/plutoview_bands.txt /home/pi/rpidatv/src/plutoview/plutoview_bands.txt
+fi
+
 # Restore the user's original SDRplay Band Viewer config
 cp -f -r "$PATHUBACKUP"/sdrplayview_config.txt /home/pi/rpidatv/src/sdrplayview/sdrplayview_config.txt
 
@@ -988,6 +1006,15 @@ if ! grep -q site1d0numbers= "$PATHSCRIPT"/portsdown_C_codes.txt; then
   cp "$PATHSCRIPT"/configs/portsdown_C_codes.txt.factory "$PATHSCRIPT"/portsdown_C_codes.txt
 fi
 
+# Add Lime upsample setting to config file if not included  202401***
+if ! grep -q upsample= "$PATHSCRIPT"/portsdown_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
+  # Add the new entry and a new line
+  echo "upsample=2" >> "$PATHSCRIPT"/portsdown_config.txt
+fi
+
 # Streaming audio source: https://github.com/JoJoBond/3LAS
 
 if [ ! -d "/home/pi/rpidatv/server/node_modules" ];then
@@ -1001,6 +1028,12 @@ cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
 
 if ! grep -q snd-aloop /etc/modules; then
   sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules
+fi
+
+# Add new stop alias if required  202311xxx
+if ! grep -q rpidatv/scripts/utils/stop.sh /home/pi/.bash_aliases; then
+  # File needs updating
+  echo "alias stop='/home/pi/rpidatv/scripts/utils/stop.sh'"  >> /home/pi/.bash_aliases
 fi
 
 # Configure the nginx web server

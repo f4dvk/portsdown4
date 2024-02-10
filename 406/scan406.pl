@@ -195,7 +195,7 @@ while (1) {
     if ($mic==0)
     {
       my @args = ( "bash", "-c", "$timeout rtl_fm -p $ppm -M fm $WFM -s $largeur -f $frq  2>/dev/null |\
-              sox -t raw -r $largeur -e s -b 16 -c 1 - -t wav - $filter 2>/dev/null |\
+              sox --buffer 32 -t raw -r $largeur -e s -b 16 -c 1 - -t wav - $filter 2>/dev/null |\
               tee >(aplay2 -D plughw:Loopback,0,2 2>/dev/null) >($dec) >(aplay -D plughw:$card 2>/dev/null) >/dev/null" );
       system(@args);
     }

@@ -1,3 +1,12 @@
+202401250
+Add List of Network Devices
+Add Band GPIOs for Pluto BandViewer
+Add facility to Over-ride Lime Upsample settings
+
+202401170
+Re-introduce boot-to-TX option
+Add LAN device listing facility
+
 202401020
 Menu reglage niveau audio rtl_fm
 on/off GPIO
@@ -16,6 +25,12 @@ Ajout modes numeriques rtl_fm
 
 202311240
 Correction detection carte audio
+
+202311130
+Adjust MeteorView remote scaling
+
+202311030
+Improve ADF4351 Reliability in SigGen
 
 202310260
 Add Waterfall to LimeSDR BandViewer

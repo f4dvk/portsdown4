@@ -68,6 +68,7 @@ color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 
 #define PATH_PCONFIG "/home/pi/rpidatv/scripts/portsdown_config.txt"
 #define PATH_CONFIG "/home/pi/rpidatv/src/plutoview/plutoview_config.txt"
+#define PATH_BCONFIG "/home/pi/rpidatv/src/plutoview/plutoview_bands.txt"
 
 #define MAX_BUTTON 675
 int IndexButtonInArray=0;
@@ -164,6 +165,19 @@ int xscaleden = 20;       // Denominator for X scaling fraction
 char PlutoIP[16];         // Pluto IP address
 uint8_t BandBit7GPIO = 13;   // BandBit 7 Pin 21 BCM 9 to switch RX input to Pluto
 
+// Band Switching variables
+bool bandenable = false;
+float bandlofreq[16];
+float bandhifreq[16];
+uint8_t BandBit0GPIO = 26;   // BandBit 0 Pin 32 BCM 12
+uint8_t BandBit1GPIO = 24;   // BandBit 1 Pin 35 BCM 19
+uint8_t BandBit2GPIO = 7;    // BandBit 2 Pin 7 BCM 4
+uint8_t BandBit3GPIO = 6;    // BandBit 3 Pin 22 BCM 25
+
+// Pre-mix variables
+float  premixlo_low = 0.0;   // MHz
+float  premixlo_hi =  0.0;   // MHz
+
 
 ///////////////////////////////////////////// FUNCTION PROTOTYPES ///////////////////////////////
 
@@ -190,6 +204,8 @@ void DrawButton(int);
 int IsImageToBeChanged(int, int);
 void TransformTouchMap(int, int);
 void CalcSpan();
+void SetBandGPIOs();
+void ToggleGPIO();
 void ChangeLabel(int);
 void DrawEmptyScreen();
 void DrawYaxisLabels();
@@ -211,6 +227,7 @@ void Define_Menu13();
 static void cleanexit(int);
 void Start_Highlights_Menu1();
 void Start_Highlights_Menu2();
+void Start_Highlights_Menu4();
 void Start_Highlights_Menu6();
 void Start_Highlights_Menu7();
 void Start_Highlights_Menu8();
@@ -221,6 +238,7 @@ void parseClickQuerystring(char *query_string, int *x_ptr, int *y_ptr);
 FFUNC touchscreenClick(ffunc_session_t * session);
 void togglewebcontrol();
 int touchAvailable();
+void *WaitButtonEvent(void * arg);
 
 //////////////////////////////////////////// SA bits /////////////////////////////////////////
 
@@ -368,7 +386,8 @@ int CheckWebCtlExists()
 
 void ReadSavedParams()
 {
-  char response[63]="0";
+  char response[63] = "0";
+  char param[63];
 
   GetConfigParam(PATH_CONFIG, "centrefreq", response);
   centrefreq = atoi(response);
@@ -414,6 +433,30 @@ void ReadSavedParams()
 
   // Read Pluto IP from Portsdown Config file
   GetConfigParam(PATH_PCONFIG,"plutoip", PlutoIP);
+
+  GetConfigParam(PATH_BCONFIG, "bvswitchenable", response);
+  if (strcmp(response, "on") == 0)
+  {
+    bandenable = true;
+  }
+
+  for (i = 0; i <= 15; i++)
+  {
+    snprintf(param, 56, "bvband%dlo", i);
+    GetConfigParam(PATH_BCONFIG, param, response);
+    bandlofreq[i] = atof(response);
+
+    snprintf(param, 56, "bvband%dhi", i);
+    GetConfigParam(PATH_BCONFIG, param, response);
+    bandhifreq[i] = atof(response);
+  }
+
+  strcpy(response, "0.0");
+  GetConfigParam(PATH_BCONFIG, "premixlolow", response);
+  premixlo_low = atof(response);
+  GetConfigParam(PATH_BCONFIG, "premixlohi", response);
+  premixlo_hi = atof(response);
+
 }
 
 
@@ -1550,10 +1593,10 @@ int GetButtonStatus(int ButtonIndex)
 int getTouchSample(int *rawX, int *rawY, int *rawPressure)
 {
 	int i;
-  /* how many bytes were read */
-  size_t rb;
-  /* the events (up to 64 at once) */
-  struct input_event ev[64];
+        /* how many bytes were read */
+        size_t rb;
+        /* the events (up to 64 at once) */
+        struct input_event ev[64];
 	//static int Last_event=0; //not used?
   if (touchAvailable())
   {
@@ -2115,7 +2158,7 @@ void ShiftFrequency(int button)
   // Store the new frequency
   snprintf(ValueToSave, 63, "%d", centrefreq);
   SetConfigParam(PATH_CONFIG, "centrefreq", ValueToSave);
-  printf("Centre Freq set to %d \n", centrefreq);
+  printf("Centre Freq set to %d kHz\n", centrefreq);
 
   // Calculate the new settings
   CalcSpan();
@@ -2129,10 +2172,14 @@ void ShiftFrequency(int button)
 
 void CalcSpan()    // takes centre frequency and span and calulates startfreq and stopfreq
 {
+  SetBandGPIOs();      // Change the band GPIOs if required
+
   startfreq = centrefreq - (span * 125) / 256;
   stopfreq =  centrefreq + (span * 125) / 256;
+
+  // Calculate frequency to pass to Pluto
   frequency_actual_rx = 1000.0 * (float)(centrefreq);
-  if (frequency_actual_rx > 6000000000)
+  if ((frequency_actual_rx > 6000000000) && (premixlo_hi < 0.1) && (premixlo_hi > -0.1))
   {
     FifthHarmonic = true;
   }
@@ -2140,6 +2187,18 @@ void CalcSpan()    // takes centre frequency and span and calulates startfreq an
   {
     FifthHarmonic = false;
   }
+
+  // Correct frequency to pass to Pluto if pre-mixing is used
+  if (((premixlo_low > 0.1) || (premixlo_low < -0.1)) && (centrefreq < 70000))
+  {
+    frequency_actual_rx = 1000.0 * (float)(centrefreq) + premixlo_low * 1000000.0;
+  }
+  if (((premixlo_hi > 0.1) || (premixlo_hi < -0.1)) && (centrefreq > 6000000))
+  {
+    frequency_actual_rx = 1000.0 * (float)(centrefreq) - premixlo_hi * 1000000.0;
+  }
+
+  printf("Freq passed to Pluto = %f Hz\n", frequency_actual_rx);
 
   bandwidth = (float)(span * 1000);
 
@@ -2192,6 +2251,90 @@ void CalcSpan()    // takes centre frequency and span and calulates startfreq an
       ScansforLevel = 10;
   }
 }
+
+
+void SetBandGPIOs()
+{
+  int i;
+  int band;
+  float centrefreqMHz;
+
+  if (bandenable == false)  // Leave GPIOs untouched if control not enabled
+  {
+    return;
+  }
+
+  centrefreqMHz = (float)centrefreq / 1000.0;
+
+  for (i = 0; i <= 15; i++)
+  {
+    if ((bandlofreq[i] > 0.001) || (bandhifreq[i] > 0.001))  // only act if one of the frequencies is non-zero
+    {
+      if ((centrefreqMHz >= bandlofreq[i]) && (centrefreqMHz < bandhifreq[i]))  // so this band
+      {
+        band = i;
+
+        if (band > 7)
+        {
+          digitalWrite(BandBit3GPIO, HIGH);
+          band = band - 8;
+        }
+        else
+        {
+          digitalWrite(BandBit3GPIO, LOW);
+        }
+        if (band > 3)
+        {
+          digitalWrite(BandBit2GPIO, HIGH);
+          band = band - 4;
+        }
+        else
+        {
+          digitalWrite(BandBit2GPIO, LOW);
+        }
+        if (band > 1)
+        {
+          digitalWrite(BandBit1GPIO, HIGH);
+          band = band - 2;
+        }
+        else
+        {
+          digitalWrite(BandBit1GPIO, LOW);
+        }
+        if (band > 0)
+        {
+          digitalWrite(BandBit0GPIO, HIGH);
+        }
+        else
+        {
+          digitalWrite(BandBit0GPIO, LOW);
+        }
+        return;
+      }
+    }
+  }
+}
+
+
+void ToggleGPIO()
+{
+  if (bandenable == true)  // Leave GPIOs untouched and disable changes
+  {
+    bandenable = false;
+    SetConfigParam(PATH_BCONFIG, "bvswitchenable", "off");
+  }
+  else                     // Enable and set GPIOs
+  {
+    bandenable = true;
+    SetConfigParam(PATH_BCONFIG, "bvswitchenable", "on");
+    pinMode(BandBit0GPIO, OUTPUT);
+    pinMode(BandBit1GPIO, OUTPUT);
+    pinMode(BandBit2GPIO, OUTPUT);
+    pinMode(BandBit3GPIO, OUTPUT);
+    SetBandGPIOs();
+  }
+}
+
 
 void ChangeLabel(int button)
 {
@@ -2250,7 +2393,7 @@ void ChangeLabel(int button)
       {
         Keyboard(RequestText, InitText, 10);
         returned_freq = (int)((1000 * atof(KeyboardReturn)) + 0.1);
-        if ((returned_freq < 70000) || (returned_freq > 30000000))
+        if (((returned_freq < 70000) && (premixlo_low < 0.1) && (premixlo_low > -0.1)) || (returned_freq > 30000000))
         {
           freq_valid = false;
         }
@@ -2392,7 +2535,8 @@ void *WaitButtonEvent(void * arg)
           break;
         case 7:                                            // System
           printf("System Menu 4 Requested\n");
-          CurrentMenu=4;
+          CurrentMenu = 4;
+          Start_Highlights_Menu4();
           UpdateWindow();
           break;
         case 8:                                            // Exit to Portsdown
@@ -2695,9 +2839,11 @@ void *WaitButtonEvent(void * arg)
         case 5:                                            // Shutdown
           system("sudo shutdown now");
           break;
-        //case 6:                                            // ReCal Lime
-        //  NewCal = true;
-        //  break;
+        case 6:                                            // Enable/disable GPIO
+          ToggleGPIO();
+          Start_Highlights_Menu4();
+          UpdateWindow();
+          break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
           CurrentMenu=1;
@@ -3426,9 +3572,9 @@ void Define_Menu4()                                         // System Menu
   AddButtonStatus(button, "Shutdown^System", &Blue);
   AddButtonStatus(button, " ", &Green);
 
-  //button = CreateButton(4, 6);
-  //AddButtonStatus(button, "Re-cal^LimeSDR", &Blue);
-  //AddButtonStatus(button, " ", &Green);
+  button = CreateButton(4, 6);
+  AddButtonStatus(button, "Band GPIO^Enabled", &Blue);
+  AddButtonStatus(button, "Band GPIO^Disabled", &Blue);
 
   button = CreateButton(4, 7);
   AddButtonStatus(button, "Return to^Main Menu", &DBlue);
@@ -3437,6 +3583,20 @@ void Define_Menu4()                                         // System Menu
   AddButtonStatus(button, "Freeze", &Blue);
   AddButtonStatus(button, "Unfreeze", &Green);
 }
+
+
+void Start_Highlights_Menu4()
+{
+  if (bandenable == true)  // Manual Markers
+  {
+    SetButtonStatus(ButtonNumber(4, 6), 0);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(4, 6), 1);
+  }
+}
+
 
 void Define_Menu5()                                          // Mode Menu
 {
@@ -4651,6 +4811,14 @@ int main(int argc, char* argv[])
   // Set all nominated pins to outputs
   pinMode(NoiseSourceGPIO, OUTPUT);
   pinMode(BandBit7GPIO, OUTPUT);
+  if (bandenable == true)  // Leave GPIOs untouched if control not enabled
+  {
+    pinMode(BandBit0GPIO, OUTPUT);
+    pinMode(BandBit1GPIO, OUTPUT);
+    pinMode(BandBit2GPIO, OUTPUT);
+    pinMode(BandBit3GPIO, OUTPUT);
+    SetBandGPIOs();
+  }
 
   // Set idle conditions
   digitalWrite(NoiseSourceGPIO, LOW);
@@ -4748,8 +4916,9 @@ int main(int argc, char* argv[])
     float NF;
     char NFText[15];
 
-    // Initialise web access
+    CalcSpan();  // Make sure that any offset is applied
 
+    // Initialise web access
     web_x = -1;
     web_y = -1;
     web_x_ptr = &web_x;

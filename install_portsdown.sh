@@ -93,11 +93,18 @@ sudo apt-get -y install expect                                          # For un
 sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
 sudo apt-get -y install libssl-dev                                      # For websockets
 sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
+sudo apt-get -y install arp-scan                                        # For List Network Devices
 
 sudo apt-get install -y nodejs npm                                      # streaming audio
 sudo apt-get install -y ffmpeg
 sudo cp /usr/bin/ffmpeg /usr/bin/ffmpeg2
 sudo cp /usr/bin/aplay /usr/bin/aplay2
+
+sudo apt-get -y install pi-bluetooth
+sudo apt-get -y install bluealsa
+sudo adduser pi bluetooth
+sudo cp /lib/systemd/system/bluetooth.service /lib/systemd/system/bluetooth.service-org
+sudo sed -i 's|^ExecStart=/usr/lib/bluetooth/bluetoothd$|ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap|' /lib/systemd/system/bluetooth.service
 
 # Install WiringPi
 cd /tmp
@@ -677,6 +684,7 @@ echo "alias menu='/home/pi/rpidatv/scripts/menu.sh menu'" >> /home/pi/.bash_alia
 echo "alias gui='/home/pi/rpidatv/scripts/utils/guir.sh'"  >> /home/pi/.bash_aliases
 echo "alias ugui='/home/pi/rpidatv/scripts/utils/uguir.sh'"  >> /home/pi/.bash_aliases
 echo "alias udvbt='/home/pi/rpidatv/scripts/utils/udvbt.sh'"  >> /home/pi/.bash_aliases
+echo "alias stop='/home/pi/rpidatv/scripts/utils/stop.sh'"  >> /home/pi/.bash_aliases
 
 # Modify .bashrc to run startup script on ssh logon
 #cd /home/pi

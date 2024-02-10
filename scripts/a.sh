@@ -83,6 +83,7 @@ GPIO=$(get_config_var gpio $PCONFIGFILE)
 
 OUTPUT_IP=""
 LIMETYPE=""
+REQ_UPSAMPLE=$(get_config_var upsample $PCONFIGFILE)
 
 # If a Fushicai EasyCap, adjust the contrast to prevent white crushing
 # Default is 464 (scale 0 - 1023) which crushes whites
@@ -483,7 +484,7 @@ case "$MODE_OUTPUT" in
       LIME_GAINF=`echo - | awk '{print ( '$LIME_GAIN' - 6 ) / 100}'`
     fi
 
-    # Override for LIMEDVB Mode
+    # Override for LIMEDVB Mode, and allow overide from config for non-DVB
 
     if [ "$MODE_OUTPUT" == "LIMEDVB" ]; then
 
@@ -502,6 +503,15 @@ case "$MODE_OUTPUT" in
       CUSTOM_FPGA="-F"
     else
       CUSTOM_FPGA=" "
+      if [ "$REQ_UPSAMPLE" -eq "2" ] ; then
+        UPSAMPLE=2
+      fi
+      if [ "$REQ_UPSAMPLE" -eq "4" ] ; then
+        UPSAMPLE=4
+      fi
+      if [ "$REQ_UPSAMPLE" -eq "8" ] ; then
+        UPSAMPLE=8
+      fi
     fi
 
     # Determine if Lime needs to be calibrated

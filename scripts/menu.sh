@@ -1263,8 +1263,18 @@ do_modulation()
 }
 
 
+do_mic_gain()
+{
+  MICGAIN=$(get_config_var micgain $PCONFIGFILE)
+  MICGAIN=$(whiptail --inputbox "Enter between 1 (min) and 30 (max)" 8 78 $MICGAIN --title "Set USB Dongle Mic Gain" 3>&1 1>&2 2>&3)
+  if [ $? -eq 0 ]; then
+    set_config_var micgain "$MICGAIN" $PCONFIGFILE
+  fi
+}
+
+
 do_output_setup() {
-menuchoice=$(whiptail --title "$StrOutputTitle" --menu "$StrOutputContext" 16 78 9 \
+menuchoice=$(whiptail --title "$StrOutputTitle" --menu "$StrOutputContext" 16 78 10 \
   "1 SymbolRate" "$StrOutputSR"  \
   "2 FEC" "$StrOutputFEC" \
   "3 Output mode" "$StrOutputMode" \
@@ -1274,6 +1284,7 @@ menuchoice=$(whiptail --title "$StrOutputTitle" --menu "$StrOutputContext" 16 78
   "7 Standard" "Output 576PAL or 480NTSC" \
   "8 Format" "4:3, 16:9, 720p or 1080p" \
   "9 Modulation" "DVB-S or DVB-S2 modes" \
+  "10 Mic Gain" "Adjust USB Dongle Mic Gain" \
 	3>&2 2>&1 1>&3)
 	case "$menuchoice" in
       1\ *) do_symbolrate_setup ;;
@@ -1285,6 +1296,7 @@ menuchoice=$(whiptail --title "$StrOutputTitle" --menu "$StrOutputContext" 16 78
 	  7\ *) do_output_standard ;;
 	  8\ *) do_output_format ;;
 	  9\ *) do_modulation ;;
+	  10\ *) do_mic_gain ;;
     esac
 }
 
@@ -1684,6 +1696,8 @@ do_autostart_setup()
   Radio3=OFF
   Radio4=OFF
   Radio5=OFF
+  Radio6=OFF
+  Radio7=OFF
 
   case "$MODE_STARTUP" in
     Display_boot)
@@ -1701,6 +1715,12 @@ do_autostart_setup()
     Meteorbeacon_boot)
       Radio5=ON
     ;;
+    TX_boot)
+      Radio6=ON
+    ;;
+    Keyed_TX_boot)
+      Radio7=ON
+    ;;
     *)
       Radio1=ON
     ;;
@@ -1713,11 +1733,20 @@ do_autostart_setup()
    "Bandview_boot" "Boot-up to the Band Viewer" $Radio3 \
    "Meteorview_boot" "Boot-up to the Meteor Viewer " $Radio4 \
    "Meteorbeacon_boot" "Boot-up to the Meteor Beacon RX Server " $Radio5 \
+   "TX_boot" "$AutostartSetupTX_boot" $Radio6 \
+   "Keyed_TX_boot" "Boot up to GPIO Keyed Repeater TX" $Radio7 \
    3>&2 2>&1 1>&3)
 
   if [ $? -eq 0 ]; then
      set_config_var startup "$chstartup" $PCONFIGFILE
      MODE_STARTUP=$chstartup
+  fi
+
+  # If keyed or continuous TX selected, set up cron for 12-hourly reboot
+  if [[ "$chstartup" == "Keyed_TX_boot" || "$chstartup" == "TX_boot" ]]; then
+    sudo crontab /home/pi/rpidatv/scripts/configs/rptrcron
+  else
+    sudo crontab /home/pi/rpidatv/scripts/configs/blankcron
   fi
 }
 
@@ -2995,6 +3024,33 @@ do_load_settings()
   fi
 }
 
+
+do_Reboots()
+{
+  sudo crontab -l | grep -E -q '^0 3'
+  if [ $? == 0 ]; then                # 12-hourly reboot enabled
+    Radio1=OFF
+    Radio2=ON
+  else
+    Radio1=ON
+    Radio2=OFF
+  fi
+
+  REBOOTS=$(whiptail --title "SET 12-Hourly Reboots ON OR OFF" --radiolist \
+    "Select one" 20 78 8 \
+    "off" "No 12-hourly reboots scheduled" $Radio1 \
+    "on" "Reboots scheduled for 0300 and 1500 UTC" $Radio2 \
+    3>&2 2>&1 1>&3)
+
+  if [ $? -eq 0 ]; then                     ## If the selection has changed
+    if [[ "$REBOOTS" == "on" ]]; then
+      sudo crontab /home/pi/rpidatv/scripts/configs/rptrcron
+    else
+      sudo crontab /home/pi/rpidatv/scripts/configs/blankcron
+    fi
+  fi
+}
+
 do_system_setup()
 {
 menuchoice=$(whiptail --title "$StrSystemTitle" --menu "$StrSystemContext" 20 78 13 \
@@ -3009,7 +3065,8 @@ menuchoice=$(whiptail --title "$StrSystemTitle" --menu "$StrSystemContext" 20 78
     "9 Attenuator" "Select Output Attenuator Type"  \
     "10 Lime Status" "Check the LimeSDR Firmware Version"  \
     "11 Lime Update" "Update the LimeSDR Firmware Version"  \
-    "12 Update" "Check for Updated Portsdown Software"  \
+    "12 Reboots" "Enable/disable 12-hourly Reboot"  \
+    "13 Update" "Check for Updated Portsdown Software"  \
     3>&2 2>&1 1>&3)
     case "$menuchoice" in
       1\ *) do_autostart_setup ;;
@@ -3023,7 +3080,8 @@ menuchoice=$(whiptail --title "$StrSystemTitle" --menu "$StrSystemContext" 20 78
       9\ *) do_attenuator;;
       10\ *) do_LimeStatus;;
       11\ *) do_LimeUpdate;;
-      12\ *) do_Update ;;
+      12\ *) do_Reboots ;;
+      13\ *) do_Update ;;
     esac
 }
 
@@ -3189,6 +3247,15 @@ do_lg()
   fi
 }
 
+do_lupsample()
+{
+  UPSAMPLE=$(get-config_var upsample $PCONFIGFILE)
+  UPSAMPLE=$(whiptail --inputbox "Current upsample = "$UPSAMPLE".  Enter 1, 2, 4 or 8" 8 78 $UPSAMPLE --title "SET UPSAMPLE for the LimeSDR" 3>&1 1>&2 2>&3)
+  if [ $? -eq 0 ]; then
+    set_config_var upsample "$UPSAMPLE" $PCONFIGFILE
+  fi
+}
+
 
 do_lime_setup()
 {
@@ -3199,6 +3266,7 @@ do_lime_setup()
     "4 Update to FW 1.30" "Update LimeSDRMini to Firmware 1.30" \
     "5 Update to DVB FW" "Update LimeSDRMini to custom DVB Firmware" \
     "6 Set Lime Gain" "Set the Lime Gain for the current Band" \
+    "7 Set Lime Upsampling" "Set the Lime Upsampling for cleaner TX" \
     3>&2 2>&1 1>&3)
   case "$menuchoice" in
     1\ *) do_lmsver ;;
@@ -3207,6 +3275,7 @@ do_lime_setup()
     4\ *) do_ud130 ;;
     5\ *) do_uddvb ;;
     6\ *) do_lg ;;
+    7\ *) do_lupsample ;;
   esac
 }
 

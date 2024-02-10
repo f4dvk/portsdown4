@@ -56,6 +56,7 @@ guard=32
 qam=qpsk
 picam=normal
 vlcvolume=256
-webcontrol=disabled
+webcontrol=enabled
 langstone=none
-
+upsample=2
+gpio=on
