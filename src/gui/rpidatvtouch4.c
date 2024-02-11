@@ -4552,7 +4552,7 @@ void RTLstart()
 
   if(RTLdetected == 1)
   {
-    char rtlcall[255];
+    char rtlcall[280];
     char card[15];
     char mic[15];
 
