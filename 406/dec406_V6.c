@@ -30,6 +30,9 @@
 Contenu utile en Hexa bits 25 à 144:
 8e3f33ebcbef032429bf7712040d68
 */
+
+#define PATH_LOG "/home/pi/rpidatv/406/decode.txt"
+
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -63,6 +66,50 @@ int seuilm=-SEUIL;  //seuil pics ou fronts negatifs
 int seuil=-SEUIL;   //seuil actif
 
 char s[200];        // 144 bits maxi+ 0 terminal
+char value[10];     //
+
+char now[30];
+
+void SetConfigParam(char *PathConfigFile, char *Param, char *Value)
+{
+  char * line = NULL;
+  size_t len = 0;
+  int read;
+  char Command[511];
+  char BackupConfigName[240];
+  strcpy(BackupConfigName,PathConfigFile);
+  strcat(BackupConfigName,".bak");
+  FILE *fp=fopen(PathConfigFile,"r");
+  FILE *fw=fopen(BackupConfigName,"w+");
+  char ParamWithEquals[255];
+  strcpy(ParamWithEquals, Param);
+  strcat(ParamWithEquals, "=");
+
+  if(fp!=0)
+  {
+    while ((read = getline(&line, &len, fp)) != -1)
+    {
+      if(strncmp (line, ParamWithEquals, strlen(Param) + 1) == 0)
+      {
+        fprintf(fw, "%s=%s\n", Param, Value);
+      }
+      else
+      {
+        fprintf(fw,line);
+      }
+    }
+    fclose(fp);
+    fclose(fw);
+    snprintf(Command, 511, "cp %s %s", BackupConfigName, PathConfigFile);
+    system(Command);
+  }
+  else
+  {
+    printf("Config file not found \n");
+    fclose(fp);
+    fclose(fw);
+  }
+}
 
 int calcul(int a, int b)
     {int i,y=0,x=1;
@@ -416,6 +463,8 @@ void localisation_standard()
     //contenu.append("\r\nLatitude : ").append(cc.to//String()).append(" ").append(llatD.to//String()).append("d").append(llatM.to//String()).append("m").append(llatS.to//String()).append("s");
     double gpsLat= latD+(60.0*latM+latS)/3600.0;
     fprintf(stderr,"\t %2.4f Deg",gpsLat);
+    sprintf(value, "%2.4f", gpsLat);
+    SetConfigParam(PATH_LOG, "lat", value);
     //contenu.append(" = ").append(decform.format(gpsLat)).append(" Deg\r\n");
 	if (s[74]=='0') {c='E';} else {c='W';}
 	i=75;
@@ -444,6 +493,8 @@ void localisation_standard()
     //contenu.append("Longitude: ").append(ccc.to//String()).append(" ").append(llonD.to//String()).append("d").append(llonM.to//String()).append("m").append(llonS.to//String()).append("s");
     double gpsLon= lonD+(60.0*lonM+lonS)/3600.0;
     fprintf(stderr,"\t %3.4f Deg\n",gpsLon);
+    sprintf(value, "%3.4f", gpsLon);
+    SetConfigParam(PATH_LOG, "lon", value);
     //contenu.append(" = ").append(decform.format(gpsLon)).append(" Deg\r\n");
     GeogToUTM(gpsLat, gpsLon);
     }
@@ -502,6 +553,8 @@ void localisation_standard1()
     //contenu.append("\r\nLatitude : ").append(cc.to//String()).append(" ").append(llatD.to//String()).append("d").append(llatM.to//String()).append("m").append(llatS.to//String()).append("s");
     double gpsLat= latD+(60.0*latM+latS)/3600.0;
     fprintf(stderr," = %2.4f Deg",gpsLat);
+    sprintf(value, "%2.4f", gpsLat);
+    SetConfigParam(PATH_LOG, "lat", value);
     //contenu.append(" = ").append(decform.format(gpsLat)).append(" Deg\r\n");
     if (s[74]=='0') {c='E';} else {c='W';}
 	i=75;
@@ -529,6 +582,8 @@ void localisation_standard1()
     //contenu.append("Longitude: ").append(ccc.to//String()).append(" ").append(llonD.to//String()).append("d").append(llonM.to//String()).append("m").append(llonS.to//String()).append("s");
     double gpsLon= lonD+(60.0*lonM+lonS)/3600.0;
     fprintf(stderr," = %3.4f Deg\n",gpsLon);
+    sprintf(value, "%3.4f", gpsLon);
+    SetConfigParam(PATH_LOG, "lon", value);
     //contenu.append(" = ").append(decform.format(gpsLon)).append(" Deg\r\n");
     GeogToUTM(gpsLat, gpsLon);
     /*if (s[110]==1)
@@ -560,6 +615,8 @@ void identification_MMSI()
     //contenu.append("Identifiant MMSI: ");
     //Integer xxx=xx;
     fprintf(stderr,"%d",xx);
+    sprintf(value, "Identifiant MMSI: %d", xx);
+    SetConfigParam(PATH_LOG, "id", value);
     //contenu.append(xxx.to//String()).append("\r\n");
 	i= 60;
 	//b=8*(s[i]=='1')+4*(s[i+1]=='1')+2*(s[i+2]=='1')+(s[i+3]=='1');
@@ -585,6 +642,8 @@ void identification_AIRCRAFT_24_BIT_ADRESS()
     //contenu.append("Identifiant AIRCRAFT 24 BIT ADRESSE: ");
     //Integer xxx=xx;
     fprintf(stderr,"%d",xx);
+    sprintf(value, "Identifiant AIRCRAFT 24 BIT ADRESSE: %d", xx);
+    SetConfigParam(PATH_LOG, "id", value);
     //contenu.append(xxx.to//String()).append("\r\n");
     fprintf(stderr,"en Hexa:");
     //contenu.append(" en Hexa: ");
@@ -607,6 +666,8 @@ void identification_AIRCRAFT_OPER_DESIGNATOR()
 	fprintf(stderr,"\n\rIdentifiant AIRCRAFT OPER DESIGNATOR: ");
     //contenu.append("Identifiant AIRCRAFT OPER DESIGNATOR: ");
     fprintf(stderr,"%d",xx);
+    sprintf(value, "Identifiant AIRCRAFT OPER DESIGNATOR: %d", xx);
+    SetConfigParam(PATH_LOG, "id", value);
     //Integer xxx=xx;
     //contenu.append(xxx.to//String()).append("\r\n");
 	i= 55;
@@ -632,6 +693,8 @@ void identification_AIRCRAFT_OPER_DESIGNATOR()
         //contenu.append("Identifiant C/S TA No: ");
         //Integer xxx=xx;
         fprintf(stderr,"%d",xx);
+        sprintf(value, "Identifiant C/S TA No: %d", xx);
+        SetConfigParam(PATH_LOG, "id", value);
         //contenu.append(xxx.to//String()).append("\r\n");
 	i= 50;
 	//b=8192*(s[i]=='1')+4096*(s[i+1]=='1')+2048*(s[i+2]=='1')+1024*(s[i+3]=='1')+512*(s[i+4]=='1')+256*(s[i+5]=='1')+128*(s[i+6]=='1')+64*(s[i+7]=='1')+32*(s[i+8]=='1')+ 16*(s[i+9]=='1')+8*(s[i+10]=='1')+4*(s[i+11]=='1')+2*(s[i+12]=='1')+(s[i+13]=='1');
@@ -657,6 +720,8 @@ void identification_MMSI_FIXED()
         //contenu.append("Identifiant MMSI: ");
         //Integer xxx=xx;
         fprintf(stderr,"%d",xx);
+        sprintf(value, "Identifiant MMSI: %d", xx);
+        SetConfigParam(PATH_LOG, "id", value);
         //contenu.append(xxx.to//String()).append("\r\n");
 	i= 60;
 	//b=8*(s[i]=='0')+4*(s[i+1]=='0')+2*(s[i+2]=='0')+(s[i+3]=='0');
@@ -699,6 +764,8 @@ void localisation_nationale() //voir doc A-27-28-29
     //contenu.append("\r\nLatitude : ").append(cc.to//String()).append(" ").append(llatD.to//String()).append("d").append(llatM.to//String()).append("m").append(llatS.to//String()).append("s");
     double gpsLat= latD+(60.0*latM+latS)/3600.0;
     fprintf(stderr," = %2.4f Deg",gpsLat);
+    sprintf(value, "%2.4f", gpsLat);
+    SetConfigParam(PATH_LOG, "lat", value);
     //contenu.append(" = ").append(decform.format(gpsLat)).append(" Deg\r\n");
     if (s[71]=='0') c='E'; else c='W';
 	i=72;
@@ -725,6 +792,8 @@ void localisation_nationale() //voir doc A-27-28-29
     //contenu.append("Longitude: ").append(ccc.to//String()).append(" ").append(llonD.to//String()).append("d").append(llonM.to//String()).append("m").append(llonS.to//String()).append("s");
     double gpsLon= lonD+(60.0*lonM+lonS)/3600.0;
     fprintf(stderr," = %3.4f Deg\n",gpsLon);
+    sprintf(value, "%3.4f", gpsLon);
+    SetConfigParam(PATH_LOG, "lon", value);
     //contenu.append(" = ").append(decform.format(gpsLon)).append(" Deg\r\n");
     GeogToUTM(gpsLat, gpsLon);
     i=126;
@@ -746,6 +815,8 @@ void identification_nationale()
     //contenu.append("Identifiant National: ");
     //Integer xxx=xx;
     fprintf(stderr,"%d",xx);
+    sprintf(value, "Identifiant National: %d", xx);
+    SetConfigParam(PATH_LOG, "id", value);
     //contenu.append(xxx.to//String()).append("\r\n");
 	}
 void localisation_user()
@@ -762,6 +833,8 @@ void localisation_user()
     //contenu.append("\r\nLatitude : ").append(cc.to//String()).append(" ").append(llatD.to//String()).append("d").append(llatM.to//String()).append("m");
     double gpsLat= latD+latM/60.0;
     fprintf(stderr," = %2.4f Deg",gpsLat);
+    sprintf(value, "%2.4f", gpsLat);
+    SetConfigParam(PATH_LOG, "lat", value);
     //contenu.append(" = ").append(decform.format(gpsLat)).append(" Deg\r\n");
     if (s[119]=='0') {c='E';} else {c='W';}
 	i=120;
@@ -777,6 +850,8 @@ void localisation_user()
     //fprintf(stderr," = %3.6f Deg",gpsLon);
     //contenu.append(" = ").append(decform.format(gpsLon)).append(" Deg\r\n");
     fprintf(stderr," = %3.4f Deg\n",gpsLon);
+    sprintf(value, "%3.4f", gpsLon);
+    SetConfigParam(PATH_LOG, "lon", value);
     GeogToUTM(gpsLat, gpsLon);
     if (s[106]=='1') {fprintf(stderr,"\n\rEncoded position data source internal");}
     //contenu.append("Encoded position data source internal\r\n");}
@@ -1211,6 +1286,7 @@ void decodage_LCD()
                 //a=128*(s[16]=='1')+64*(s[17]=='1')+32*(s[18]=='0')+16*(s[19]=='1')+8*(s[20]=='0')+4*(s[21]=='0')+2*(s[22]=='0')+(s[23]=='0');
                 a=calcul(16,23);
                 fprintf(stderr,"\r\nTrame de test...");
+                SetConfigParam(PATH_LOG, "trame", "Trame de test...");
                 //contenu.append("\r\nTEST...\r\n");
                 }
             else
@@ -1218,6 +1294,7 @@ void decodage_LCD()
                 //a=128*(s[16]=='0')+64*(s[17]=='0')+32*(s[18]=='1')+16*(s[19]=='0')+8*(s[20]=='1')+4*(s[21]=='1')+2*(s[22]=='1')+(s[23]=='1');
                 a=calcul(16,23);
                 fprintf(stderr,"\n\rTrame d'alerte... ");
+                SetConfigParam(PATH_LOG, "trame", "Trame d'alerte !");
                 //contenu.append("\r\nALERTE...\r\n");
                 }
             //strcpy(chaine,"");
@@ -1521,6 +1598,28 @@ void affiche_hexa(){
     //fprintf(stderr,"\n\r");
 }
 
+void Date(void)
+{
+  FILE *fp;
+
+  fp = popen("date -u '+%d/%m/%Y %H:%M:%S UTC'", "r");
+
+  if (fp == NULL) {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  while (fgets(now, 30, fp) != NULL)
+  {
+    //printf("%s", now);
+  }
+
+  pclose(fp);
+
+  now[strcspn(now, "\n")] = 0;
+
+  SetConfigParam(PATH_LOG, "date", now);
+}
 
 int test_crc1(){
 int g[]= {1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1};
@@ -1555,9 +1654,22 @@ while(i<85)
 for(j=0;j<22;j++)
 		{ss+=div[j];
 		}
-if (ss==0)   fprintf(stderr,"\n CRC_1 OK");
+if (ss==0)
+{
+  fprintf(stderr,"\n CRC_1 OK");
+  Date();
+  SetConfigParam(PATH_LOG, "crc1", "CRC_1 OK");
+  SetConfigParam(PATH_LOG, "crc2", "");
+}
 else
-    {if((no_checksum) && (zero==0)) {fprintf(stderr,"\n CRC_1 null?");ss=0;}
+    {if((no_checksum) && (zero==0))
+     {
+       fprintf(stderr,"\n CRC_1 null?");
+       ss=0;
+       Date();
+       SetConfigParam(PATH_LOG, "crc1", "CRC_1 null?");
+       SetConfigParam(PATH_LOG, "crc2", "");
+     }
     else fprintf(stderr,"\n CRC_1 Mauvais");
     }
 return ss;
@@ -1596,10 +1708,23 @@ while(i<132)
 for(j=0;j<13;j++)
 		{ss+=div[j];
 		}
-if (ss==0)   fprintf(stderr,"\n CRC_2 OK");
+if (ss==0)
+{
+  fprintf(stderr,"\n CRC_2 OK");
+  SetConfigParam(PATH_LOG, "crc2", "CRC_2 OK");
+}
 else
-    {if((no_checksum) && (zero==0)) {fprintf(stderr,"\n CRC_2 null?");ss=0;}
-    else fprintf(stderr,"\n CRC_2 KO ATTENTION: il y a des erreurs");
+    {if((no_checksum) && (zero==0))
+     {
+       fprintf(stderr,"\n CRC_2 null?");
+       ss=0;
+       SetConfigParam(PATH_LOG, "crc2", "CRC_2 null?");
+     }
+    else
+    {
+      fprintf(stderr,"\n CRC_2 KO ATTENTION: il y a des erreurs");
+      SetConfigParam(PATH_LOG, "crc2", "CRC_2 KO ATTENTION: il y a des erreurs");
+    }
     }
 return ss;
 }

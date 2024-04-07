@@ -1,0 +1,7 @@
+date=29/03/2024 07:36:31 UTC
+trame=Trame de test...
+id=Test_ID
+lat=49.2222
+lon=3.5555
+crc1=CRC_1 OK
+crc2=CRC_2 OK

@@ -1,0 +1,18 @@
+<!DOCTYPE HTML>
+<html lang="fr">
+<body>
+<script src="/jquery.min.js"></script>
+<head>
+<meta charset="UTF-8">
+<title>SVXReflector Dashboard </title>
+</head>
+<script type="text/javascript">
+$(document).ready(function() {
+    $("#create_html").load("log.html");
+    var refreshId = setInterval(function() {
+        $("#create_html").load('log.html?' + 1*new Date());
+    },1000);
+});
+</script>
+<div id="create_html"></div>
+</body>

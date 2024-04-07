@@ -181,6 +181,10 @@ cp -f -r "$PATHSCRIPT"/images "$PATHUBACKUP"/images
 # Hotspot Config
 cp -f -r "$PATHSCRIPT"/hotspot_config.txt "$PATHUBACKUP"/hotspot_config.txt
 
+# Sarsat
+cp -f -r /home/pi/rpidatv/406/decode.txt "$PATHUBACKUP"/decode.txt
+cp -f -r /home/pi/rpidatv/406/config.txt "$PATHUBACKUP"/sarsat_config.txt
+
 DisplayUpdateMsg "Step 4 of 10\nUpdating Software Package List\n\nXXXX------"
 
 # Check for the VLC apt Preferences File.  If not present, write it, and re-install VLC
@@ -843,6 +847,10 @@ cp -f -r "$PATHUBACKUP"/TXstopextras.sh "$PATHSCRIPT"/TXstopextras.sh
 
 # Restore hotspot_config
 cp -f -r "$PATHUBACKUP"/hotspot_config.txt "$PATHSCRIPT"/hotspot_config.txt
+
+# sarsat
+cp -f -r "$PATHUBACKUP"/decode.txt /home/pi/rpidatv/406/decode.txt
+cp -f -r "$PATHUBACKUP"/sarsat_config.txt /home/pi/rpidatv/406/config.txt
 
 # Restore the user's original test cards if required
 if test -f "$PATHUBACKUP"/images/tccw.jpg ; then     # Test card functionality included pre-update

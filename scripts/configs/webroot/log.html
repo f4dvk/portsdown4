@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <body bgcolor="white">
+  <p><font color=grey><strong><u>Dernière Trame:</u> <span id="last"></span>
+  <br><br>
+  <u>ID:</u> <span id="id"></span>
+  <br><br>
+  <u>Latitude:</u> <span id="lat"></span>&emsp;<u>Longitude:</u> <span id="lon"></span>
+  <br><br>
+  <span id="crc1"></span>&emsp;<span id="crc2"></span>
+  </strong></font></p>
+  </body>
+  <head>
+    <link rel="icon" href="data:,">
+    <meta charset="utf8">
+    <script type="text/javascript">
+    function loadFile(filePath) {
+      var result = null;
+      var xmlhttp = new XMLHttpRequest();
+      xmlhttp.open("GET", filePath, false);
+      xmlhttp.send();
+      if (xmlhttp.status==200) {
+        result = xmlhttp.responseText;
+      }
+      return result;
+    }
+
+    function getValueByKey(text, key){ // Recherche "key" dans "text" ex: lat=49.999, renvoi 49.999
+      var regex = new RegExp("^" + key + "=(.*)$", "m");
+      var match = regex.exec(text);
+      if(match)
+        return match[1];
+      else
+        return null;
+    }
+
+    var text_value = loadFile("decode.txt");
+    var date = getValueByKey(text_value, "date");
+    var id = getValueByKey(text_value, "id");
+    var lat = getValueByKey(text_value, "lat");
+    var lon = getValueByKey(text_value, "lon");
+    var crc1 = getValueByKey(text_value, "crc1");
+    var crc2 = getValueByKey(text_value, "crc2");
+
+    document.getElementById("last").innerHTML=date;
+    document.getElementById("id").innerHTML=id;
+    document.getElementById("lat").innerHTML=lat;
+    document.getElementById("lon").innerHTML=lon;
+    document.getElementById("crc1").innerHTML=crc1;
+    document.getElementById("crc2").innerHTML=crc2;
+    </script>
+  </head>
+</html>
