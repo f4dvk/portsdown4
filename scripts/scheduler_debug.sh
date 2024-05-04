@@ -84,6 +84,14 @@ ChooseBandViewerSDR()
     return
   fi
 
+  # Check for the presence of an RTL-SDR
+  lsusb | grep -E -q "RTL|DVB"
+  if [ $? == 0 ]; then   ## Present
+    BANDVIEW_START_CODE=141
+    return
+  fi
+
+  # Check for the presence of a Pluto (can false positive on 192.168.2.* LANs)
   # Look up Pluto IP
   PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
 
@@ -94,12 +102,6 @@ ChooseBandViewerSDR()
     return
   fi
 
-  # Check for the presence of an RTL-SDR
-  lsusb | grep -E -q "RTL|DVB"
-  if [ $? == 0 ]; then   ## Present
-    BANDVIEW_START_CODE=141
-    return
-  fi
 }
 
 ##############################################################

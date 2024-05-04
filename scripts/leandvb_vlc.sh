@@ -75,6 +75,10 @@ if [ "$AUDIO_OUT" == "rpi" ]; then
 else
   AUDIO_DEVICE="hw:CARD=Device,DEV=0"
 fi
+if [ "$AUDIO_OUT" == "hdmi" ]; then
+  # Overide for HDMI
+  AUDIO_DEVICE="hw:CARD=b1,DEV=0"
+fi
 
 FLOCK=$(get_config_var rx0fastlock $RXPRESETSFILE)
 if [ "$FLOCK" == "ON" ]; then

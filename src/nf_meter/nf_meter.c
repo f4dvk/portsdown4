@@ -26,12 +26,15 @@
 #include "lime.h"
 #include "fft.h"
 #include "buffer/buffer_circular.h"
+#include "ffunc.h"
 
 #define PI 3.14159265358979323846
 
 pthread_t thbutton;
 pthread_t thMeter_Movement;
 pthread_mutex_t text_lock;
+pthread_t thwebclick;     //  Listens for mouse clicks from web interface
+pthread_t thtouchscreen;  //  listens to the touchscreen   
 
 int fd = 0;
 int wscreen, hscreen;
@@ -69,6 +72,7 @@ color_t Red   = {.r = 255, .g = 0  , .b = 0  };
 color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 
 #define PATH_CONFIG "/home/pi/rpidatv/src/nf_meter/nf_meter_config.txt"
+#define PATH_PCONFIG "/home/pi/rpidatv/scripts/portsdown_config.txt"
 
 #define MAX_BUTTON 675
 int IndexButtonInArray=0;
@@ -77,6 +81,17 @@ button_t ButtonArray[MAX_BUTTON];
 int CurrentMenu = 1;
 int CallingMenu = 1;
 char KeyboardReturn[64];
+
+static bool app_exit = false;
+
+extern double frequency_actual_rx;
+extern double bandwidth;
+extern int y[260];
+extern float rawpwr[260];
+
+static pthread_t screen_thread_obj;
+static pthread_t lime_thread_obj;
+static pthread_t fft_thread_obj;
 
 bool NewFreq = false;
 bool NewGain = false;
@@ -139,14 +154,39 @@ int yshift    = 5;        // Vertical shift (pixels) for Y
 int xscalenum = 25;       // Numerator for X scaling fraction
 int xscaleden = 20;       // Denominator for X scaling fraction
 
+bool webcontrol = false;   // Enables webcontrol on a Portsdown 4
+bool LargeNumbers = false;  // Enables large numbers instead of parameters
+bool LargeNumbersDisplayed = false;  // Used to clear screen area when large numbers are toggled off
+bool webclicklistenerrunning = false; // Used to only start thread if required
+char WebClickForAction[7] = "no";  // no/yes
+char ProgramName[255];             // used to pass prog name char string to listener
+int *web_x_ptr;                // pointer
+int *web_y_ptr;                // pointer
+int web_x;                     // click x 0 - 799 from left
+int web_y;                     // click y 0 - 480 from top
+int TouchX;
+int TouchY;
+int TouchPressure;
+int TouchTrigger = 0;
+bool touchneedsinitialisation = true;
+
+char DisplayType[31];
+bool touchscreen_present = false;
+
 ///////////////////////////////////////////// FUNCTION PROTOTYPES ///////////////////////////////
 
 void GetConfigParam(char *, char *, char *);
 void SetConfigParam(char *, char *, char *);
+int CheckWebCtlExists();
 void ReadSavedParams();
+void *WaitTouchscreenEvent(void * arg);
+void *WebClickListener(void * arg);
+void parseClickQuerystring(char *query_string, int *x_ptr, int *y_ptr);
+FFUNC touchscreenClick(ffunc_session_t * session);
 void do_snapcheck();
 int IsImageToBeChanged(int, int);
 void MsgBox4(char *, char *, char *, char *);
+void UpdateWeb();
 void Keyboard(char *, char *, int);
 int openTouchScreen(int);
 int getTouchScreenDetails(int*, int* ,int* ,int*);
@@ -154,6 +194,7 @@ void TransformTouchMap(int, int);
 int IsButtonPushed(int, int, int);
 int IsMenuButtonPushed(int, int);
 void ChangeSmallMeterScale(int);
+void ToggleLargeNumbers();
 int InitialiseButtons();
 int AddButton(int, int, int, int);
 int ButtonNumber(int, int);
@@ -162,7 +203,8 @@ int AddButtonStatus(int, char *, color_t *);
 void AmendButtonStatus(int, int, char *, color_t *);
 void DrawButton(int);
 void SetButtonStatus(int ,int);
-int getTouchSample(int*, int*, int*);
+int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure);
+int getTouchSample(int *rawX, int *rawY, int *rawPressure);
 void UpdateWindow();
 void wait_touch();
 void SetSpanWidth(int);
@@ -175,51 +217,37 @@ void ShiftFrequency(int);
 void CalcSpan();
 void ChangeLabel(int);
 void RedrawDisplay();
-
+void *WaitButtonEvent(void * arg);
 void Define_Menu1();
+void Start_Highlights_Menu1();
 void Define_Menu2();
+void Start_Highlights_Menu2();
 void Define_Menu3();
 void Define_Menu4();
 void Define_Menu5();
 void Define_Menu6();
+void Start_Highlights_Menu6();
 void Define_Menu7();
+void Start_Highlights_Menu7();
 void Define_Menu8();
 void Define_Menu9();
 void Define_Menu10();
-void Define_Menu41();
-void Start_Highlights_Menu1();
-void Start_Highlights_Menu2();
-void Start_Highlights_Menu6();
-void Start_Highlights_Menu7();
 void Start_Highlights_Menu10();
-
-void DrawEmptyScreen();
-void DrawYaxisLabels();
+void Define_Menu41();
+void DrawEmptyScreen();  
+void DrawYaxisLabels();  
 void DrawSettings();
 void DrawTrace(int, int, int, int);
 void DrawMeterArc();
 void DrawMeterTicks(int, int);
 void Draw5MeterLabels(float, float);
+void *MeterMovement(void * arg);
 void CalibrateSystem();
 static void cleanexit(int);
+static void terminate(int sig);
 
-
-
-//////////////////////////////////////////// SA bits /////////////////////////////////////////
-
-static bool app_exit = false;
-
-extern double frequency_actual_rx;
-extern double bandwidth;
-extern int y[260];
-extern float rawpwr[260];
-
-static pthread_t screen_thread_obj;
-static pthread_t lime_thread_obj;
-static pthread_t fft_thread_obj;
 
 ///////////////////////////////////////////// SCREEN AND TOUCH UTILITIES ////////////////////////
-
 
 /***************************************************************************//**
  * @brief Looks up the value of a Param in PathConfigFile and sets value
@@ -317,6 +345,39 @@ void SetConfigParam(char *PathConfigFile, char *Param, char *Value)
   }
 }
 
+
+/***************************************************************************//**
+ * @brief Checks to see if webcontrol exists in Portsdown Config file
+ *
+ * @param None
+ *
+ * @return 0 = Exists, so Portsdown 4
+ *         1 = Not
+*******************************************************************************/
+
+int CheckWebCtlExists()
+{
+  char shell_command[255];
+  FILE *fp;
+  int r;
+
+  sprintf(shell_command, "grep -q 'webcontrol' %s", PATH_PCONFIG);
+  fp = popen(shell_command, "r");
+  r = pclose(fp);
+
+  if (WEXITSTATUS(r) == 0)
+  {
+    printf("webcontrol detected\n");
+    return 0;
+  }
+  else
+  {
+    printf("webcontrol not detected\n");
+    return 1;
+  } 
+}
+
+
 void ReadSavedParams()
 {
   char response[63]="0";
@@ -355,6 +416,116 @@ void ReadSavedParams()
 
   strcpy(PlotTitle, "-");  // this is the "do not display" response
   GetConfigParam(PATH_CONFIG, "title", PlotTitle);
+
+  if (CheckWebCtlExists() == 0)  // Stops the GetConfig thowing an error on Portsdown 2020
+  {
+    GetConfigParam(PATH_PCONFIG, "webcontrol", response);
+    if (strcmp(response, "enabled") == 0)
+    {
+      webcontrol = true;
+      pthread_create (&thwebclick, NULL, &WebClickListener, NULL);
+      webclicklistenerrunning = true;
+    }
+    else
+    {
+      webcontrol = false;
+      system("cp /home/pi/rpidatv/scripts/images/web_not_enabled.png /home/pi/tmp/screen.png");
+    }
+  }
+}
+
+
+void *WaitTouchscreenEvent(void * arg)
+{
+  int TouchTriggerTemp;
+  int rawX;
+  int rawY;
+  int rawPressure;
+  while (true)
+  {
+    TouchTriggerTemp = getTouchSampleThread(&rawX, &rawY, &rawPressure);
+    TouchX = rawX;
+    TouchY = rawY;
+    TouchPressure = rawPressure;
+    TouchTrigger = TouchTriggerTemp;
+  }
+  return NULL;
+}
+
+
+void *WebClickListener(void * arg)
+{
+  while (webcontrol)
+  {
+    //(void)argc;
+	//return ffunc_run(ProgramName);
+	ffunc_run(ProgramName);
+  }
+  webclicklistenerrunning = false;
+  return NULL;
+}
+
+
+void parseClickQuerystring(char *query_string, int *x_ptr, int *y_ptr)
+{
+  char *query_ptr = strdup(query_string),
+  *tokens = query_ptr,
+  *p = query_ptr;
+
+  while ((p = strsep (&tokens, "&\n")))
+  {
+    char *var = strtok (p, "="),
+         *val = NULL;
+    if (var && (val = strtok (NULL, "=")))
+    {
+      if(strcmp("x", var) == 0)
+      {
+        *x_ptr = atoi(val);
+      }
+      else if(strcmp("y", var) == 0)
+      {
+        *y_ptr = atoi(val);
+      }
+    }
+  }
+}
+
+
+FFUNC touchscreenClick(ffunc_session_t * session)
+{
+  ffunc_str_t payload;
+
+  if( (webcontrol == false) || ffunc_read_body(session, &payload) )
+  {
+    if( webcontrol == false)
+    {
+      return;
+    }
+
+    ffunc_write_out(session, "Status: 200 OK\r\n");
+    ffunc_write_out(session, "Content-Type: text/plain\r\n\r\n");
+    ffunc_write_out(session, "%s\n", "click received.");
+    fprintf(stderr, "Received click POST: %s (%d)\n", payload.data?payload.data:"", payload.len);
+
+    int x = -1;
+    int y = -1;
+    parseClickQuerystring(payload.data, &x, &y);
+    printf("After Parse: x: %d, y: %d\n", x, y);
+
+    if((x >= 0) && (y >= 0))
+    {
+      web_x = x;                 // web_x is a global int
+      web_y = y;                 // web_y is a global int
+      strcpy(WebClickForAction, "yes");
+      printf("Web Click Event x: %d, y: %d\n", web_x, web_y);
+    }
+  }
+  else
+  {
+    ffunc_write_out(session, "Status: 400 Bad Request\r\n");
+    ffunc_write_out(session, "Content-Type: text/plain\r\n\r\n");
+    ffunc_write_out(session, "%s\n", "payload not found.");
+  }
 }
 
 
@@ -372,12 +543,12 @@ void do_snapcheck()
 
   // Fetch the Next Snap serial number
   fp = popen("cat /home/pi/snaps/snap_index.txt", "r");
-  if (fp == NULL)
+  if (fp == NULL) 
   {
     printf("Failed to run command\n" );
     exit(1);
   }
-  // Read the output a line at a time - output it.
+  // Read the output a line at a time - output it. 
   while (fgets(SnapIndex, 20, fp) != NULL)
   {
     printf("%s", SnapIndex);
@@ -397,6 +568,7 @@ void do_snapcheck()
       strcat(fbicmd, SnapIndex);
       strcat(fbicmd, ".jpg >/dev/null 2>/dev/null");
       system(fbicmd);
+      UpdateWeb();
       LastDisplayedSnap = Snap;
     }
 
@@ -423,6 +595,7 @@ void do_snapcheck()
   system("sudo killall fbi >/dev/null 2>/dev/null");  // kill any instance of fbi
 }
 
+
 int IsImageToBeChanged(int x,int y)
 {
   // Returns -1 for LHS touch, 0 for centre and 1 for RHS
@@ -447,6 +620,7 @@ int IsImageToBeChanged(int x,int y)
   }
 }
 
+
 void MsgBox4(char *message1, char *message2, char *message3, char *message4)
 {
   // Display a 4-line message
@@ -463,8 +637,20 @@ void MsgBox4(char *message1, char *message2, char *message3, char *message4)
   TextMid2(wscreen / 2, hscreen - 3 * (linepitch * 2), message3, font_ptr);
   TextMid2(wscreen / 2, hscreen - 4 * (linepitch * 2), message4, font_ptr);
   pthread_mutex_unlock(&text_lock);
+  UpdateWeb();
 
   // printf("MsgBox4 called\n");
+}
+
+
+void UpdateWeb()
+{
+  // Called after any screen update to update the web page if required.
+
+  if(webcontrol == true)
+  {
+    system("/home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &");
+  }
 }
 
 
@@ -483,7 +669,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
   char PreCuttext[63];
   char PostCuttext[63];
   bool refreshed;
-
+  
   // Store away currentMenu
   PreviousMenu = CurrentMenu;
 
@@ -523,7 +709,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         {
           SetButtonStatus(i, ShiftStatus);
         }
-      }
+      }  
 
       // Display the keyboard here as it would overwrite the text later
       UpdateWindow();
@@ -561,6 +747,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
 
       refreshed = true;
     }
+    UpdateWeb();
 
     // Wait for key press
     if (getTouchSample(&rawX, &rawY, &rawPressure)==0) continue;
@@ -583,7 +770,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
 
     if (token == 8)  // Enter pressed
     {
-      if (strlen(EditText) > MaxLength)
+      if (strlen(EditText) > MaxLength) 
       {
         strncpy(KeyboardReturn, &EditText[0], MaxLength);
         KeyboardReturn[MaxLength] = '\0';
@@ -597,7 +784,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       break;
     }
     else
-    {
+    {    
       if (KeyboardShift == 1)     // Upper Case
       {
         switch (token)
@@ -762,7 +949,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
       else if ((token == 0) || (token == 4) || ((token >=10) && (token <= 49)))
       {
         // character Key has been touched, so highlight it for 300 ms
-
+ 
         ShiftStatus = 3 - (2 * KeyboardShift); // 1 = Upper, 3 = lower
         SetButtonStatus(ButtonNumber(41, token), ShiftStatus);
         DrawButton(ButtonNumber(41, token));
@@ -778,7 +965,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         // Copy the text to the left of the insert point
         strncpy(PreCuttext, &EditText[0], CursorPos);
         PreCuttext[CursorPos] = '\0';
-
+          
         // Append the new character to the pre-insert string
         strcat(PreCuttext, KeyPressed);
 
@@ -805,7 +992,6 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
 }
 
 
-
 int openTouchScreen(int NoDevice)
 {
   char sDevice[255];
@@ -821,6 +1007,7 @@ int openTouchScreen(int NoDevice)
     return 0;
   }
 }
+
 
 int getTouchScreenDetails(int *screenXmin, int *screenXmax,int *screenYmin,int *screenYmax)
 {
@@ -878,11 +1065,12 @@ int getTouchScreenDetails(int *screenXmin, int *screenXmax,int *screenYmin,int *
   return IsAtouchDevice;
 }
 
+
 void TransformTouchMap(int x, int y)
 {
   // This function takes the raw (0 - 4095 on each axis) touch data x and y
-  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX
-  // and scaledY prior to final correction by CorrectTouchMap
+  // and transforms it to approx 0 - wscreen and 0 - hscreen in globals scaledX 
+  // and scaledY prior to final correction by CorrectTouchMap  
 
   scaledX = x / scaleXvalue;
   scaledY = hscreen - y / scaleYvalue;
@@ -909,6 +1097,7 @@ int IsButtonPushed(int NbButton,int x,int y)
   }
 }
 
+
 int IsMenuButtonPushed(int x, int y)
 {
   int  i, NbButton, cmo, cmsize;
@@ -929,7 +1118,14 @@ int IsMenuButtonPushed(int x, int y)
    && (scaledY <= 470) && (scaledY >= 270))
   {
     ChangeSmallMeterScale(scaledX);
-  }
+  } 
+
+  // Check for Large Number select/deselct
+  if ((scaledX <= 300) && (scaledX >= 100)
+   && (scaledY <= 270) && (scaledY >= 70))
+  {
+    ToggleLargeNumbers();
+  } 
 
   for (i = 0; i <cmsize; i++)
   {
@@ -994,6 +1190,19 @@ void ChangeSmallMeterScale(int scaledX)
     break;
     }
     ModeChanged = true;
+} 
+
+
+void ToggleLargeNumbers()
+{
+  if (LargeNumbers == true)
+  {
+    LargeNumbers = false;
+  }
+  else
+  {
+    LargeNumbers = true;
+  }
 }
 
 
@@ -1008,6 +1217,7 @@ int InitialiseButtons()
   }
   return 1;
 }
+
 
 int AddButton(int x,int y,int w,int h)
 {
@@ -1100,7 +1310,7 @@ int CreateButton(int MenuIndex, int ButtonPosition)
     }
     if (ButtonPosition == 5) // Left hand arrow
     {
-      x = normal_xpos;
+      x = normal_xpos;  
       y = 480 - (5 * 60);
       w = 50;
       h = 50;
@@ -1139,7 +1349,7 @@ int CreateButton(int MenuIndex, int ButtonPosition)
     }
     if (ButtonPosition == 6) // 10
     {
-      x = normal_xpos;
+      x = normal_xpos;  
       y = 480 - (6 * 60);
       w = 50;
       h = 50;
@@ -1237,7 +1447,6 @@ int CreateButton(int MenuIndex, int ButtonPosition)
       x = ((ButtonPosition - 39) * 66) - 33;
     }
   }
-
   button_t *NewButton=&(ButtonArray[ButtonIndex]);
   NewButton->x=x;
   NewButton->y=y;
@@ -1258,12 +1467,14 @@ int AddButtonStatus(int ButtonIndex,char *Text,color_t *Color)
   return Button->IndexStatus++;
 }
 
+
 void AmendButtonStatus(int ButtonIndex, int ButtonStatusIndex, char *Text, color_t *Color)
 {
   button_t *Button=&(ButtonArray[ButtonIndex]);
   strcpy(Button->Status[ButtonStatusIndex].Text, Text);
   Button->Status[ButtonStatusIndex].Color=*Color;
 }
+
 
 void DrawButton(int ButtonIndex)
 {
@@ -1276,7 +1487,7 @@ void DrawButton(int ButtonIndex)
   strcpy(label, Button->Status[Button->NoStatus].Text);
 
   // Draw the basic button
-  rectangle(Button->x, Button->y + 1, Button->w, Button->h,
+  rectangle(Button->x, Button->y + 1, Button->w, Button->h, 
     Button->Status[Button->NoStatus].Color.r,
     Button->Status[Button->NoStatus].Color.g,
     Button->Status[Button->NoStatus].Color.b);
@@ -1287,9 +1498,7 @@ void DrawButton(int ButtonIndex)
                 Button->Status[Button->NoStatus].Color.g,
                 Button->Status[Button->NoStatus].Color.b);
 
-
-
-  // Separate button text into 2 lines if required
+  // Separate button text into 2 lines if required  
   char find = '^';                                  // Line separator is ^
   const char *ptr = strchr(label, find);            // pointer to ^ in string
 
@@ -1301,8 +1510,8 @@ void DrawButton(int ButtonIndex)
 
     // Display the text on the button
     pthread_mutex_lock(&text_lock);
-    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 11 /16, line1, &font_dejavu_sans_20);
-    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 3 / 16, line2, &font_dejavu_sans_20);
+    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 11 /16, line1, &font_dejavu_sans_20);	
+    TextMid2(Button->x + Button->w/2, Button->y +Button->h * 3 / 16, line2, &font_dejavu_sans_20);	
     pthread_mutex_unlock(&text_lock);
   }
   else                                              // One line only
@@ -1320,6 +1529,7 @@ void DrawButton(int ButtonIndex)
   }
 }
 
+
 void SetButtonStatus(int ButtonIndex,int Status)
 {
   button_t *Button=&(ButtonArray[ButtonIndex]);
@@ -1333,9 +1543,18 @@ int GetButtonStatus(int ButtonIndex)
 }
 
 
-int getTouchSample(int *rawX, int *rawY, int *rawPressure)
+int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure)
 {
   int i;
+  static bool awaitingtouchstart;
+  static bool touchfinished;
+
+  if (touchneedsinitialisation == true)
+  {
+    awaitingtouchstart = true;
+    touchfinished = true;
+    touchneedsinitialisation = false;
+  }
 
   /* how many bytes were read */
   size_t rb;
@@ -1343,42 +1562,171 @@ int getTouchSample(int *rawX, int *rawY, int *rawPressure)
   /* the events (up to 64 at once) */
   struct input_event ev[64];
 
-  rb = read(fd, ev, sizeof(struct input_event) * 64);
-  *rawX=-1;*rawY=-1;
-  int StartTouch=0;
-
-  for (i = 0;  i < (rb / sizeof(struct input_event)); i++)
+  if (((strcmp(DisplayType, "Element14_7") == 0) || (strcmp(DisplayType, "Browser") == 0))
+      && (strcmp(DisplayType, "dfrobot5") != 0))   // Browser or Element14_7, but not dfrobot5
   {
-    if (ev[i].type ==  EV_SYN)
-    {
+    // Thread flow blocks here until there is a touch event
+    rb = read(fd, ev, sizeof(struct input_event) * 64);
 
-    }
-    else if (ev[i].type == EV_KEY && ev[i].code == 330 && ev[i].value == 1)
+    *rawX = -1;
+    *rawY = -1;
+    int StartTouch = 0;
+
+    for (i = 0;  i <  (rb / sizeof(struct input_event)); i++)
     {
-      StartTouch=1;
-    }
+      if (ev[i].type ==  EV_SYN)
+      {
+        //printf("Event type is %s%s%s = Start of New Event\n",
+        //        KYEL, events[ev[i].type], KWHT);
+      }
+
+      else if (ev[i].type == EV_KEY && ev[i].code == 330 && ev[i].value == 1)
+      {
+        StartTouch = 1;
+        //printf("Event type is %s%s%s & Event code is %sTOUCH(330)%s & Event value is %s1%s = Touch Starting\n",
+        //        KYEL,events[ev[i].type],KWHT,KYEL,KWHT,KYEL,KWHT);
+      }
+
       else if (ev[i].type == EV_KEY && ev[i].code == 330 && ev[i].value == 0)
-    {
+      {
+        //StartTouch=0;
+        //printf("Event type is %s%s%s & Event code is %sTOUCH(330)%s & Event value is %s0%s = Touch Finished\n",
+        //        KYEL,events[ev[i].type],KWHT,KYEL,KWHT,KYEL,KWHT);
+      }
 
-    }
-    else if (ev[i].type == EV_ABS && ev[i].code == 0 && ev[i].value > 0)
-    {
-      *rawX = ev[i].value;
-    }
+      else if (ev[i].type == EV_ABS && ev[i].code == 0 && ev[i].value > 0)
+      {
+        //printf("Event type is %s%s%s & Event code is %sX(0)%s & Event value is %s%d%s\n",
+        //        KYEL, events[ev[i].type], KWHT, KYEL, KWHT, KYEL, ev[i].value, KWHT);
+	    *rawX = ev[i].value;
+      }
+
       else if (ev[i].type == EV_ABS  && ev[i].code == 1 && ev[i].value > 0)
-    {
-      *rawY = ev[i].value;
-    }
+      {
+        //printf("Event type is %s%s%s & Event code is %sY(1)%s & Event value is %s%d%s\n",
+        //        KYEL, events[ev[i].type], KWHT, KYEL, KWHT, KYEL, ev[i].value, KWHT);
+        *rawY = ev[i].value;
+      }
+
       else if (ev[i].type == EV_ABS  && ev[i].code == 24 && ev[i].value > 0)
-    {
-      *rawPressure = ev[i].value;
-    }
-    if((*rawX!=-1)&&(*rawY!=-1)&&(StartTouch==1))
-    {
-      return 1;
+      {
+        //printf("Event type is %s%s%s & Event code is %sPressure(24)%s & Event value is %s%d%s\n",
+        //        KYEL, events[ev[i].type], KWHT, KYEL, KWHT, KYEL, ev[i].value,KWHT);
+        *rawPressure = ev[i].value;
+      }
+
+      if((*rawX != -1) && (*rawY != -1) && (StartTouch == 1))  // 1a
+      {
+        printf("7 inch Touchscreen Touch Event: rawX = %d, rawY = %d, rawPressure = %d\n", 
+                *rawX, *rawY, *rawPressure);
+        return 1;
+      }
     }
   }
-	return 0;
+
+  if (strcmp(DisplayType, "dfrobot5") == 0)
+  {
+    // Program flow blocks here until there is a touch event
+    rb = read(fd, ev, sizeof(struct input_event) * 64);
+
+    if (awaitingtouchstart == true)
+    {    
+      *rawX = -1;
+      *rawY = -1;
+      touchfinished = false;
+    }
+
+    for (i = 0;  i <  (rb / sizeof(struct input_event)); i++)
+    {
+      //printf("rawX = %d, rawY = %d, rawPressure = %d, \n\n", *rawX, *rawY, *rawPressure);
+
+      if (ev[i].type ==  EV_SYN)
+      {
+        //printf("Event type is %s%s%s = Start of New Event\n",
+        //        KYEL, events[ev[i].type], KWHT);
+      }
+
+      else if (ev[i].type == EV_KEY && ev[i].code == 330 && ev[i].value == 1)
+      {
+        awaitingtouchstart = false;
+        touchfinished = false;
+
+        //printf("Event type is %s%s%s & Event code is %sTOUCH(330)%s & Event value is %s1%s = Touch Starting\n",
+        //        KYEL,events[ev[i].type],KWHT,KYEL,KWHT,KYEL,KWHT);
+      }
+
+      else if (ev[i].type == EV_KEY && ev[i].code == 330 && ev[i].value == 0)
+      {
+        awaitingtouchstart = false;
+        touchfinished = true;
+
+        //printf("Event type is %s%s%s & Event code is %sTOUCH(330)%s & Event value is %s0%s = Touch Finished\n",
+        //        KYEL,events[ev[i].type],KWHT,KYEL,KWHT,KYEL,KWHT);
+      }
+
+      else if (ev[i].type == EV_ABS && ev[i].code == 0 && ev[i].value > 0)
+      {
+        //printf("Event type is %s%s%s & Event code is %sX(0)%s & Event value is %s%d%s\n",
+        //        KYEL, events[ev[i].type], KWHT, KYEL, KWHT, KYEL, ev[i].value, KWHT);
+        *rawX = ev[i].value;
+      }
+
+      else if (ev[i].type == EV_ABS  && ev[i].code == 1 && ev[i].value > 0)
+      {
+        //printf("Event type is %s%s%s & Event code is %sY(1)%s & Event value is %s%d%s\n",
+        //        KYEL, events[ev[i].type], KWHT, KYEL, KWHT, KYEL, ev[i].value, KWHT);
+        *rawY = ev[i].value;
+      }
+
+      else if (ev[i].type == EV_ABS  && ev[i].code == 24 && ev[i].value > 0)
+      {
+        //printf("Event type is %s%s%s & Event code is %sPressure(24)%s & Event value is %s%d%s\n",
+        //        KYEL, events[ev[i].type], KWHT, KYEL, KWHT, KYEL, ev[i].value,KWHT);
+        *rawPressure = ev[i].value;
+      }
+
+      if((*rawX != -1) && (*rawY != -1) && (touchfinished == true))  // 1a
+      {
+        printf("DFRobot Touch Event: rawX = %d, rawY = %d, rawPressure = %d\n", 
+                *rawX, *rawY, *rawPressure);
+        awaitingtouchstart = true;
+        touchfinished = false;
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+
+int getTouchSample(int *rawX, int *rawY, int *rawPressure)
+{
+  while (true)
+  {
+    if (TouchTrigger == 1)
+    {
+      *rawX = TouchX;
+      *rawY = TouchY;
+      *rawPressure = TouchPressure;
+      printf("Touchtrigger was 1\n");
+      TouchTrigger = 0;
+      return 1;
+    }
+    else if ((webcontrol == true) && (strcmp(WebClickForAction, "yes") == 0))
+    {
+      *rawX = web_x;
+      *rawY = web_y;
+      *rawPressure = 0;
+      strcpy(WebClickForAction, "no");
+      printf("Web rawX = %d, rawY = %d, rawPressure = %d\n", *rawX, *rawY, *rawPressure);
+      return 1;
+    }
+    else
+    {
+      usleep(1000);
+    }
+  }
+  return 0;
 }
 
 
@@ -1401,7 +1749,9 @@ void UpdateWindow()    // Paint each defined button
       DrawButton(i);                     // Draw the button
     }
   }
+  UpdateWeb();
 }
+
 
 void wait_touch()
 // Wait for Screen touch, ignore position, but then move on
@@ -1421,7 +1771,7 @@ void wait_touch()
 
 
 void SetSpanWidth(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1469,7 +1819,7 @@ void SetSpanWidth(int button)
 
 
 void SetLimeGain(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1510,8 +1860,9 @@ void SetLimeGain(int button)
   freeze = false;
 }
 
+
 void AdjustLimeGain(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1559,7 +1910,7 @@ void AdjustLimeGain(int button)
 
 
 void SetENR()
-{
+{  
   char ValueToSave[63];
   char RequestText[64];
   char InitText[63];
@@ -1577,7 +1928,7 @@ void SetENR()
 
   // Define initial value
   snprintf(InitText, 10, "%.2f", ENR);
-
+ 
   // Ask for the new value
   do
   {
@@ -1606,8 +1957,9 @@ void SetENR()
   freeze = false;
 }
 
+
 void SetRF_ENR()
-{
+{  
   char RequestText[64];
   char InitText[63];
   float newENR;
@@ -1624,7 +1976,7 @@ void SetRF_ENR()
 
   // Define initial value
   snprintf(InitText, 10, "%.2f", RF_ENR);
-
+ 
   // Ask for the new value
   do
   {
@@ -1646,7 +1998,7 @@ void SetRF_ENR()
 
 
 void SetFreqPreset(int button)
-{
+{  
   char ValueToSave[63];
   char RequestText[64];
   char InitText[63];
@@ -1820,7 +2172,7 @@ void SetFreqPreset(int button)
 
 
 void ShiftFrequency(int button)
-{
+{  
   char ValueToSave[63];
 
   // Stop the scan at the end of the current one and wait for it to stop
@@ -1856,6 +2208,7 @@ void ShiftFrequency(int button)
   Calibrated = false;
   ModeChanged = true;
 }
+
 
 void CalcSpan()    // takes centre frequency and span and calulates startfreq and stopfreq
 {
@@ -1901,6 +2254,7 @@ void CalcSpan()    // takes centre frequency and span and calulates startfreq an
   }
 }
 
+
 void ChangeLabel(int button)
 {
   char RequestText[64];
@@ -1909,7 +2263,7 @@ void ChangeLabel(int button)
   div_t div_100;
   div_t div_1000;
   char ValueToSave[63];
-
+  
   // Stop the scan at the end of the current one and wait for it to stop
   freeze = true;
   while(! frozen)
@@ -1979,7 +2333,7 @@ void ChangeLabel(int button)
       }
 
       Keyboard(RequestText, InitText, 30);
-
+  
       if(strlen(KeyboardReturn) > 0)
       {
         strcpy(PlotTitle, KeyboardReturn);
@@ -2003,6 +2357,7 @@ void ChangeLabel(int button)
   freeze = false;
 }
 
+
 void RedrawDisplay()
 {
   // Redraw the Y Axis
@@ -2010,9 +2365,7 @@ void RedrawDisplay()
 
 }
 
-
 //////////////////////////////////////// DEAL WITH TOUCH EVENTS //////////////////////////////////////
-
 
 void *WaitButtonEvent(void * arg)
 {
@@ -2041,8 +2394,8 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
-          SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);  // hide the capture button
+          freeze = true; 
+          SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);  // hide the capture button 
           UpdateWindow();                                    // paint the hide
           while(! frozen);                                   // wait till the end of the scan
           system("/home/pi/rpidatv/scripts/snap2.sh");
@@ -2083,6 +2436,7 @@ void *WaitButtonEvent(void * arg)
             usleep(100000);
             setBackColour(0, 0, 0);
             clearScreen();
+            UpdateWeb();
             usleep(1000000);
             closeScreen();
             cleanexit(129);
@@ -2126,7 +2480,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2202,7 +2556,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2214,7 +2568,7 @@ void *WaitButtonEvent(void * arg)
         case 2:                                            // Centre Freq
           ChangeLabel(i);
           CurrentMenu = 3;
-          UpdateWindow();
+          UpdateWindow();          
           break;
         case 3:                                            // Frequency Presets
           printf("Frequency Preset Menu 7 Requested\n");
@@ -2236,7 +2590,7 @@ void *WaitButtonEvent(void * arg)
           break;
         case 6:                                            // Title
           ChangeLabel(i);
-          UpdateWindow();
+          UpdateWindow();          
           break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
@@ -2270,7 +2624,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2291,6 +2645,9 @@ void *WaitButtonEvent(void * arg)
           DrawEmptyScreen();        // Required to set A value, which is not set in DrawTrace
           DrawYaxisLabels();        // dB calibration on LHS
           DrawSettings();           // Start, Stop RBW, Ref level and Title
+          DrawMeterArc();
+          DrawMeterTicks(5, 1);
+          Draw5MeterLabels(ActiveZero, ActiveFSD);
           UpdateWindow();           // Draw the buttons
           freeze = false;           // Restart the scan
           break;
@@ -2350,7 +2707,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2367,7 +2724,7 @@ void *WaitButtonEvent(void * arg)
           break;
         case 4:                                            // Full Screen Gain
           break;
-        case 5:                                            //
+        case 5:                                            // 
           break;
         case 6:                                            // Config Menu
           printf("Config Menu 9 Requested\n");
@@ -2406,7 +2763,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2458,7 +2815,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2468,7 +2825,7 @@ void *WaitButtonEvent(void * arg)
           freeze = false;
           break;
         case 2:                                            // pfreq1
-        case 3:                                            // pfreq2
+        case 3:                                            // pfreq2 
         case 4:                                            // pfreq3
         case 5:                                            // pfreq4
         case 6:                                            // pfreq5
@@ -2507,7 +2864,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2522,13 +2879,13 @@ void *WaitButtonEvent(void * arg)
           Start_Highlights_Menu10();
           UpdateWindow();
           break;
-        case 3:                                            //
+        case 3:                                            // 
           break;
-        case 4:                                            //
+        case 4:                                            // 
           break;
-        case 5:                                            //
+        case 5:                                            // 
           break;
-        case 6:                                            //
+        case 6:                                            // 
           break;
         case 7:                                            // Return to Main Menu
           printf("Main Menu 1 Requested\n");
@@ -2561,7 +2918,7 @@ void *WaitButtonEvent(void * arg)
       switch (i)
       {
         case 0:                                            // Capture Snap
-          freeze = true;
+          freeze = true; 
           SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
           UpdateWindow();
           while(! frozen);
@@ -2571,7 +2928,7 @@ void *WaitButtonEvent(void * arg)
           freeze = false;
           break;
         case 2:                                            // pfreq1
-        case 3:                                            // pfreq2
+        case 3:                                            // pfreq2 
         case 4:                                            // pfreq3
         case 5:                                            // pfreq4
         case 6:                                            // pfreq5
@@ -2607,13 +2964,9 @@ void *WaitButtonEvent(void * arg)
   return NULL;
 }
 
-
-
-
 /////////////////////////////////////////////// DEFINE THE BUTTONS ///////////////////////////////
 
 void Define_Menu1()                                  // Main Menu
-
 {
   int button = 0;
 
@@ -2658,6 +3011,7 @@ void Define_Menu1()                                  // Main Menu
   AddButtonStatus(button, "Unfreeze", &Green);
 }
 
+
 void Start_Highlights_Menu1()
 {
   if (PortsdownExitRequested)
@@ -2669,6 +3023,7 @@ void Start_Highlights_Menu1()
     SetButtonStatus(ButtonNumber(1, 8), 0);
   }
 }
+
 
 void Define_Menu2()                                         // Set-up Menu
 {
@@ -2710,13 +3065,14 @@ void Define_Menu2()                                         // Set-up Menu
   AddButtonStatus(button, "Unfreeze", &Green);
 }
 
+
 void Start_Highlights_Menu2()
 {
   char ButtText[31];
   snprintf(ButtText, 30, "Gain=%d%%", limegain);
   AmendButtonStatus(ButtonNumber(CurrentMenu, 4), 0, ButtText, &Black);
 
-  if (Calibrated == true)  //
+  if (Calibrated == true)  // 
   {
     SetButtonStatus(ButtonNumber(2, 2), 1);
     SetButtonStatus(ButtonNumber(2, 3), 1);
@@ -2779,6 +3135,7 @@ void Define_Menu3()                                           // Settings Menu
   AddButtonStatus(button, "Unfreeze", &Green);
 }
 
+
 void Define_Menu4()                                         // System Menu
 {
   int button = 0;
@@ -2819,6 +3176,7 @@ void Define_Menu4()                                         // System Menu
   AddButtonStatus(button, "Unfreeze", &Green);
 }
 
+
 void Define_Menu5()                                          // Mode Menu
 {
   int button = 0;
@@ -2855,6 +3213,7 @@ void Define_Menu5()                                          // Mode Menu
   AddButtonStatus(button, "Freeze", &Blue);
   AddButtonStatus(button, "Unfreeze", &Green);
 }
+
 
 void Define_Menu6()                                           // Span Menu
 {
@@ -2899,6 +3258,7 @@ void Define_Menu6()                                           // Span Menu
   AddButtonStatus(button, "Freeze", &Blue);
   AddButtonStatus(button, "Unfreeze", &Green);
 }
+
 
 void Start_Highlights_Menu6()
 {
@@ -2952,6 +3312,7 @@ void Start_Highlights_Menu6()
   }
 }
 
+
 void Define_Menu7()                                            //Presets Menu
 {
   int button = 0;
@@ -2992,6 +3353,7 @@ void Define_Menu7()                                            //Presets Menu
   AddButtonStatus(button, "Unfreeze", &Green);
 }
 
+
 void Start_Highlights_Menu7()
 {
   char ButtText[15];
@@ -3014,7 +3376,6 @@ void Start_Highlights_Menu7()
   snprintf(ButtText, 14, "%0.1f MHz", ((float)pfreq5) / 1000);
   AmendButtonStatus(ButtonNumber(CurrentMenu, 6), 0, ButtText, &Blue);
   AmendButtonStatus(ButtonNumber(CurrentMenu, 6), 1, ButtText, &Green);
-
 
   if (centrefreq == pfreq1)
   {
@@ -3096,6 +3457,7 @@ void Define_Menu9()                                          // Config Menu
   AddButtonStatus(button, "Unfreeze", &Green);
 }
 
+
 void Define_Menu10()                                          // Set Freq Presets Menu
 {
   int button = 0;
@@ -3129,6 +3491,7 @@ void Define_Menu10()                                          // Set Freq Preset
   AddButtonStatus(button, "Freeze", &Blue);
   AddButtonStatus(button, "Unfreeze", &Green);
 }
+
 
 void Start_Highlights_Menu10()
 {
@@ -3403,11 +3766,7 @@ void Define_Menu41()
   AddButtonStatus(button, "0", &LBlue);
 }
 
-
-
-
 /////////////////////////////////////////// APPLICATION DRAWING //////////////////////////////////
-
 
 void DrawEmptyScreen()
 {
@@ -3428,6 +3787,7 @@ void DrawEmptyScreen()
     VertLine(300, 271, 199, 63, 63, 63);
 }
 
+
 void DrawYaxisLabels()
 {
   setForeColour(255, 255, 255);                    // White text
@@ -3447,6 +3807,7 @@ void DrawYaxisLabels()
 
   pthread_mutex_unlock(&text_lock);
 }
+
 
 void DrawSettings()
 {
@@ -3505,7 +3866,7 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
   int thisStep;
   int column[401];
   int ypos;
-  int ypospix;  // ypos corrected for pixel map
+  int ypospix;  // ypos corrected for pixel map  
   int ymax;     // inclusive upper limit of this plot
   int ymin;     // inclusive lower limit of this plot
 
@@ -3584,10 +3945,10 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
   // Draw the trace in the column
 
   for(ypos = ymin; ypos <= ymax; ypos++)
-
+  
   {
     ypospix = 409 - ypos;  //409 = 479 - 70
-    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);
+    setPixelNoA(xpos, ypospix, column[ypos], column[ypos], 0);  
   }
 
   // Draw the background and grid (except in the active trace) to erase the previous scan
@@ -3633,6 +3994,7 @@ void DrawTrace(int xoffset, int prev2, int prev1, int current)
   }
 }
 
+
 void DrawMeterArc()
 {
   // Draws an anti-aliased meter arc
@@ -3673,6 +4035,7 @@ void DrawMeterArc()
     }
   }
 }
+
 
 void DrawMeterTicks(int major_ticks, int minor_ticks)
 {
@@ -3735,6 +4098,7 @@ void DrawMeterTicks(int major_ticks, int minor_ticks)
   }
 }
 
+
 void Draw5MeterLabels(float LH_Value, float RH_Value)
 {
   char labeltext[15];
@@ -3743,40 +4107,40 @@ void Draw5MeterLabels(float LH_Value, float RH_Value)
 
   rectangle(351, 432, 40, 30, 0, 0, 0);
   rectangle(378, 454, 40, 25, 0, 0, 0);
-  rectangle(430, 465, 40, 15, 0, 0, 0);
-  rectangle(482, 465, 40, 15, 0, 0, 0);
+  rectangle(430, 463, 40, 15, 0, 0, 0);
+  rectangle(482, 463, 40, 15, 0, 0, 0);
   rectangle(532, 454, 40, 25, 0, 0, 0);
   rectangle(575, 432, 40, 30, 0, 0, 0);
 
-    snprintf(labeltext, 14, "%d", (int)LH_Value);
-    pthread_mutex_lock(&text_lock);
-    TextMid2(366, 432, labeltext, font_ptr);
-    pthread_mutex_unlock(&text_lock);
+  snprintf(labeltext, 14, "%d", (int)LH_Value);
+  pthread_mutex_lock(&text_lock);
+  TextMid2(366, 432, labeltext, font_ptr);
+  pthread_mutex_unlock(&text_lock);
 
-    snprintf(labeltext, 14, "%d", (int)(LH_Value + (RH_Value -LH_Value) / 5));
-    pthread_mutex_lock(&text_lock);
-    TextMid2(398, 454, labeltext, font_ptr);
-    pthread_mutex_unlock(&text_lock);
+  snprintf(labeltext, 14, "%d", (int)(LH_Value + (RH_Value -LH_Value) / 5));
+  pthread_mutex_lock(&text_lock);
+  TextMid2(398, 454, labeltext, font_ptr);
+  pthread_mutex_unlock(&text_lock);
 
-    snprintf(labeltext, 14, "%d", (int)(LH_Value + 2 * (RH_Value -LH_Value) / 5));
-    pthread_mutex_lock(&text_lock);
-    TextMid2(448, 465, labeltext, font_ptr);
-    pthread_mutex_unlock(&text_lock);
+  snprintf(labeltext, 14, "%d", (int)(LH_Value + 2 * (RH_Value -LH_Value) / 5));
+  pthread_mutex_lock(&text_lock);
+  TextMid2(448, 463, labeltext, font_ptr);
+  pthread_mutex_unlock(&text_lock);
 
-    snprintf(labeltext, 14, "%d", (int)(LH_Value + 3 * (RH_Value -LH_Value) / 5));
-    pthread_mutex_lock(&text_lock);
-    TextMid2(500, 465, labeltext, font_ptr);
-    pthread_mutex_unlock(&text_lock);
+  snprintf(labeltext, 14, "%d", (int)(LH_Value + 3 * (RH_Value -LH_Value) / 5));
+  pthread_mutex_lock(&text_lock);
+  TextMid2(500, 463, labeltext, font_ptr);
+  pthread_mutex_unlock(&text_lock);
 
-    snprintf(labeltext, 14, "%d", (int)(LH_Value + 4 * (RH_Value -LH_Value) / 5));
-    pthread_mutex_lock(&text_lock);
-    TextMid2(550, 454, labeltext, font_ptr);
-    pthread_mutex_unlock(&text_lock);
+  snprintf(labeltext, 14, "%d", (int)(LH_Value + 4 * (RH_Value -LH_Value) / 5));
+  pthread_mutex_lock(&text_lock);
+  TextMid2(550, 454, labeltext, font_ptr);
+  pthread_mutex_unlock(&text_lock);
 
-    snprintf(labeltext, 14, "%d", (int)RH_Value);
-    pthread_mutex_lock(&text_lock);
-    TextMid2(593, 432, labeltext, font_ptr);
-    pthread_mutex_unlock(&text_lock);
+  snprintf(labeltext, 14, "%d", (int)RH_Value);
+  pthread_mutex_lock(&text_lock);
+  TextMid2(593, 432, labeltext, font_ptr);
+  pthread_mutex_unlock(&text_lock);
 }
 
 
@@ -3808,8 +4172,7 @@ void *MeterMovement(void * arg)
       meter_deflection = -50;
     }
 
-
-    if (meter_deflection != current_meter_deflection )
+    if (meter_deflection != current_meter_deflection )        
     {
       // Physics
       meter_move = (meter_deflection - current_meter_deflection) / 5;  // Reduce movement speed
@@ -3860,6 +4223,7 @@ void CalibrateSystem()
   CalibrateRequested = true;
 }
 
+
 static void cleanexit(int calling_exit_code)
 {
   exit_code = calling_exit_code;
@@ -3904,6 +4268,8 @@ int main(void)
   float pwrPNF = 0;
   float Avlpwrcold = -80;
   float Avlpwrhot = -80;
+  int nextwebupdate = 10;
+  char response[63];
 
   int NFScans = 0;
   int NFTotalCold = 0;
@@ -3934,7 +4300,6 @@ int main(void)
   float meterNF = 30.0;
   float meterG = 0.0;
 
-
   // Catch sigaction and call terminate
   for (i = 0; i < 16; i++)
   {
@@ -3944,6 +4309,11 @@ int main(void)
     sigaction(i, &sa, NULL);
   }
 
+  // Check the display type in the config file
+  strcpy(response, "Element14_7");
+  GetConfigParam(PATH_PCONFIG, "display", response);
+  strcpy(DisplayType, response);
+
   // Check for presence of touchscreen
   for(NoDeviceEvent = 0; NoDeviceEvent < 7; NoDeviceEvent++)
   {
@@ -3952,14 +4322,32 @@ int main(void)
       if(getTouchScreenDetails(&screenXmin, &screenXmax, &screenYmin, &screenYmax) == 1) break;
     }
   }
-  if(NoDeviceEvent == 7)
+  if(NoDeviceEvent != 7)  // Touchscreen detected
   {
-    perror("No Touchscreen found");
-    screenXmin=0;
-    screenXmax=800;
-    screenYmin=0;
-    screenYmax=480;
-    //exit(1);
+    // Create Touchscreen thread
+    pthread_create (&thtouchscreen, NULL, &WaitTouchscreenEvent, NULL);
+  }
+  else // No touchscreen detected
+  {
+    touchscreen_present = false;
+
+    if ((strcmp(DisplayType, "Browser") != 0) && (strcmp(DisplayType, "hdmi") != 0)
+     && (strcmp(DisplayType, "hdmi480") != 0) && (strcmp(DisplayType, "hdmi720") != 0)
+     && (strcmp(DisplayType, "hdmi1080") != 0))
+    {  
+      SetConfigParam(PATH_PCONFIG, "webcontrol", "enabled");
+      SetConfigParam(PATH_PCONFIG, "display", "Browser");
+      system ("/home/pi/rpidatv/scripts/set_display_config.sh");
+      system ("sudo reboot now");
+    }
+
+    // Set Screen parameters
+    screenXmax = 799;
+    screenXmin = 0;
+    wscreen = 800;
+    screenYmax = 479;
+    screenYmin = 0;
+    hscreen = 480;
   }
 
   // Calculate screen parameters
@@ -4088,7 +4476,7 @@ int main(void)
       NFScans = 0;
 
       // Draw Meter Surround
-
+      
       if (ModeChanged == true)
       {
         setBackColour(0, 0, 0);
@@ -4097,7 +4485,7 @@ int main(void)
         DrawMeterArc();
         DrawMeterTicks(5, 1);
         Draw5MeterLabels(ActiveZero, ActiveFSD);
-
+        
         ModeChanged = false;
       }
 
@@ -4139,32 +4527,44 @@ int main(void)
 
       meterNF = pwrNF;
 
-      // Display On Power Level
-      rectangle(100, 120, 250, 22, 0, 0, 0);  // Blank area
-      snprintf(NFText, 20, "Noise on %0.1f dB", Avlpwrhot + 20.0);
-      setBackColour(0, 0, 0);
-      pthread_mutex_lock(&text_lock);
-      Text2(100, 125, NFText, &font_dejavu_sans_18);
-      pthread_mutex_unlock(&text_lock);
+      // Display Lower left quadrant (detailed parameters or large numbers)
+      if (LargeNumbers == false)   // display detailed parameters
+      {
+        // Clear the screen area if required
+        if (LargeNumbersDisplayed == true)
+        {
+          rectangle(100, 55, 200, 185, 0, 0, 0);  // Blank area
+          DrawSettings();                         // Redraw Bandwidth
+          LargeNumbersDisplayed = false;
+        }
 
-      // Display Off Power Level
-      rectangle(100, 90, 250, 22, 0, 0, 0);  // Blank area
-      snprintf(NFText, 20, "Noise off %0.1f dB", Avlpwrcold + 20.0);
-      setBackColour(0, 0, 0);
-      pthread_mutex_lock(&text_lock);
-      if (Avlpwrcold + 20.0 < -65.0)
-      {
-        setForeColour(255, 127, 127);
-      }
-      Text2(100, 95, NFText, &font_dejavu_sans_18);
-      setForeColour(255, 255, 255);
-      pthread_mutex_unlock(&text_lock);
-      rectangle(300, 90, 250, 22, 0, 0, 0);  // Blank area
-      if (Avlpwrcold + 20.0 < -65.0)
-      {
+        // Display On Power Level
+        rectangle(100, 120, 250, 22, 0, 0, 0);  // Blank area
+        snprintf(NFText, 20, "Noise on %0.1f dB", Avlpwrhot + 20.0);
+        setBackColour(0, 0, 0);
         pthread_mutex_lock(&text_lock);
-        Text2(300, 95, "Increase Lime Gain", &font_dejavu_sans_18);
+        Text2(100, 125, NFText, &font_dejavu_sans_18);
         pthread_mutex_unlock(&text_lock);
+
+        // Display Off Power Level
+        rectangle(100, 90, 250, 22, 0, 0, 0);  // Blank area
+        snprintf(NFText, 20, "Noise off %0.1f dB", Avlpwrcold + 20.0);
+        setBackColour(0, 0, 0);
+        pthread_mutex_lock(&text_lock);
+        if (Avlpwrcold + 20.0 < -65.0)
+        {
+          setForeColour(255, 127, 127);
+        }
+        Text2(100, 95, NFText, &font_dejavu_sans_18);
+        setForeColour(255, 255, 255);
+        pthread_mutex_unlock(&text_lock);
+        rectangle(300, 90, 250, 22, 0, 0, 0);  // Blank area
+        if (Avlpwrcold + 20.0 < -65.0)
+        {
+          pthread_mutex_lock(&text_lock);
+          Text2(300, 95, "Increase Lime Gain", &font_dejavu_sans_18);
+          pthread_mutex_unlock(&text_lock);
+        }
       }
 
       if (CalibrateRequested)
@@ -4181,7 +4581,7 @@ int main(void)
           // Add values to average
           CalpwrTotalHot = CalpwrTotalHot + pwrTotalHot;
           CalpwrTotalCold = CalpwrTotalCold + pwrTotalCold;
-          CalNFsys = CalNFsys + NFsys;
+          CalNFsys = CalNFsys + NFsys;     
         }
         if (CalibrateSmoothCount >= 19)
         {
@@ -4287,6 +4687,16 @@ int main(void)
       break;
       }
 
+      if (LargeNumbers == true)                                       // Clear lower left quadrant and Display large numbers
+      {
+        snprintf(NFText, 20, "%0.1f", meterNF);
+        rectangle(100, 55, 200, 185, 0, 0, 0);  // Blank area
+        pthread_mutex_lock(&text_lock);
+        Text2(100, 110, NFText, &font_dejavu_sans_72);
+        pthread_mutex_unlock(&text_lock);
+        LargeNumbersDisplayed = true;
+      }
+      
       if(Calibrated == false)
       {
         snprintf(NFText, 20, "System NF %0.1f dB", meterNF);
@@ -4326,7 +4736,6 @@ int main(void)
         pthread_mutex_unlock(&text_lock);
       }
 
-
       // printf("Noise Diff = %0.2f  Y2 =  %0.2f.  T2 = %0.1f, NF = %0.2f\n", NoiseDiff, Y2, T2, NF);
       NFTotalHot = 0;
       NFTotalCold = 0;
@@ -4362,8 +4771,15 @@ int main(void)
       }
       frozen = false;
     }
-
     tracecount++;
+    if (tracecount >= nextwebupdate)
+    {
+      // printf("tracecount = %d, Time ms = %llu \n", tracecount, monotonic_ms());
+      UpdateWeb();
+      usleep(10000);
+      nextwebupdate = tracecount + 200;  // About 800 ms between updates
+    }
+    //usleep(1000);
   }
 
   printf("Waiting for Lime Thread to exit..\n");
@@ -4378,3 +4794,4 @@ int main(void)
   pthread_join(thbutton, NULL);
   pthread_mutex_destroy(&text_lock);
 }
+

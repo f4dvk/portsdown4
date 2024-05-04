@@ -43,6 +43,10 @@ if [ "$AUDIO_OUT" == "rpi" ]; then
 else
   AUDIO_DEVICE="hw:CARD=Device,DEV=0"
 fi
+if [ "$AUDIO_OUT" == "hdmi" ]; then
+  # Overide for HDMI
+  AUDIO_DEVICE="hw:CARD=b1,DEV=0"
+fi
 
 # Error check volume
 if [ "$VLCVOLUME" -lt 0 ]; then
@@ -84,5 +88,3 @@ sleep 1
 printf "volume "$VLCVOLUME"\nlogout\n" | nc 127.0.0.1 1111 >/dev/null 2>/dev/null
 
 exit
-
-

@@ -1023,6 +1023,16 @@ if ! grep -q upsample= "$PATHSCRIPT"/portsdown_config.txt; then
   echo "upsample=2" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
+# Add Pluto Band Viewer LO setting to config file if not included  202402060
+if ! grep -q premixlolow= /home/pi/rpidatv/src/plutoview/plutoview_bands.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' /home/pi/rpidatv/src/plutoview/plutoview_bands.txt
+  # Add the new entry and a new line
+  echo "premixlolow=0.0" >> /home/pi/rpidatv/src/plutoview/plutoview_bands.txt
+  echo "premixlohi=0.0" >> /home/pi/rpidatv/src/plutoview/plutoview_bands.txt
+fi
+
 # Streaming audio source: https://github.com/JoJoBond/3LAS
 
 if [ ! -d "/home/pi/rpidatv/server/node_modules" ];then

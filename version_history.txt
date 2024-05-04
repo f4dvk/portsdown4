@@ -4,6 +4,9 @@ Mise à jour viewer BATC
 202404010
 Ajout Lock Sarsat
 
+202403130
+Mise à jour BATC en masse
+
 202401250
 Add List of Network Devices
 Add Band GPIOs for Pluto BandViewer

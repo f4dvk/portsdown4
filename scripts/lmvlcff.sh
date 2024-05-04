@@ -61,6 +61,10 @@ if [ "$AUDIO_OUT" == "rpi" ]; then
 else
   AUDIO_DEVICE="hw:CARD=Device,DEV=0"
 fi
+if [ "$AUDIO_OUT" == "hdmi" ]; then
+  # Overide for HDMI
+  AUDIO_DEVICE="hw:CARD=b1,DEV=0"
+fi
 
 # Select the correct tuner input
 INPUT_CMD=" "
@@ -123,5 +127,3 @@ cvlc -I rc --rc-host 127.0.0.1:1111 $PROG --codec ffmpeg -f --video-title-timeou
   longmynd_main_ts >/dev/null 2>/dev/null &
 
 exit
-
-

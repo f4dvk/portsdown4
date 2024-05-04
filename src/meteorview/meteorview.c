@@ -755,6 +755,7 @@ void do_snapcheck()
       strcat(fbicmd, SnapIndex);
       strcat(fbicmd, ".jpg >/dev/null 2>/dev/null");
       system(fbicmd);
+      UpdateWeb();
       LastDisplayedSnap = Snap;
     }
 
@@ -819,6 +820,7 @@ void MsgBox4(char *message1, char *message2, char *message3, char *message4)
   TextMid2(wscreen / 2, hscreen - 2 * (linepitch * 2), message2, font_ptr);
   TextMid2(wscreen / 2, hscreen - 3 * (linepitch * 2), message3, font_ptr);
   TextMid2(wscreen / 2, hscreen - 4 * (linepitch * 2), message4, font_ptr);
+  UpdateWeb();
 
   // printf("MsgBox4 called\n");
 }
@@ -2527,7 +2529,7 @@ void SetStream(int button)
         Keyboard(RequestText, InitText, 10);
         newclientnumber = atoi(KeyboardReturn);
       }
-      while ((strlen(KeyboardReturn) == 0) || (newclientnumber < 1) || (newclientnumber > 6));
+      while ((strlen(KeyboardReturn) == 0) || (newclientnumber < 0) || (newclientnumber > 6));
       
       if (clientnumber != newclientnumber)
       {
@@ -5128,14 +5130,20 @@ void DrawTickMarks()
 
 void ShowRemoteCaption()
 {
+  char clientline[255];
+  // Write the client number line
+  snprintf(clientline, 250, "As client %d", clientnumber);
+
   // Clear the background
   rectangle(101, 71, 499, 399, 0, 0, 0);
 
-  // Wite the caption
+  // Write the caption
   setForeColour(255, 255, 255);                    // White text
   setBackColour(0, 0, 0);                          // on Black
-  TextMid2(350, 300, "No local display", &font_dejavu_sans_32);
-  TextMid2(350, 200, "Streaming to Central Server", &font_dejavu_sans_32);
+
+  TextMid2(350, 350, "No local display", &font_dejavu_sans_32);
+  TextMid2(350, 275, "Streaming to Central Server", &font_dejavu_sans_32);
+  TextMid2(350, 200, clientline, &font_dejavu_sans_32);
 }
 
 
@@ -5527,7 +5535,9 @@ int main(int argc, char **argv)
   }
   else // No touchscreen detected
   {
-    if(strcmp(DisplayType, "Browser") != 0)  // Web control not enabled, so set it up and reboot
+    if ((strcmp(DisplayType, "Browser") != 0) && (strcmp(DisplayType, "hdmi") != 0)
+     && (strcmp(DisplayType, "hdmi480") != 0) && (strcmp(DisplayType, "hdmi720") != 0)
+     && (strcmp(DisplayType, "hdmi1080") != 0))
     {
       SetConfigParam(PATH_PCONFIG, "webcontrol", "enabled");
       SetConfigParam(PATH_PCONFIG, "display", "Browser");
