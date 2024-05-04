@@ -1,11 +1,23 @@
+202405041
+Mise à jour viewer BATC en masse
+
 202405040
 Mise à jour viewer BATC en masse
 
 202405030
 Mise à jour viewer BATC en masse
 
+202404070
+Add Web Control to all versions of BandViewer
+
 202404010
 Ajout Lock Sarsat
+
+202404050
+Add Web Control to NF Meter
+
+202404030
+Add Web Control to Noise Meter
 
 202403280
 Add IQ File Replay
