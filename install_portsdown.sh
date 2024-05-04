@@ -59,6 +59,12 @@ echo "----- Performing dist-upgrade -----"
 echo "-----------------------------------"
 sudo apt-get -y dist-upgrade
 
+echo
+echo "Checking for EEPROM Update"
+echo
+
+sudo rpi-eeprom-update -a                            # Update will be installed on reboot if required
+
 # Install the packages that we need
 echo
 echo "-------------------------------"
@@ -434,6 +440,10 @@ cd /home/pi
 cp -r /home/pi/rpidatv/src/longmynd/ /home/pi/
 cd longmynd
 make
+
+# Set up the udev rules for USB
+sudo cp minitiouner.rules /etc/udev/rules.d/
+
 cd /home/pi
 
 echo
@@ -720,6 +730,9 @@ sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules
 # Configure the nginx web server
 cp -r /home/pi/rpidatv/scripts/configs/webroot /home/pi/webroot
 sudo cp /home/pi/rpidatv/scripts/configs/nginx.conf /etc/nginx/nginx.conf
+
+# Create a directory for IQ files 202403250
+mkdir /home/pi/iqfiles
 
 # Record Version Number
 cd /home/pi/rpidatv/scripts/

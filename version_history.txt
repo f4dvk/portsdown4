@@ -1,11 +1,45 @@
+202405040
+Mise à jour viewer BATC en masse
+
 202405030
-Mise à jour viewer BATC
+Mise à jour viewer BATC en masse
 
 202404010
 Ajout Lock Sarsat
 
+202403280
+Add IQ File Replay
+
+202403250
+VLC Receive Improvements
+PicoTuner Reliability Improvements
+
 202403130
-Mise à jour BATC en masse
+Bugfix 7 inch screen invert selection
+
+202403110
+Move VLC to next track at start of RX for PicoTuner
+
+202403040
+Fix port forwarding browser access
+
+202403031
+Web Control for RTL-SDR BandViewer
+
+202402250
+Stop Meteorviewer logging to prevent logs filling
+
+202402200
+Set HDMI resolution when used without touchscreen
+
+202402130
+Minor Tuner and Audio changes
+
+202402110
+Add Experimental PicoTuner Support
+
+202402060
+Minor update to Pluto BandViewer
 
 202401250
 Add List of Network Devices

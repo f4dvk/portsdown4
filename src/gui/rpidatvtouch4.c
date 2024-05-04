@@ -45,6 +45,7 @@ Rewitten by Dave, G8GKQ
 #include "Graphics.h"
 #include "lmrx_utils.h"
 #include "ffunc.h"
+#include "timing.h"
 
 #define KWHT  "\x1B[37m"
 #define KYEL  "\x1B[33m"
@@ -318,6 +319,7 @@ char CurrentPathSelection[255] = "/home/pi/";
 char CurrentFileSelection[255] = "";
 char YesButtonCaption[63] = "Yes";
 char NoButtonCaption[63] = "No";
+bool ValidIQFileSelected = false;
 
 // Range and Bearing Calculator Parameters
 int GcBearing(const float, const float, const float, const float);
@@ -373,6 +375,7 @@ int TouchY;
 int TouchPressure;
 int TouchTrigger = 0;
 bool touchneedsinitialisation = true;
+bool FalseTouch = false;     // used to simulate a screen touch if a monitored event finishes
 
 // Web Control globals
 bool webcontrol = false;               // Enables remote control of touchscreen functions
@@ -398,7 +401,7 @@ pthread_t thwebclick;       //  Listens for mouse clicks from web interface
 pthread_t thtouchscreen;    //  listens to the touchscreen
 pthread_t thrfe15;          //  Turns LimeRFE on after 15 seconds
 pthread_t thbuttonFileVLC;  //  Handles touches during VLC play from file
-
+pthread_t thbuttonIQPlay;   //  Handles touches to stop IQ player
 
 // ************** Function Prototypes **********************************//
 
@@ -515,6 +518,8 @@ void ShowVideoFile(char *VideoPath, char *VideoFile);
 void ShowImageFile(char *ImagePath, char *ImageFile);
 void ListText(char *TextPath, char *TextFile);
 void FileOperation(int button);
+void *WaitButtonIQPlay(void * arg);
+void IQFileOperation(int button);
 void ListUSBDevices();
 void ListNetDevices();
 void ListNetPis();
@@ -6482,6 +6487,131 @@ void FileOperation(int NoButton)
   }
 }
 
+void *WaitButtonIQPlay(void * arg)
+{
+  int rawX, rawY, rawPressure;
+  FinishedButton = 1;
+
+  while (FinishedButton == 1)
+  {
+    while (getTouchSample(&rawX, &rawY, &rawPressure) == 0);  // Wait here for touch
+
+    FinishedButton = 0;
+  }
+  system("sudo killall wav2lime");
+  return NULL;
+}
+
+/***************************************************************************//**
+ * @brief Handles button presses from the IQ file menu
+ *        and acts on buttons 10 (sample rate), 11 (sing/loop) and 12 (Select file) and 13 (play)
+ * @param int NoButton
+ *
+ * @return void
+*******************************************************************************/
+
+void IQFileOperation(int NoButton)
+{
+  int response = 0;
+  char NewPathSelection[255] = "";
+  char NewFileSelection[255] = "";
+  char FileCommand[1279];
+  char Value[63];
+  char Value2[63];
+  char ShortValue[7];
+  char ShortValue2[7];
+  char FrequencyLine[127];
+
+  strcpy(CurrentPathSelection, "/home/pi/iqfiles/");
+
+  switch (NoButton)
+  {
+    case 10:                                                    // Select File
+
+      // Clear the message lines
+      ClearMenuMessage();
+      ValidIQFileSelected = false;
+
+      response = SelectFileUsingList(CurrentPathSelection, CurrentFileSelection, NewPathSelection, NewFileSelection, 0);
+      if (response == 1)    // File has been changed
+      {
+        strcpy(CurrentPathSelection, NewPathSelection);
+        strcpy(CurrentFileSelection, NewFileSelection);
+      }
+
+      if (strlen(NewFileSelection) > 0)                // filename has been selected
+      {
+        strcpy(MenuText[0], "Selected File:");
+        ValidIQFileSelected = true;
+      }
+      else                                             // Only directory selected
+      {
+        strcpy(MenuText[0], "Current Directory:");
+        ValidIQFileSelected = false;
+      }
+
+      strcpy(MenuText[1], CurrentPathSelection);
+      strcat(MenuText[1], CurrentFileSelection);
+      GetConfigParam(PATH_PCONFIG, "freqoutput", Value);
+      GetConfigParam(PATH_PCONFIG, "limegain", Value2);
+      strcpyn(ShortValue, Value, 7);
+      strcpyn(ShortValue2, Value2, 7);
+      snprintf(MenuText[2], 127, "Frequency: %s MHz, Lime Gain %s%%", ShortValue, ShortValue2);
+      //strcpy(MenuText[3], "Info 2");
+      break;
+    case 11:                                                                            // Play file single
+      snprintf(FileCommand, 1000, "/home/pi/rpidatv/scripts/playiqfile.sh -i %s%s", CurrentPathSelection, CurrentFileSelection);
+
+      // Create thread to monitor touchscreen
+
+      // thread kills wav2lime when touched
+      pthread_create (&thbuttonIQPlay, NULL, &WaitButtonIQPlay, NULL);
+
+      GetConfigParam(PATH_PCONFIG, "freqoutput", Value);
+      strcpyn(ShortValue, Value, 7);
+      snprintf(FrequencyLine, 127, "on %s MHz", ShortValue);
+
+      MsgBox4("Playing", CurrentFileSelection, FrequencyLine, "Touch Screen to Cancel");
+
+      system(FileCommand);
+      FinishedButton = 0;
+      FalseTouch = true;   // simulate screen touch to take away waiting message
+
+      pthread_join(thbuttonIQPlay, NULL);
+
+      // Reset the LimeSDR
+      system("/home/pi/rpidatv/bin/limesdr_stopchannel &");
+
+      break;
+
+    case 12:                                                                            // Play file loop
+
+      snprintf(FileCommand, 1000, "/home/pi/rpidatv/scripts/playiqfile.sh -i %s%s", CurrentPathSelection, CurrentFileSelection);
+
+      // Create thread to monitor touchscreen
+
+      // thread kills wav2lime when touched
+      pthread_create (&thbuttonIQPlay, NULL, &WaitButtonIQPlay, NULL);
+
+      GetConfigParam(PATH_PCONFIG, "freqoutput", Value);
+      strcpyn(ShortValue, Value, 7);
+      snprintf(FrequencyLine, 127, "on %s MHz in a loop", ShortValue);
+
+      MsgBox4("Playing", CurrentFileSelection, FrequencyLine, "Touch Screen to Cancel");
+
+      while (FinishedButton == 1)
+      {
+        system(FileCommand);
+      }
+
+      pthread_join(thbuttonIQPlay, NULL);
+
+      // Reset the LimeSDR
+      system("/home/pi/rpidatv/bin/limesdr_stopchannel &");
+
+      break;
+  }
+}
 
 /***************************************************************************//**
  * @brief Uses the "SelectFromList" dialogue to display a list of
@@ -7343,6 +7473,15 @@ int getTouchSample(int *rawX, int *rawY, int *rawPressure)
       printf("Web rawX = %d, rawY = %d, rawPressure = %d\n", *rawX, *rawY, *rawPressure);
       return 1;
     }
+    else if (FalseTouch == true)
+    {
+      *rawX = web_x;
+      *rawY = web_y;
+      *rawPressure = 0;
+      FalseTouch = false;
+      printf("False Touch prompted by other event\n");
+      return 1;
+    }
     else
     {
       usleep(1000);
@@ -7478,11 +7617,12 @@ void UpdateWeb()
 
 void ShowMenuText()
 {
-  // Called to display software update information in Menu 33
+  // Called to display software update information in Menu 33 and file information on Menu 4
 
   // Initialise and calculate the text display
   int line;
   const font_t *font_ptr = &font_dejavu_sans_28;
+  const font_t *font_ptr20 = &font_dejavu_sans_20;
   int txtht =  font_ptr->ascent;
   int linepitch = (14 * txtht) / 10;
 
@@ -7490,10 +7630,21 @@ void ShowMenuText()
   setBackColour(0, 0, 0);          // on Black
 
   // Display Text
-  for (line = 0; line < 5; line = line + 1)
+  if (CurrentMenu != 4)
   {
-    // printf("%s-%d\n", MenuText[line], strlen(MenuText[line]));
-    Text2(wscreen / 12, hscreen - (3 + line) * linepitch, MenuText[line], font_ptr);
+    for (line = 0; line < 5; line = line + 1)
+    {
+      // printf("%s-%d\n", MenuText[line], strlen(MenuText[line]));
+      Text2(wscreen / 12, hscreen - (3 + line) * linepitch, MenuText[line], font_ptr);
+    }
+  }
+  else                            // Smaller text for Menu 4
+  {
+    for (line = 0; line < 5; line = line + 1)
+    {
+      // printf("%s-%d\n", MenuText[line], strlen(MenuText[line]));
+      Text2(wscreen / 40, hscreen - (3 + line) * linepitch, MenuText[line], font_ptr20);
+    }
   }
   UpdateWeb();
 }
@@ -11649,8 +11800,6 @@ void *WaitButtonLMRX(void * arg)
 
     TransformTouchMap(rawX, rawY);  // Sorts out orientation and approx scaling of the touch map
 
-    //if((scaledX <= 5 * wscreen / 40)  && (scaledY <= hscreen) && (scaledY <= 2 * hscreen / 12)) // Bottom left
-
     if((scaledX <= 5 * wscreen / 40)  &&  (scaledY <= 2 * hscreen / 12)) // Bottom left
     {
       printf("In snap zone, so take snap.\n");
@@ -11661,7 +11810,6 @@ void *WaitButtonLMRX(void * arg)
       printf("In restart VLC zone, so set for reset.\n");
       VLCResetRequest = true;
     }
-    //else if((scaledX <= 15 * wscreen / 40) && (scaledX >= wscreen / 40) && (scaledY <= hscreen) && (scaledY >= 2 * hscreen / 12))
     else if ((scaledX <= 15 * wscreen / 40) && (scaledY <= 10 * hscreen / 12) && (scaledY >= 2 * hscreen / 12))
     {
       printf("In parameter zone, so toggle parameter view.\n");
@@ -11686,21 +11834,26 @@ void *WaitButtonLMRX(void * arg)
     }
     else
     {
-      printf("Out of zone.  End receive requested.\n");
-      FinishedButton = 0;  // Not in the zone, so exit receive
+      // Close VLC to reduce processor load first
+      system("/home/pi/rpidatv/scripts/lmvlcclose.sh");
+
+      // kill the receive processes
+      system("sudo killall longmynd > /dev/null 2>/dev/null");
+      system("sudo killall CombiTunerExpress > /dev/null 2>/dev/null");
+      system("sudo killall /usr/bin/omxplayer.bin > /dev/null 2>/dev/null");  // killed last otherwise fifo will block
+
+      printf("Receive processes stopped.\n");
+      FinishedButton = 0;  // Exit receive
       touch_response = 1;
       count_time_ms = 0;
 
       // wait here to make sure that touch_response is set back to 0
       // If not, restart GUI
-      printf("Entering Delay\n");
       while ((touch_response == 1) && (count_time_ms < 500))
       {
         usleep(1000);
         count_time_ms = count_time_ms + 1;
       }
-      //printf("Shutting Down VLC\n");
-      system("/home/pi/rpidatv/scripts/lmvlcsd.sh &");
       count_time_ms = 0;
       while ((touch_response == 1) && (count_time_ms < 2500))
       {
@@ -11710,8 +11863,6 @@ void *WaitButtonLMRX(void * arg)
 
       if (touch_response == 1) // count_time has elapsed and still no reponse
       {
-
-        system("/home/pi/rpidatv/scripts/lmvlcsd.sh &");
         setBackColour(0, 0, 0);
         clearScreen();
         exit(129);                 // Restart the GUI
@@ -12809,6 +12960,8 @@ void LMRX(int NoButton)
   float previousMER = 0;
   int FirstLock = 0;  // set to 1 on first lock, and 2 after parameter fade
   clock_t LockTime;
+  char LastServiceProvidertext[255] = " ";
+  bool FirstReceive = true;
 
   // DVB-T parameters
 
@@ -12825,7 +12978,7 @@ void LMRX(int NoButton)
   char line13[31] = "";
   char line14[31] = "";
   char linex[127] = "";
-  int TunerPollCount = 0;
+  uint16_t TunerPollCount = 0;
   bool TunerFound = FALSE;
 
   char ExtraText[63];
@@ -12920,7 +13073,6 @@ void LMRX(int NoButton)
     printf("STARTING VLC with FFMPEG RX\n");
 
     /* Open status FIFO for read only  */
-    //mkfifo("longmynd_status_fifo", 0666);
     ret = mkfifo("longmynd_status_fifo", 0666);
     fd_status_fifo = open("longmynd_status_fifo", O_RDONLY);
 
@@ -12952,11 +13104,19 @@ void LMRX(int NoButton)
         {
           TunerPollCount = TunerPollCount + 1;
 
-          if (TunerPollCount > 15)
+          if (TunerPollCount == 15)  // Tuner not responding
           {
             strcpy(line5, "Waiting for Tuner to Respond");
             Text2(wscreen * 6 / 40, hscreen - 1 * linepitch, line5, font_ptr);
-            TunerPollCount = 0;
+          }
+          // printf("TPC = %d\n", TunerPollCount);
+          if (TunerPollCount > 2500)  // Maybe PicoTuner has locked up so reset USB bus power
+          {
+            strcpy(line5, "Resetting USB Bus                            ");
+            Text2(wscreen * 6 / 40, hscreen - 1 * linepitch, line5, font_ptr);
+            system("sudo killall vlc");
+            system("sudo uhubctl -R -a 2");
+            MsgBox("Touch Centre of Screen to Return to Receiver");
           }
         }
       }
@@ -12998,6 +13158,23 @@ void LMRX(int NoButton)
           {
             strcpy(ServiceProvidertext, stat_string);
             chopN(ServiceProvidertext, 3);
+
+            // Force VLC reset if service provider has changed
+            if ((strlen(ServiceProvidertext) > 1) && (strlen(LastServiceProvidertext) > 1))
+            {
+              if (strcmp(ServiceProvidertext, LastServiceProvidertext) != 0)  // Service provider has changed
+              {
+                system("/home/pi/rpidatv/scripts/lmvlcreset.sh &");           // so reset VLC
+                strcpy(LastServiceProvidertext, ServiceProvidertext);
+              }
+            }
+
+            // deal with first receive case (no reset required)
+            if ((FirstReceive == true) && (strlen(ServiceProvidertext) > 1))
+            {
+              strcpy(LastServiceProvidertext, ServiceProvidertext);
+              FirstReceive = false;
+            }
           }
 
           if ((stat_string[0] == '1') && (stat_string[1] == '4'))  // Service
@@ -13179,17 +13356,11 @@ void LMRX(int NoButton)
         }
       }
     }
-    // Shutdown VLC if it has not stolen the graphics
-    system("/home/pi/rpidatv/scripts/lmvlcsd.sh &");
 
     close(fd_status_fifo);
     usleep(1000);
-
-    printf("Stopping receive process\n");
     pclose(fp);
-    system("sudo killall lmvlcffudp.sh >/dev/null 2>/dev/null");
     touch_response = 0;
-    printf("VLC has shut down\n");
     break;
 
   case 6:
@@ -14989,6 +15160,29 @@ void YesNo(int i)  // i == 6 Yes, i == 8 No
   // First switch on what was calling the Yes/No question
   switch(CallingMenu)
   {
+  case 414:         // Download ISS file??
+    switch (i)
+    {
+    case 6:     // Yes
+      MsgBox4("Downloading a 1.5 GB file", "This may take some time", "At least 3 minutes", " ");
+      system("wget https://live.ariss.org/media/HAMTV%20Recordings/IQ%20Files/SDRSharp_20160423_121611Z_731000000Hz_IQ.wav.gz -O /home/pi/iqfiles/SDRSharp_20160423_121611Z_731000000Hz_IQ.wav.gz");
+      MsgBox4("Completed Download", "Unzipping File", "This will take 5 minutes or so", " ");
+      system("gzip -d /home/pi/iqfiles/SDRSharp_20160423_121611Z_731000000Hz_IQ.wav.gz");
+      MsgBox("File ready for use");
+      wait_touch();
+      setBackColour(0, 0, 0);
+      clearScreen();
+      break;
+    case 8:     // No
+      MsgBox("File not Downloaded");
+      wait_touch();
+      setBackColour(0, 0, 0);
+      clearScreen();
+      break;
+    }
+    CurrentMenu = 4;
+    UpdateWindow();
+    break;
   case 430:         // Restore Factory Settings?
     switch (i)
     {
@@ -19598,7 +19792,21 @@ void waituntil(int w,int h)
           Start_Highlights_Menu4();
           UpdateWindow();
           break;
-        case 13:                             //
+        case 10:                               // Select IQ file
+        case 11:                               // Play single
+        case 12:                               // Play loop
+          IQFileOperation(i);
+          Start_Highlights_Menu4();           // Refresh button labels
+          UpdateWindow();
+          break;
+        case 14:                             // Download HamTV file
+          if (file_exist("/home/pi/iqfiles/SDRSharp_20160423_121611Z_731000000Hz_IQ.wav") == 1)  // so file not present
+          {
+            CallingMenu = 414;
+            CurrentMenu = 38;
+            MsgBox4("File is 1.5 GB and will take some time", "to download and uncompress", "Continue?", " ");
+            UpdateWindow();
+          }
           break;
         case 20:                             //
           break;
@@ -23987,9 +24195,20 @@ void Define_Menu4()
 
   // 3rd Row, Menu 4
 
-  //button = CreateButton(4, 13);
-  //AddButtonStatus(button, "Band^", &Blue);
-  //AddButtonStatus(button, "Band^", &Green);
+  button = CreateButton(4, 10);
+  AddButtonStatus(button, "Select^IQ File", &Blue);
+
+  button = CreateButton(4, 11);
+  AddButtonStatus(button, "Play IQ^File", &Blue);
+  AddButtonStatus(button, "Play IQ^File", &Grey);
+
+  button = CreateButton(4, 12);
+  AddButtonStatus(button, "Play IQ^File in loop", &Blue);
+  AddButtonStatus(button, "Play IQ^File in loop", &Grey);
+
+  button = CreateButton(4, 14);
+  AddButtonStatus(button, "Download^HamTV IQ File", &Blue);
+  AddButtonStatus(button, " ", &Black);
 
   // Top of Menu 4
 
@@ -24011,6 +24230,26 @@ void Start_Highlights_Menu4()
   else
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 1), 2);
+  }
+
+  if (ValidIQFileSelected == true)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 11), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 12), 0);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 11), 1);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 12), 1);
+  }
+
+  if (file_exist("/home/pi/iqfiles/SDRSharp_20160423_121611Z_731000000Hz_IQ.wav") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 14), 1);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 14), 0);
   }
 }
 
