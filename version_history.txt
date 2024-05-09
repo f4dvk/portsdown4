@@ -1,6 +1,9 @@
 20240509
 Mise à jour BATC en masse
 
+202405070
+Correct Meteorview server setting
+
 202405041
 Mise à jour BATC en masse
 
@@ -9,6 +12,9 @@ Mise à jour BATC en masse
 
 202405030
 Mise à jour BATC en masse
+
+202404270
+Add Pluto Version of Noise Meter
 
 202404260
 Add boot options and Ryde co-install

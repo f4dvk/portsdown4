@@ -1392,6 +1392,9 @@ fi
       # Turn the viewfinder off
       v4l2-ctl --overlay=0
 
+      # Capture for web view
+      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
+
       $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
         -re -loop 1 \
         -i $IMAGEFILE -framerate 1 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
@@ -1426,6 +1429,9 @@ fi
       # Turn the viewfinder off
       v4l2-ctl --overlay=0
 
+      # Capture for web view
+      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
+
          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
           -re -loop 1 \
           -i $IMAGEFILE \
@@ -1448,6 +1454,9 @@ fi
 
       # Turn the viewfinder off
       v4l2-ctl --overlay=0
+
+      # Capture for web view
+      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
 
          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
             -re -loop 1 \
@@ -1531,6 +1540,10 @@ fi
     if [ "$RESULT" -eq 0 ]; then
       sudo modprobe -r bcm2835_v4l2
     fi
+
+    # Capture for web view
+    /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
+
     # Set up means to transport of stream out of unit
 
     if [ "$MODULATION" != "DVB-T" ]; then
@@ -2065,8 +2078,11 @@ exit
       (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
     fi
 
-  # Turn the viewfinder off
-  v4l2-ctl --overlay=0
+    # Turn the viewfinder off
+    v4l2-ctl --overlay=0
+
+    # Capture for web view
+    /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
 
     # If sound arrives first, decrease the numeric number to delay it
     # "-00:00:0.?" works well at SR1000 on IQ mode

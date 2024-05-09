@@ -205,12 +205,10 @@ case "$MODE_STARTUP" in
   Langstone_boot)
     # Start the Touchscreen Scheduler
     source /home/pi/rpidatv/scripts/scheduler.sh
-    #return
   ;;
   Bandview_boot)
     # Start the Touchscreen Scheduler
     source /home/pi/rpidatv/scripts/scheduler.sh
-    #return
   ;;
   Meteorbeacon_boot)
     # Start the Touchscreen Scheduler
@@ -243,6 +241,7 @@ case "$MODE_STARTUP" in
     return
   ;;
   *)
-    return
+    # Start the Touchscreen Scheduler
+    source /home/pi/rpidatv/scripts/scheduler.sh
   ;;
 esac
