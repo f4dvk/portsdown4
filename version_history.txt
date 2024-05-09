@@ -1,11 +1,29 @@
+20240509
+Mise à jour BATC en masse
+
 202405041
-Mise à jour viewer BATC en masse
+Mise à jour BATC en masse
 
 202405040
-Mise à jour viewer BATC en masse
+Mise à jour BATC en masse
 
 202405030
-Mise à jour viewer BATC en masse
+Mise à jour BATC en masse
+
+202404260
+Add boot options and Ryde co-install
+
+202404240
+Add Pluto Version of NF Meter
+
+202404230
+Add Waterfall to Pluto BandViewer
+
+202404160
+Add Web Control to remaining test equipment
+
+202404090
+Add Raw TS Input Modes (for LinkPi encoder)
 
 202404070
 Add Web Control to all versions of BandViewer

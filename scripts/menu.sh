@@ -125,7 +125,7 @@ fi
 RET=$?
 if [ $RET -eq 1 ]; then
 ## This is the section where you control what happens when the user hits Cancel
-Cancel	
+Cancel
 elif [ $RET -eq 0 ]; then
 	if [[ -d "/$1$pathselect" ]]; then
 		Pathbrowser "/$1$pathselect"
@@ -133,7 +133,7 @@ elif [ $RET -eq 0 ]; then
 		## Do your thing here, this is just a stub of the code I had to do what I wanted the script to do.
 		fileout=`file "$1$pathselect"`
 		filenametemp=`readlink -m $1$pathselect`
-		filename=`dirname $filenametemp` 
+		filename=`dirname $filenametemp`
 
 	else
 		echo pathselect $1$pathselect
@@ -466,6 +466,9 @@ do_input_setup_wide()
   Radio10=OFF
   Radio11=OFF
   Radio12=OFF
+  Radio13=OFF
+  Radio14=OFF
+  Radio15=OFF
 
   case "$MODE_INPUT" in
   CAM16MPEG-2)
@@ -501,13 +504,22 @@ do_input_setup_wide()
   HDMI)
     Radio11=ON
   ;;
-  *)
+  IPTSIN)
     Radio12=ON
+  ;;
+  IPTSIN264)
+    Radio13=ON
+  ;;
+  IPTSIN265)
+    Radio14=ON
+  ;;
+  *)
+    Radio15=ON
   ;;
   esac
 
   chinput=$(whiptail --title "$StrInputSetupTitle" --radiolist \
-    "$StrInputSetupDescription" 20 78 12 \
+    "$StrInputSetupDescription" 20 78 15 \
     "CAM16MPEG-2" "MPEG-2 1024x576 16:9 Pi Cam with Audio" $Radio1 \
     "CAMHDMPEG-2" "MPEG-2 1280x720 HD Pi Cam with Audio" $Radio2 \
     "ANALOG16MPEG-2" "MPEG-2 1024x576 16:9 Comp Vid with Audio" $Radio3 \
@@ -519,7 +531,10 @@ do_input_setup_wide()
     "C920HDH264" "H264 1024x720 with Audio from C920 Webcam" $Radio9 \
     "C920FHDH264" "H264 1920x1080 with Audio from C920 Webcam" $Radio10 \
     "HDMI" "H264 HDMI from Elgato CamLink 4K" $Radio11 \
-    "OTHER" "Non-Widescreen Mode" $Radio12 \
+    "IPTSIN" "IPTS With Service Information" $Radio12 \
+    "IPTSIN264" "H264 IPTS Without Service Information" $Radio13 \
+    "IPTSIN265" "H265 IPTS Without Service Information" $Radio14 \
+    "OTHER" "Non-Widescreen Mode" $Radio15 \
   3>&2 2>&1 1>&3)
 
   if [ $? -eq 0 ]; then
@@ -713,7 +728,7 @@ do_symbolrate_setup()
 do_fec_lookup()
 {
   case "$FEC" in
-  1) 
+  1)
     FECNUM=1
     FECDEN=2
   ;;
@@ -796,7 +811,7 @@ do_fec_setup()
 
   FEC=$(get_config_var fec $PCONFIGFILE)
   case "$FEC" in
-  1) 
+  1)
     Radio1=ON
   ;;
   2)
@@ -952,7 +967,7 @@ do_freq_setup()
     "t4" "Transverter 4" $Radio5 \
     3>&2 2>&1 1>&3)
 
-  if [[ "$BAND" == "Direct" || "$BAND" == "d1" || "$BAND" == "d2" || "$BAND" == "d3" || "$BAND" == "d4" || "$BAND" == "d5" ]]; then 
+  if [[ "$BAND" == "Direct" || "$BAND" == "d1" || "$BAND" == "d2" || "$BAND" == "d3" || "$BAND" == "d4" || "$BAND" == "d5" ]]; then
     ## If direct, look up which band
 
     INT_FREQ_OUTPUT=${FREQ_OUTPUT%.*}       # Change frequency to integer
@@ -1309,7 +1324,7 @@ do_set_DVBS_FEC()
   set_config_var fec "$FEC" $PCONFIGFILE
 }
 
- 
+
 do_set_DVBS2_FEC()
 {
   FEC="91"
@@ -1381,7 +1396,7 @@ do_check_FEC()
 }
 
 
-do_transmit() 
+do_transmit()
 {
   TX_OK=YES
   AVC2TS_FAILED_ONCE=NO
@@ -1390,7 +1405,7 @@ do_transmit()
   # Check the FEC is valid for DVB-S or DVB-S2
   do_check_FEC
 
-  if [ "$MODE_STARTUP" == "TX_boot" ] && { [ "$MODE_INPUT" == "ANALOGCAM" ] || [ "$MODE_INPUT" == "HDMI" ]; }; then  
+  if [ "$MODE_STARTUP" == "TX_boot" ] && { [ "$MODE_INPUT" == "ANALOGCAM" ] || [ "$MODE_INPUT" == "HDMI" ]; }; then
 
                                                       # Super resilient script for repeater
 
@@ -1410,8 +1425,8 @@ do_transmit()
 
     while [ TRUE ]                                    # Monitor the transmit processes
     do
-      v4l2-ctl --list-devices | grep -E -q "usbtv|Cam Link 4K" 
- 
+      v4l2-ctl --list-devices | grep -E -q "usbtv|Cam Link 4K"
+
                                                       # Check EasyCap or Cam Link HDMI
       if [ $? == 1 ]; then                            # EasyCap has crashed, so
         do_stop_transmit                              # Stop transmit.  Should have reboot but it doesn't work
@@ -1433,7 +1448,7 @@ do_transmit()
             TX_OK=NO
             AVC2TS_FAILED_ONCE=NO                     # Reset counter
           else
-            AVC2TS_FAILED_ONCE=YES                    # For next time      
+            AVC2TS_FAILED_ONCE=YES                    # For next time
           fi
         else
           AVC2TS_FAILED_ONCE=NO                       # Reset counter
@@ -1622,13 +1637,13 @@ do_receive()
     sleep 0.1
     set_config_var modeinput "DESKTOP" $PCONFIGFILE
     sleep 0.1
-    /home/pi/rpidatv/bin/rpidatvgui 0 1  >/dev/null 2>/dev/null & 
+    /home/pi/rpidatv/bin/rpidatvgui 0 1  >/dev/null 2>/dev/null &
     $PATHSCRIPT"/a.sh" >/dev/null 2>/dev/null &
     do_receive_status
     set_config_var modeinput "$ORGINAL_MODE_INPUT" $PCONFIGFILE
   ;;
   *)
-    /home/pi/rpidatv/bin/rpidatvgui 0 1  >/dev/null 2>/dev/null & 
+    /home/pi/rpidatv/bin/rpidatvgui 0 1  >/dev/null 2>/dev/null &
     do_receive_status
   ;;
   esac
@@ -1779,7 +1794,7 @@ do_display_setup()
   ;;
   *)
     Radio1=ON
-  ;;		
+  ;;
   esac
 
   chdisplay=$(whiptail --title "$StrDisplaySetupTitle" --radiolist \
@@ -3213,7 +3228,7 @@ do_lg()
 
   LIMEGAIN=$(whiptail --inputbox "Current gain = "$LIMEGAIN".  Enter 0 to 100" 8 78 $LIMEGAIN --title "SET LIME GAIN FOR THE "$BAND_NAME" BAND" 3>&1 1>&2 2>&3)
   if [ $? -eq 0 ]; then
- 
+
   set_config_var limegain "$LIMEGAIN" $PCONFIGFILE
   case "$BAND" in
   d1)
@@ -3368,7 +3383,7 @@ do_DisableButtonSD()
 {
   rm /home/pi/.pi-sdn             ## Stop it being loaded at log-on
   sudo pkill -x pi-sdn            ## kill the current process
-} 
+}
 
 do_shutdown_menu()
 {
@@ -3487,7 +3502,7 @@ fi
 sleep 0.2
 
 # Loop round main menu
-while [ "$status" -eq 0 ] 
+while [ "$status" -eq 0 ]
   do
 
     # Lookup parameters for Menu Info Message
