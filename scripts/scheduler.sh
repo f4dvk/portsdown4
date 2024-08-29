@@ -56,14 +56,14 @@ ChooseBandViewerSDR()
   # Set default start code to be Portsdown main menu
   BANDVIEW_START_CODE=129
 
-  # Check for presence of Airspy
+  # Check for presence of Airspy   
   lsusb | grep -q 'Airspy'
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=140
     return
   fi
 
-  # Check for presence of SDRplay
+  # Check for presence of SDRplay   
   lsusb | grep -q '1df7:'
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=144
@@ -89,7 +89,7 @@ ChooseBandViewerSDR()
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=141
     return
-  fi
+  fi 
 
   # Check for the presence of a Pluto (can false positive on 192.168.2.* LANs)
   # Look up Pluto IP
@@ -101,7 +101,6 @@ ChooseBandViewerSDR()
     BANDVIEW_START_CODE=143
     return
   fi
-
 }
 
 ##################################################################
@@ -137,9 +136,10 @@ ChooseBandViewerSDR()
 # 192  Reboot from GUI
 # 193  Rotate 7 inch and reboot
 # 197  Start Ryde RX
-# 198  Boot to Portsdown RX
+# 198  Boot to Portsdown RX Receive
 # 199  Boot to Portsdown TX
 # 207  Exit from any app requesting restart of main rpidatvgui on Menu 7 (test equipment)
+# 208  Exit from any app requesting start of main rpidatvgui on Menu 8 (Receive)
 
 MODE_STARTUP=$(get_config_var startup $PCONFIGFILE)
 
@@ -194,6 +194,9 @@ case "$MODE_STARTUP" in
   Meteorview_boot)
     # Start the Meteor Viewer
     GUI_RETURN_CODE=150
+    DisplayMsg "Waiting 15 seconds for the\n\nLeo Bodnar GPS Ref to stabilise"
+    /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
+    sleep 15  # Wait for the Leo Bodnar frequency reference to stabilise
   ;;
   *)
     # Default to Portsdown
@@ -201,7 +204,18 @@ case "$MODE_STARTUP" in
   ;;
 esac
 
-while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
+# while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
+while true; do
+
+  # Wait for fcgi socket release
+  fuser -k 2005/tcp
+  BUSY_SOCKET="$?"
+  while [ "$BUSY_SOCKET" -eq 0 ]; do
+    sleep 1
+    fuser -k 2005/tcp
+    BUSY_SOCKET="$?"
+  done
+
   case "$GUI_RETURN_CODE" in
     0)
       /home/pi/rpidatv/bin/rpidatvgui > /tmp/PortsdownGUI.log 2>&1
@@ -318,7 +332,7 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
               DisplayMsg " "                # Display Blank screen
               /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
             else
-              RPISTATE="Ready"
+              RPISTATE="Ready"     
             fi
           else
             RPISTATE="Ready"
@@ -332,7 +346,7 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       GUI_RETURN_CODE="$?"
 
       if [ $GUI_RETURN_CODE != 129 ] && [ $GUI_RETURN_CODE != 160 ]; then     # Not Portsdown and not shutdown
-        GUI_RETURN_CODE=144                         # So restart sdrplayview
+        GUI_RETURN_CODE=144                         # So restart sdrplayview        
       fi
     ;;
     145)                              # Langstone V2 Lime
@@ -371,39 +385,54 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
     ;;
     150)                              # SDRPlay Meteor Viewer
       DisplayMsg "Restarting SDRPlay Service\n\nThis may take up to 90 seconds"
-      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-      sudo systemctl restart sdrplay
-      DisplayMsg " "                      # Display Blank screen
-      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-
-      lsusb | grep -q '1df7:'             # check for SDRPlay
-      if [ $? != 0 ]; then                # Not detected
-        DisplayMsg "Unable to detect SDRPlay\n\nResetting the USB Bus"
+      RPISTATE="Not_Ready"
+      while [[ "$RPISTATE" == "Not_Ready" ]]
+      do
+        DisplayMsg "Restarting SDRPlay Service\n\nThis may take up to 90 seconds"
         /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-        sudo uhubctl -R -a 2              # So reset USB bus
-        sleep 1
-        lsusb | grep -q '1df7:'
-        if [ $? != 0 ]; then              # Check again
-          sudo uhubctl -R -a 2            # Try reset USB bus again
-          sleep 1
-          lsusb | grep -q '1df7:'
-          if [ $? != 0 ]; then            # If still no joy
-            DisplayMsg "Still Unable to detect SDRPlay\n\n\nCheck connections"
-            /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-            sleep 2
-            DisplayMsg " "                # Display Blank screen
-            /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
-            GUI_RETURN_CODE=129           # Return to Portsdown
-          fi
-        fi
-      fi
 
-      if [ $GUI_RETURN_CODE == 150 ]; then          # MeteorView
-        /home/pi/rpidatv/bin/meteorview
-        GUI_RETURN_CODE="$?"
-      fi
-      if [ $GUI_RETURN_CODE != 129 ]; then          # Not Portsdown
-        GUI_RETURN_CODE=150                         # So restart meteorview
+        sudo systemctl restart sdrplay
+
+        DisplayMsg " "                      # Display Blank screen
+        /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
+
+        lsusb | grep -q '1df7:'             # check for SDRPlay
+        if [ $? != 0 ]; then                # Not detected
+          DisplayMsg "Unable to detect SDRPlay\n\nResetting the USB Bus"
+          /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
+          sudo uhubctl -R -a 2              # So reset USB bus
+          sleep 1
+
+          lsusb | grep -q '1df7:'           # Check again
+          if [ $? != 0 ]; then              # Not detected
+            DisplayMsg "Unable to detect SDRPlay\n\nResetting the USB Bus"
+            /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
+            sudo uhubctl -R -a 2            # Try reset USB bus again
+            sleep 1
+
+            lsusb | grep -q '1df7:'         # Has that worked?
+            if [ $? != 0 ]; then            # No
+              DisplayMsg "Still Unable to detect SDRPlay\n\n\nCheck connections"
+              /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
+              sleep 2
+              DisplayMsg " "                # Display Blank screen
+              /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
+            else
+              RPISTATE="Ready"     
+            fi
+          else
+            RPISTATE="Ready"
+          fi
+        else
+          RPISTATE="Ready"
+        fi
+      done
+
+      /home/pi/rpidatv/bin/meteorview
+      GUI_RETURN_CODE="$?"
+
+      if [ $GUI_RETURN_CODE != 129 ] && [ $GUI_RETURN_CODE != 160 ]; then     # Not Portsdown and not shutdown
+        GUI_RETURN_CODE=150                         # So restart meteorview        
       fi
     ;;
     160)
@@ -476,6 +505,11 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
       GUI_RETURN_CODE="$?"
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
+    208)
+      /home/pi/rpidatv/bin/rpidatvgui -b 8
+      GUI_RETURN_CODE="$?"
+      sudo killall vlc >/dev/null 2>/dev/null
+    ;;
     *)
       /home/pi/rpidatv/bin/rpidatvgui
       GUI_RETURN_CODE="$?"
@@ -483,3 +517,5 @@ while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
     ;;
   esac
 done
+
+

@@ -1392,8 +1392,8 @@ fi
       # Turn the viewfinder off
       v4l2-ctl --overlay=0
 
-      # Capture for web view
-      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
+      # Capture for web view after a delay
+      (sleep 1; /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh) &
 
       $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
         -re -loop 1 \
@@ -1416,7 +1416,8 @@ fi
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
-        -gravity North -pointsize 125 -annotate 0,0,0,20 "$CALL" \
+        -gravity NorthWest -pointsize 125 -annotate 0,0,20,20 "$CALL" \
+        -gravity NorthEast -pointsize 30 -annotate 0,0,20,35 "$NUMBERS" \
         -gravity Center -pointsize 225 -annotate 0,0,0,20 "$NUMBERS" \
         -gravity South -pointsize 75 -annotate 0,0,0,20 "$LOCATOR   ""$BAND_LABEL" \
         /home/pi/tmp/contest.jpg
@@ -1492,7 +1493,8 @@ fi
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
-        -gravity North -pointsize 125 -annotate 0,0,0,20 "$CALL" \
+        -gravity NorthWest -pointsize 125 -annotate 0,0,20,20 "$CALL" \
+        -gravity NorthEast -pointsize 30 -annotate 0,0,20,35 "$NUMBERS" \
         -gravity Center -pointsize 225 -annotate 0,0,0,20 "$NUMBERS" \
         -gravity South -pointsize 75 -annotate 0,0,0,20 "$LOCATOR   ""$BAND_LABEL" \
         /home/pi/tmp/contest.jpg
@@ -1541,8 +1543,8 @@ fi
       sudo modprobe -r bcm2835_v4l2
     fi
 
-    # Capture for web view
-    /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
+    # Capture for web view after a delay
+    (sleep 1; /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh) &
 
     # Set up means to transport of stream out of unit
 
@@ -2027,7 +2029,8 @@ exit
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
-        -gravity North -pointsize 125 -annotate 0,0,0,20 "$CALL" \
+        -gravity NorthWest -pointsize 125 -annotate 0,0,20,20 "$CALL" \
+        -gravity NorthEast -pointsize 30 -annotate 0,0,20,35 "$NUMBERS" \
         -gravity Center -pointsize 225 -annotate 0,0,0,20 "$NUMBERS" \
         -gravity South -pointsize 75 -annotate 0,0,0,20 "$LOCATOR   ""$BAND_LABEL" \
         /home/pi/tmp/contest.jpg

@@ -1059,6 +1059,18 @@ if ! grep -q site1d0numbers= "$PATHSCRIPT"/portsdown_C_codes.txt; then
   cp "$PATHSCRIPT"/configs/portsdown_C_codes.txt.factory "$PATHSCRIPT"/portsdown_C_codes.txt
 fi
 
+# Write new factory Contest Numbers File if required  202406160
+if ! grep -q site2d0numbers= "$PATHSCRIPT"/portsdown_C_codes.txt; then
+  # File needs updating
+  cp "$PATHSCRIPT"/configs/portsdown_C_codes.txt.factory "$PATHSCRIPT"/portsdown_C_codes.txt
+fi
+
+# Write new factory Contest Numbers File if required  202406160
+if ! grep -q site2t8numbers= "$PATHSCRIPT"/portsdown_C_codes.txt; then
+  # File needs updating
+  cp "$PATHSCRIPT"/configs/portsdown_C_codes.txt.factory "$PATHSCRIPT"/portsdown_C_codes.txt
+fi
+
 # Add Lime upsample setting to config file if not included  202401***
 if ! grep -q upsample= "$PATHSCRIPT"/portsdown_config.txt; then
   # File needs updating
@@ -1076,6 +1088,15 @@ if ! grep -q premixlolow= /home/pi/rpidatv/src/plutoview/plutoview_bands.txt; th
   # Add the new entry and a new line
   echo "premixlolow=0.0" >> /home/pi/rpidatv/src/plutoview/plutoview_bands.txt
   echo "premixlohi=0.0" >> /home/pi/rpidatv/src/plutoview/plutoview_bands.txt
+fi
+
+# Add time overlay setting to config file if not included  202406160
+if ! grep -q timeoverlay= "$PATHSCRIPT"/portsdown_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
+  # Add the new entry and a new line
+  echo "timeoverlay=off" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
 # Streaming audio source: https://github.com/JoJoBond/3LAS

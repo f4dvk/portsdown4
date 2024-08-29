@@ -60,3 +60,4 @@ webcontrol=enabled
 langstone=none
 upsample=2
 gpio=on
+timeoverlay=off

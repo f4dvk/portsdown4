@@ -296,6 +296,8 @@ bool VLCResetRequest = false; // Set on touchsscreen request for VLC to be reset
 int  CurrentVLCVolume = 256;  // Read from config file
 
 // LongMynd RX Received Parameters for display
+bool timeOverlay = false;    // Display time overlay on received metadata and snaps
+time_t t;                    // current time
 
 // Stream Display Parameters. [0] is current
 char StreamAddress[9][127];  // Full rtmp address of stream
@@ -532,15 +534,15 @@ void FileOperation(int button);
 void *WaitButtonIQPlay(void * arg);
 void IQFileOperation(int button);
 void ListUSBDevices();
+int USBmounted();
+int USBDriveDevice();
 void ListNetDevices();
 void ListNetPis();
 void DisplayLogo();
 void TransformTouchMap(int x, int y);
-int IsButtonPushed(int NbButton,int x,int y);
 int IsMenuButtonPushed(int x,int y);
 int IsImageToBeChanged(int x,int y);
 int InitialiseButtons();
-int AddButton(int x,int y,int w,int h);
 int ButtonNumber(int MenuIndex, int Button);
 int CreateButton(int MenuIndex, int ButtonPosition);
 int AddButtonStatus(int ButtonIndex,char *Text,color_t *Color);
@@ -4308,6 +4310,18 @@ void ReadLMRXPresets()
   {
     strcpy(RXmod, "DVB-S");
   }
+
+  // Time Overlay
+  strcpy(Value, "off");
+  GetConfigParam(PATH_PCONFIG, "timeoverlay", Value);
+  if (strcmp(Value, "off") == 0)
+  {
+    timeOverlay = false;
+  }
+  else
+  {
+    timeOverlay = true;
+  }
 }
 
 void ChangeLMRXIP()
@@ -6212,12 +6226,17 @@ void *WaitButtonFileVLC(void * arg)
       printf("In snap zone, so take snap.\n");
       system("/home/pi/rpidatv/scripts/snap2.sh");
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY >= 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 7 * hscreen / 12))  // Top Right
     {
       printf("Volume Up.\n");
       AdjustVLCVolume(51);
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY < 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 5 * hscreen / 12) && (scaledY < 7 * hscreen / 12))  // mid Right
+    {
+      //printf("Volume Mute.\n");
+      AdjustVLCVolume(-512);
+    }
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY < 5 * hscreen / 12))  // Bottom Right
     {
       printf("Volume Down.\n");
       AdjustVLCVolume(-51);
@@ -6631,8 +6650,131 @@ void FileOperation(int NoButton)
       }
 
       break;
+    case 13:                                                                                // Mount/unmount USB
+      // Check drive device name
+
+      if (USBmounted() == 0) // mounted, so unmount
+      {
+        if (USBDriveDevice() == 1)
+        {
+          system("sudo umount /dev/sda1");
+        }
+        else
+        {
+          system("sudo umount /dev/sdb1");
+        }
+      }
+      else                  // not mounted, so mount and display file explorer
+      {
+        if (USBDriveDevice() == 1)
+        {
+          system("sudo mount /dev/sda1 /mnt");
+        }
+        else if (USBDriveDevice() == 2)
+        {
+          system("sudo mount /dev/sdb1 /mnt");
+        }
+        else
+        {
+          MsgBox4("Failed to mount USB Drive", "Check Connections", "", "Touch screen to continue");
+          wait_touch();
+          return;
+        }
+
+        if (USBmounted() == 0)
+        {
+          strcpy(CurrentPathSelection, "/mnt/");
+          strcpy(CurrentFileSelection, "");
+          FileOperation(5);
+        }
+        else
+        {
+          MsgBox4("Failed to mount USB Drive", "Check Connections", "", "Touch screen to continue");
+          wait_touch();
+        }
+      }
+      break;
   }
 }
+
+
+/***************************************************************************//**
+ * @brief Detects if a USB Drive is currently mounted at /mnt
+ *
+ * @param nil
+ *
+ * @return 0 if mounted, 1 if not mounted
+*******************************************************************************/
+
+int USBmounted()
+{
+  FILE *fp;
+  char response_line[255];
+
+  // Check the mountpoint
+
+  fp = popen("mountpoint -d /mnt | grep 'not a mountpoint'", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Response is "not a mountpoint" if not mounted
+  // So, if there is a response, return 1.
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) > 1)
+    {
+      pclose(fp);
+      return 1;
+    }
+  }
+  pclose(fp);
+  return 0;
+}
+
+
+/***************************************************************************//**
+ * @brief Checks the device name for a USB drive
+ *
+ * @param nil
+ *
+ * @return 0 if none, 1 if sda1, 2 if sdb1
+*******************************************************************************/
+
+int USBDriveDevice()
+{
+  FILE *fp;
+  char response_line[255];
+  int return_value = 0;
+
+  // Check the mountpoint
+
+  fp = popen("/home/pi/rpidatv/scripts/check_usb_storage.sh", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Response is 0, 1 or 2
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) >= 1)
+    {
+      return_value = atoi(response_line);
+    }
+  }
+  pclose(fp);
+  //printf("Driver return value = %d\n", return_value);
+  return return_value;
+}
+
 
 void *WaitButtonIQPlay(void * arg)
 {
@@ -6966,25 +7108,6 @@ void TransformTouchMap(int x, int y)
 }
 
 
-int IsButtonPushed(int NbButton,int x,int y)
-{
-  TransformTouchMap(x,y);  // Sorts out orientation and approx scaling of the touch map
-
-  //printf("x=%d y=%d scaledx %d scaledy %d sxv %f syv %f Button %d\n",x,y,scaledX,scaledY,scaleXvalue,scaleYvalue, NbButton);
-
-  int margin=10;  // was 20
-
-  if((scaledX<=(ButtonArray[NbButton].x+ButtonArray[NbButton].w-margin))&&(scaledX>=ButtonArray[NbButton].x+margin) &&
-    (scaledY<=(ButtonArray[NbButton].y+ButtonArray[NbButton].h-margin))&&(scaledY>=ButtonArray[NbButton].y+margin))
-  {
-    return 1;
-  }
-  else
-  {
-    return 0;
-  }
-}
-
 int IsMenuButtonPushed(int x,int y)
 {
   int  i, NbButton, cmo, cmsize;
@@ -7055,17 +7178,6 @@ int InitialiseButtons()
   return 1;
 }
 
-int AddButton(int x,int y,int w,int h)
-{
-  button_t *NewButton=&(ButtonArray[IndexButtonInArray]);
-  NewButton->x=x;
-  NewButton->y=y;
-  NewButton->w=w;
-  NewButton->h=h;
-  NewButton->NoStatus=0;
-  NewButton->IndexStatus=0;
-  return IndexButtonInArray++;
-}
 
 int ButtonNumber(int MenuIndex, int Button)
 {
@@ -9722,7 +9834,7 @@ void GreyOut42()
     SetButtonStatus(ButtonNumber(CurrentMenu, 11), 2); // Jetson Stream
   }
   // Check Pluto
-  if ((CheckPlutoIPConnect() == 1) || (CheckPlutoUSBConnect() != 0))   // Pluto not connected, so GreyOut
+  if ((CheckPlutoIPConnect() == 1) && (CheckPlutoUSBConnect() != 0))   // Pluto not connected, so GreyOut
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 14), 2); // Pluto
   }
@@ -11177,19 +11289,39 @@ void SetDeviceLevel()
 void AdjustVLCVolume(int adjustment)
 {
   int VLCVolumePerCent;
+  static int premuteVLCVolume;
+  static bool muted;
   char VLCVolumeText[63];
   char VolumeMessageText[63];
   char VLCVolumeCommand[255];
 
-  CurrentVLCVolume = CurrentVLCVolume + adjustment;
-  if (CurrentVLCVolume < 0)
+  if (adjustment == -512) // toggle mute
   {
-    CurrentVLCVolume = 0;
+    if (muted  == true)
+    {
+      CurrentVLCVolume = premuteVLCVolume;
+      muted = false;
+    }
+    else
+    {
+      premuteVLCVolume = CurrentVLCVolume;
+      CurrentVLCVolume = 0;
+      muted = true;
+    }
   }
-  if (CurrentVLCVolume > 512)
+  else                    // normal up or down
   {
-    CurrentVLCVolume = 512;
+    CurrentVLCVolume = CurrentVLCVolume + adjustment;
+    if (CurrentVLCVolume < 0)
+    {
+      CurrentVLCVolume = 0;
+    }
+    if (CurrentVLCVolume > 512)
+    {
+      CurrentVLCVolume = 512;
+    }
   }
+
   snprintf(VLCVolumeText, 62, "%d", CurrentVLCVolume);
   SetConfigParam(PATH_PCONFIG, "vlcvolume", VLCVolumeText);
 
@@ -12130,12 +12262,17 @@ void *WaitButtonLMRX(void * arg)
         FinishedButton = 2; // graphics off
       }
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY >= 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 7 * hscreen / 12))  // Top Right
     {
       //printf("Volume Up.\n");
       AdjustVLCVolume(51);
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY < 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 5 * hscreen / 12) && (scaledY < 7 * hscreen / 12))  // mid Right
+    {
+      //printf("Volume Mute.\n");
+      AdjustVLCVolume(-512);
+    }
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY < 5 * hscreen / 12))  // Bottom Right
     {
       //printf("Volume Down.\n");
       AdjustVLCVolume(-51);
@@ -12197,12 +12334,17 @@ void *WaitButtonStream(void * arg)
       printf("In snap zone, so take snap.\n");
       system("/home/pi/rpidatv/scripts/snap2.sh");
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY >= 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 7 * hscreen / 12))  // Top Right
     {
       //printf("Volume Up.\n");
       AdjustVLCVolume(51);
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY < 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 5 * hscreen / 12) && (scaledY < 7 * hscreen / 12))  // mid Right
+    {
+      //printf("Volume Mute.\n");
+      AdjustVLCVolume(-512);
+    }
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY < 5 * hscreen / 12))  // Bottom Right
     {
       //printf("Volume Down.\n");
       AdjustVLCVolume(-51);
@@ -13286,6 +13428,7 @@ void LMRX(int NoButton)
   bool webupdate_this_time = true;   // Only update web on alternate MER changes
   char LastServiceProvidertext[255] = " ";
   bool FirstReceive = true;
+  char TIMEtext[63];
 
   // DVB-T parameters
 
@@ -13478,6 +13621,11 @@ void LMRX(int NoButton)
             }
             FREQ = FREQ / 1000;
             snprintf(FREQtext, 15, "%.3f MHz", FREQ);
+            if ((TabBandLO[CurrentBand] < -0.5) || (TabBandLO[CurrentBand] > 0.5))      // band not direct
+            {
+              strcat(FREQtext, " ");
+              strcat(FREQtext, TabBandLabel[CurrentBand]);                             // so add band label
+            }
           }
 
           if ((stat_string[0] == '1') && (stat_string[1] == '3'))  // Service Provider
@@ -13638,8 +13786,19 @@ void LMRX(int NoButton)
                 strcat(vlctext, MERtext);
                 strcat(vlctext, "%n");
                 strcat(vlctext, AGCtext);
-
-                strcat(vlctext, "%n.%nTouch Left to Hide Overlay%nTouch Centre to Exit");
+                strcat(vlctext, "%n");
+                if (timeOverlay == true)
+                {
+                  // Retrieve the current time
+                  t = time(NULL);
+                  strftime(TIMEtext, sizeof(TIMEtext), "%H:%M %d %b %Y", gmtime(&t));
+                  strcat(vlctext, TIMEtext);
+                }
+                else
+                {
+                  strcat(vlctext, ".");
+                }
+                strcat(vlctext, "%nTouch Left to Hide Overlay%nTouch Centre to Exit");
 
                 FILE *fw=fopen("/home/pi/tmp/vlc_temp_overlay.txt","w+");
                 if(fw!=0)
@@ -16492,6 +16651,7 @@ void do_snapcheck()
       {
         Snap = SnapNumber - 1;
       }
+      printf("Displaying snap %d\n", Snap);
     }
   }
 
@@ -17890,6 +18050,9 @@ void ManageContestCodes(int NoButton)
 
       TextMid2(wscreen / 2, hscreen - linenumber * linepitch, "Touch Screen to Continue", font_ptr);
 
+      draw_cursor_foreground(mouse_x, mouse_y);
+      UpdateWeb();
+
       printf("Contest number Screen called and waiting for touch\n");
       wait_touch();
       AwaitingContestNumberViewSeln = false;
@@ -19283,6 +19446,8 @@ void waituntil(int w,int h)
   rawX = 0;
   rawY = 0;
   char ValueToSave[63];
+  char device_name[63];
+  char linux_cmd[127];
 
   // Start the main loop for the Touchscreen
   for (;;)
@@ -20210,6 +20375,11 @@ void waituntil(int w,int h)
         case 11:                               // Play single
         case 12:                               // Play loop
           IQFileOperation(i);
+          Start_Highlights_Menu4();           // Refresh button labels
+          UpdateWindow();
+          break;
+        case 13:                              // mount/unmount USB drive
+          FileOperation(i);
           Start_Highlights_Menu4();           // Refresh button labels
           UpdateWindow();
           break;
@@ -22854,15 +23024,31 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 1:                               // Restore Settings from USB
-          if (file_exist("/media/usb/portsdown_settings/portsdown_config.txt") == 1) // no file found
+          if (USBDriveDevice() == 1)
+          {
+            strcpy(device_name, "/dev/sda1");
+          }
+          else
+          {
+            strcpy(device_name, "/dev/sdb1");
+          }
+          sprintf(linux_cmd, "sudo mount %s /mnt", device_name);
+
+          // mount the USB drive to check drive and files exist first
+          system(linux_cmd);
+          if (file_exist("/mnt/portsdown_settings/portsdown_config.txt") == 1) // no file found
           {
             MsgBox4("Portsdown configuration files", "not found on USB drive.", "Please check the USB drive and", "try reconnecting it");
-            setBackColour(0, 0, 0);
-            clearScreen();
+            sprintf(linux_cmd, "sudo umount %s", device_name);
+            system(linux_cmd);
+            //system("sudo umount /dev/sdb1");
             wait_touch();
           }
           else  // file exists
           {
+            sprintf(linux_cmd, "sudo umount %s", device_name);
+            system(linux_cmd);
+            //system("sudo umount /dev/sdb1");  // unmount because script remounts
             CallingMenu = 431;
             CurrentMenu = 38;
             MsgBox4("Are you sure that you want to", "overwrite all the current settings", "with the settings from USB?", " ");
@@ -22872,9 +23058,7 @@ void waituntil(int w,int h)
         case 2:                               // Restore Settings from /boot
           if (file_exist("/boot/portsdown_settings/portsdown_config.txt") == 1) // no file found
           {
-            MsgBox4("Portsdown configuration files", "not found in /boot folder.", " ", " ");
-            setBackColour(0, 0, 0);
-            clearScreen();
+            MsgBox4("Portsdown configuration files", "not found in /boot folder.", " ", "Touch screen to exit");
             wait_touch();
           }
           else  // file exists
@@ -22933,7 +23117,19 @@ void waituntil(int w,int h)
           MsgBox4("Are you sure that you want to overwrite", "any stored settings on the boot drive", "with the current settings?", " ");
           UpdateWindow();
           break;
-        case 8:
+        case 8:                               // Time overlay on/off
+          if (timeOverlay == false)
+          {
+            timeOverlay = true;
+            SetConfigParam(PATH_PCONFIG, "timeoverlay", "on");
+          }
+          else
+          {
+            timeOverlay = false;
+            SetConfigParam(PATH_PCONFIG, "timeoverlay", "off");
+          }
+          Start_Highlights_Menu43();
+          UpdateWindow();
           break;
         case 9:                               // Toggle enable of hardware shutdown button
           if (file_exist ("/home/pi/.pi-sdn") == 0)  // If enabled
@@ -24325,7 +24521,7 @@ void Start_Highlights_Menu1()
   else if (strcmp(CurrentModeOPtext, "Pluto") == 0)
   {
     strcpy(Outputtext, "Output to^Pluto");
-    if (CheckPlutoUSBConnect() != 0)
+    if ((CheckPlutoUSBConnect() != 0) && (CheckPlutoIPConnect() == 1))
     {
       AmendButtonStatus(17, 1, Outputtext, &Grey);
     }
@@ -24678,6 +24874,10 @@ void Define_Menu4()
   AddButtonStatus(button, "Play IQ^File in loop", &Blue);
   AddButtonStatus(button, "Play IQ^File in loop", &Grey);
 
+  button = CreateButton(4, 13);
+  AddButtonStatus(button, "Mount USB^Drive", &Blue);
+  AddButtonStatus(button, "Unmount USB^Drive", &Blue);
+
   button = CreateButton(4, 14);
   AddButtonStatus(button, "Download^HamTV IQ File", &Blue);
   AddButtonStatus(button, " ", &Black);
@@ -24722,6 +24922,15 @@ void Start_Highlights_Menu4()
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 11), 1);
     SetButtonStatus(ButtonNumber(CurrentMenu, 12), 1);
+  }
+
+  if (USBmounted() == 1)       // USB Drive not mounted
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 13), 0);
+  }
+  else  // mounted
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 13), 1);
   }
 
   if (file_exist("/home/pi/iqfiles/SDRSharp_20160423_121611Z_731000000Hz_IQ.wav") == 0)
@@ -28122,7 +28331,7 @@ void Define_Menu31()
   {
     sprintf(Param, "bcallsign%d", i);
     GetConfigParam(PATH_LOCATORS, Param, DispName[i]);
-    DispName[i][8] = '\0';
+    DispName[i][10] = '\0';
     j = i + 5;
     if (i > 4)
     {
@@ -28135,7 +28344,23 @@ void Define_Menu31()
 
 void Start_Highlights_Menu31()
 {
-  //
+  int i;
+  int j;
+  char Param[15];
+  char DispName[10][20];
+
+  for(i = 0; i < 10 ;i++)
+  {
+    sprintf(Param, "bcallsign%d", i);
+    GetConfigParam(PATH_LOCATORS, Param, DispName[i]);
+    DispName[i][10] = '\0';
+    j = i + 5;
+    if (i > 4)
+    {
+      j = i - 5;
+    }
+    AmendButtonStatus(ButtonNumber(31, j), 0, DispName[i], &Blue);
+  }
 }
 
 void Define_Menu32()
@@ -29077,10 +29302,9 @@ void Define_Menu43()
   AddButtonStatus(button, "Back-up^to /boot", &Blue);
   AddButtonStatus(button, "Back-up^to /boot", &Green);
 
-  //button = CreateButton(43, 8);
-  //AddButtonStatus(button, "7 inch vid^Disabled", &Grey);
-  //AddButtonStatus(button, "7 inch vid^Enabled", &Blue);
-  //AddButtonStatus(button, "7 inch vid^Disabled", &Blue);
+  button = CreateButton(43, 8);
+  AddButtonStatus(button, "Time^Overlay OFF", &Blue);
+  AddButtonStatus(button, "Time^Overlay ON", &Blue);
 
   button = CreateButton(43, 9);
   AddButtonStatus(button, "SD Button^Enabled", &Blue);
@@ -29112,6 +29336,15 @@ void Define_Menu43()
 
 void Start_Highlights_Menu43()
 {
+  if (timeOverlay == false)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 1);
+  }
+
   if (file_exist ("/home/pi/.pi-sdn") == 0)  // Hardware Shutdown Enabled
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
@@ -30626,11 +30859,18 @@ int main(int argc, char **argv)
   web_x_ptr = &web_x;
   web_y_ptr = &web_y;
 
-  if (startupmenu == 1)
+  if (startupmenu == 1)                    // Main Menu
   {
     setBackColour(255, 255, 255);          // White background
     clearScreen();
     Start_Highlights_Menu1();
+  }
+  else if (startupmenu == 8)               // Receive Menu
+  {
+    setBackColour(0, 0, 0);
+    clearScreen();
+    CurrentMenu = startupmenu;
+    Start_Highlights_Menu8();
   }
   else
   {
