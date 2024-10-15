@@ -137,6 +137,12 @@ int bandSSBFiltLow[numband]={300,300,300,300,300,300,300,300,300,300,300,300,300
 int bandSSBFiltHigh[numband]={3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000};
 int bandFFTBW[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
+//// A supprimer après modifications ////
+void refreshMouseBackground();
+void draw_cursor_foreground();
+bool mouse_connected;
+////////////////////////////////////////
+
 #define minFreq 0.0
 #define maxFreq 99999.99999
 #define minHwFreq 30.0

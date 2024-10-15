@@ -122,7 +122,19 @@ int *web_y_ptr;                // pointer
 int web_x;                     // click x 0 - 799 from left
 int web_y;                     // click y 0 - 480 from top
 char WebClickForAction[7] = "no";  // no/yes
-pthread_t thwebclick;          //  Listens for mouse clicks from web interface
+bool mouse_active = false;             // set true after first movement of mouse
+bool MouseClickForAction = false;      // set true on left click of mouse
+int mouse_x;                           // click x 0 - 799 from left
+int mouse_y;                           // click y 0 - 479 from top
+bool image_complete = true;            // prevents mouse image buffer from being copied until image is complete
+bool mouse_connected = false;          // Set true if mouse detected at startup
+pthread_t thwebclick;          //  Listens for clicks from web interface
+pthread_t thmouse;          //  Listens to the mouse
+
+int CheckMouse();
+void *WaitMouseEvent(void * arg);
+void handle_mouse();
+
 double bandFreq[numband] = {70.200,144.200,432.200,1296.200,2320.200,2400.100,3400.100,5760.100,10368.200,24048.200,47088.2,10489.55,433.2,433.2,433.2,433.2,433.2,433.2,1296.2,1296.2,1296.2,1296.2,1296.2,1296.2};
 double bandTxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-9936.0,-23616.0,-46656.0,-10069.5,0,0,0,0,0,0,0,0,0,0,0,0};
 double bandRxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-9936.0,-23616.0,-46656.0,-10345.0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -372,8 +384,15 @@ int main(int argc, char* argv[])
   initFifos();
   initScreen();
   initGPIO();
-  if(touchPresent) initTouch(touchPath);
-  if(mousePresent) initMouse(mousePath);
+  if(touchPresent)
+  {
+    initTouch(touchPath);
+  }
+  else
+  {
+    handle_mouse();
+  }
+  if((mousePresent) && (touchPresent)) initMouse(mousePath);
   initGUI();
   initSDR();
   togglewebcontrol();
@@ -402,8 +421,17 @@ int main(int argc, char* argv[])
        fprintf(stderr, "Web touchX = %d, touchY = %d\n", touchX, touchY);
        processTouch();
      }
+   else if (MouseClickForAction == true)
+     {
+       touchX = mouse_x;
+       touchY = mouse_y;
+       MouseClickForAction = false;
+       printf("Mouse rawX = %d, rawY = %d\n", touchX, touchY);
+       processTouch();
+       refreshMouseBackground();
+     }
 
-    if(mousePresent)
+    if ((mousePresent) && (touchPresent))
       {
         int but=getMouse();
         if(but>0)
@@ -490,6 +518,8 @@ int main(int argc, char* argv[])
    {
    setTx(1);                                              //seems to be needed to initialise Pluto
    setTx(0);
+   refreshMouseBackground();
+   //draw_cursor_foreground(mouse_x, mouse_y);
    firstpass=0;
    }
 
@@ -1861,6 +1891,148 @@ void togglewebcontrol()
   fprintf(stderr, "Created webclick listener thread\n");
 }
 
+void *WaitMouseEvent(void * arg)
+{
+  int x = 0;
+  int y = 0;
+  int scroll = 0;
+  int fd;
+  bool left_button_action = false;
+  if ((fd = open("/dev/input/event0", O_RDONLY)) < 0)
+  {
+    perror("evdev open");
+    exit(1);
+  }
+  struct input_event ev;
+  while(1)
+  {
+    read(fd, &ev, sizeof(struct input_event));
+    if (ev.type == 2)  // EV_REL
+    {
+      if (ev.code == 0) // x
+      {
+        x = x + ev.value;
+        if (x < 0)
+        {
+          x = 0;
+        }
+        if (x > 799)
+        {
+          x = 799;
+        }
+        //printf("value %d, type %d, code %d, x_pos %d, y_pos %d\n",ev.value,ev.type,ev.code, x, y);
+        //printf("x_pos %d, y_pos %d\n", x, y);
+        mouse_active = true;
+        draw_cursor2(x, y);
+      }
+      else if (ev.code == 1) // y
+      {
+        y = y - ev.value;
+        if (y < 0)
+        {
+          y = 0;
+        }
+        if (y > 479)
+        {
+          y = 479;
+        }
+        //printf("value %d, type %d, code %d, x_pos %d, y_pos %d\n",ev.value,ev.type,ev.code, x, y);
+        //printf("x_pos %d, y_pos %d\n", x, y);
+        mouse_active = true;
+        while (image_complete == false)  // Wait for menu to be drawn
+        {
+          usleep(1000);
+        }
+        draw_cursor2(x, y);
+      }
+      else if (ev.code == 8) // scroll wheel
+      {
+        scroll = scroll + ev.value;
+        //mouseScroll = mouseScroll + ev.value;
+        //processMouse(128);
+        //printf("value %d, type %d, code %d, scroll %d\n",ev.value,ev.type,ev.code, scroll);
+      }
+      else
+      {
+        //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+      }
+    }
+    else if (ev.type == 4)  // EV_MSC
+    {
+      if (ev.code == 4) // ?
+      {
+        if (ev.value == 589825)
+        {
+          //printf("value %d, type %d, code %d, left mouse click \n", ev.value, ev.type, ev.code);
+          //printf("Waiting for up or down signal\n");
+          left_button_action = true;
+        }
+        if (ev.value == 589826)
+        {
+          printf("value %d, type %d, code %d, right mouse click \n", ev.value, ev.type, ev.code);
+        }
+      }
+    }
+    else if (ev.type == 1)
+    {
+      //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+      if ((left_button_action == true) && (ev.code == 272) && (ev.value == 1) && (mouse_active == true))
+      {
+        mouse_x = x;
+        mouse_y = 479 - y;
+        MouseClickForAction = true;
+      }
+      left_button_action = false;
+    }
+    else
+    {
+      //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+    }
+  }
+}
+
+int CheckMouse()
+{
+  FILE *fp;
+  char response_line[255];
+
+  // Read the Webcam address if it is present
+
+  fp = popen("ls -l /dev/input | grep 'mouse'", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Response is "crw-rw---- 1 root input 13, 32 Apr 29 17:02 mouse0" if present, null if not
+  // So, if there is a response, return 0.
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) > 1)
+    {
+      pclose(fp);
+      return 0;
+    }
+  }
+  pclose(fp);
+  return 1;
+}
+
+void handle_mouse()
+{
+  // First check if mouse is connected
+  if (CheckMouse() != 0)    // Mouse not connected
+  {
+    return;
+  }
+  mouse_connected = true;
+  printf("Starting Mouse Thread\n");
+  pthread_create (&thmouse, NULL, &WaitMouseEvent, NULL);
+}
+
 void *WebClickListener(void * arg)
 {
   while (true)
@@ -2048,6 +2220,11 @@ if(buttonTouched(downButtonX,downButtonY))    //Down
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) < minHwFreq) freq=(minHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) > maxHwFreq) freq=(maxHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         setFreq(freq);
+        gotoXY(downButtonX,downButtonY);
+        setForeColour(0,255,0);
+        displayButton("Down");
+        //refreshMouseBackground();
+        //draw_cursor_foreground(mouse_x, mouse_y);
         return;
       }
 
@@ -2092,6 +2269,11 @@ if(buttonTouched(upButtonX,upButtonY))    //up
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) < minHwFreq) freq=(minHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) > maxHwFreq) freq=(maxHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         setFreq(freq);
+        gotoXY(upButtonX,upButtonY);
+        setForeColour(0,255,0);
+        displayButton("Up");
+        //refreshMouseBackground();
+        //draw_cursor_foreground(mouse_x, mouse_y);
         return;
       }
 
@@ -2210,12 +2392,16 @@ if(buttonTouched(funcButtonsX,funcButtonsY))    //Button 1 = BAND or MENU
     {
       writeConfig();
       displayPopupBand();
+      //refreshMouseBackground();
+      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
     }
     else
     {
       setInputMode(FREQ);
       clearPopUp();
+      //refreshMouseBackground();
+      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
     }
 
@@ -2226,12 +2412,16 @@ if(buttonTouched(funcButtonsX+buttonSpaceX,funcButtonsY))    //Button 2 = MODE o
      if((inputMode==FREQ) && (popupSel!=MODE))
       {
       displayPopupMode();
+      //refreshMouseBackground();
+      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
       }
       else
       {
       setInputMode(FREQ);
       clearPopUp();
+      //refreshMouseBackground();
+      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
       }
     }
@@ -2273,6 +2463,7 @@ if(buttonTouched(funcButtonsX+buttonSpaceX*2,funcButtonsY))  // Button 3 =Blank 
         }
       if(settingNo==numSettings) settingNo=0;
       displaySetting(settingNo);
+      //refreshMouseBackground();
       return;
       }
       else
@@ -2297,6 +2488,7 @@ if(buttonTouched(funcButtonsX+buttonSpaceX*3,funcButtonsY))    // Button4 =SET o
         }
       if(settingNo<0) settingNo=numSettings-1;
       displaySetting(settingNo);
+      //refreshMouseBackground();
       return;
       }
     else
@@ -2406,6 +2598,8 @@ if((touchY>freqDisplayY) & (touchY < freqDisplayY+freqDisplayCharHeight) & (touc
     tuneDigit=tx;
     setFreqInc();
     setFreq(freq);
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
     return;
   }
 
@@ -2635,18 +2829,24 @@ if(inputMode==SETTINGS)
   displayStr("                                                ");
   writeConfig();
   displayMenu();
+  //refreshMouseBackground();
+  //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==VOLUME)
   {
     gotoXY(volButtonX,volButtonY);
     setForeColour(0,255,0);
     displayButton("Vol");
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==SQUELCH)
   {
     gotoXY(sqlButtonX,sqlButtonY);
     setForeColour(0,255,0);
     displayButton("SQL");
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==RIT)
   {
@@ -2656,6 +2856,8 @@ if(inputMode==RIT)
     gotoXY(ritButtonX,ritButtonY+buttonSpaceY);
     setForeColour(0,0,0);
     displayButton("Zero");
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 
 inputMode=m;
@@ -2687,18 +2889,24 @@ if(inputMode==SETTINGS)
     displayButton1x12("SHUTDOWN");
     mouseScroll=0;
     displaySetting(settingNo);
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==VOLUME)
   {
     gotoXY(volButtonX,volButtonY);
     setForeColour(255,0,0);
     displayButton("Vol");
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==SQUELCH)
   {
     gotoXY(sqlButtonX,sqlButtonY);
     setForeColour(255,0,0);
     displayButton("SQL");
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==RIT)
   {
@@ -2708,6 +2916,8 @@ if(inputMode==RIT)
     gotoXY(ritButtonX,ritButtonY+buttonSpaceY);
     setForeColour(255,0,0);
     displayButton("Zero");
+    //refreshMouseBackground();
+    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 
 }
@@ -2735,6 +2945,8 @@ void setRit(int ri)
   }
   displayStr(ritStr);
   setFreq(freq);
+  //refreshMouseBackground();
+  //draw_cursor_foreground(mouse_x, mouse_y);
   }
 }
 
@@ -3135,7 +3347,6 @@ void displayFreq(double fr)
           setPixel(currentX+p,currentY+3,0,0,bb);
         }
     }
-
 }
 
 void setFreq(double fr)
