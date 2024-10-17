@@ -1897,8 +1897,22 @@ void *WaitMouseEvent(void * arg)
   int y = 0;
   int scroll = 0;
   int fd;
+  char command[20];
+  char buffer[3];
   bool left_button_action = false;
-  if ((fd = open("/dev/input/event0", O_RDONLY)) < 0)
+
+  int number = 0;
+  FILE *nb_event = popen("ls -l /dev/input/by-id/ | grep 'mouse' | grep 'event' | tail -c2", "r");
+
+  if (!nb_event) { perror("popen"); exit(1); };
+  fscanf(nb_event, " %d", &number);
+  pclose(nb_event);
+
+  strcpy(command, "/dev/input/event");
+  sprintf(buffer, "%d", number);
+  strcat(command, buffer);
+
+  if ((fd = open(command, O_RDONLY)) < 0)
   {
     perror("evdev open");
     exit(1);
@@ -2220,9 +2234,9 @@ if(buttonTouched(downButtonX,downButtonY))    //Down
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) < minHwFreq) freq=(minHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) > maxHwFreq) freq=(maxHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         setFreq(freq);
-        gotoXY(downButtonX,downButtonY);
-        setForeColour(0,255,0);
-        displayButton("Down");
+        //gotoXY(downButtonX,downButtonY);
+        //setForeColour(0,255,0);
+        //displayButton("Down");
         //refreshMouseBackground();
         //draw_cursor_foreground(mouse_x, mouse_y);
         return;
@@ -2269,9 +2283,9 @@ if(buttonTouched(upButtonX,upButtonY))    //up
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) < minHwFreq) freq=(minHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) > maxHwFreq) freq=(maxHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         setFreq(freq);
-        gotoXY(upButtonX,upButtonY);
-        setForeColour(0,255,0);
-        displayButton("Up");
+        //gotoXY(upButtonX,upButtonY);
+        //setForeColour(0,255,0);
+        //displayButton("Up");
         //refreshMouseBackground();
         //draw_cursor_foreground(mouse_x, mouse_y);
         return;

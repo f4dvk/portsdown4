@@ -1806,7 +1806,7 @@ int CheckMouse()
   FILE *fp;
   char response_line[255];
 
-  // Read the Webcam address if it is present
+  // Read the mouse address if it is present
 
   fp = popen("ls -l /dev/input | grep 'mouse'", "r");
   if (fp == NULL)
@@ -7785,9 +7785,23 @@ void *WaitMouseEvent(void * arg)
   int scroll = 0;
   int fd;
 
+  char command[20];
+  char buffer[3];
+
   bool left_button_action = false;
 
-  if ((fd = open("/dev/input/event0", O_RDONLY)) < 0)
+  int number = 0;
+  FILE *nb_event = popen("ls -l /dev/input/by-id/ | grep 'mouse' | grep 'event' | tail -c2", "r");
+
+  if (!nb_event) { perror("popen"); exit(1); };
+  fscanf(nb_event, " %d", &number);
+  pclose(nb_event);
+
+  strcpy(command, "/dev/input/event");
+  sprintf(buffer, "%d", number);
+  strcat(command, buffer);
+
+  if ((fd = open(command, O_RDONLY)) < 0)
   {
     perror("evdev open");
     exit(1);

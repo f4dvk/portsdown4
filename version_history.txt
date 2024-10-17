@@ -1,3 +1,6 @@
+202410170
+Amelioration detection souris fonctionnement sans tactile
+
 202410150
 Controle Langstone avec souris sans ecran tactile (pluto)
 
