@@ -115,7 +115,20 @@ int *web_y_ptr;                // pointer
 int web_x;                     // click x 0 - 799 from left
 int web_y;                     // click y 0 - 480 from top
 char WebClickForAction[7] = "no";  // no/yes
-pthread_t thwebclick;          //  Listens for mouse clicks from web interface
+bool mouse_active = false;             // set true after first movement of mouse
+bool MouseClickForAction = false;      // set true on left click of mouse
+int mouse_x;                           // click x 0 - 799 from left
+int mouse_y;                           // click y 0 - 479 from top
+bool image_complete = true;            // prevents mouse image buffer from being copied until image is complete
+bool mouse_connected = false;          // Set true if mouse detected at startup
+pthread_t thwebclick;          //  Listens for clicks from web interface
+pthread_t thmouse;          //  Listens to the mouse
+
+int CheckMouse();
+void *WaitMouseEvent(void * arg);
+void handle_mouse();
+int scroll_change = 0;
+
 double bandFreq[numband] = {50.200,70.200,144.200,432.200,1296.200,2320.200,2400.100,3400.100,5760.100,10368.200,24048.200,10489.55,433.2,433.2,433.2,433.2,433.2,433.2,1296.2,1296.2,1296.2,1296.2,1296.2,1296.2};
 double bandTxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-5328.0,-9936.0,-23616.0,-10069.5,0,0,0,0,0,0,0,0,0,0,0,0};
 double bandRxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-5328.0,-9936.0,-23616.0,-10345.0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -136,12 +149,6 @@ float bandSmeterZero[numband]={-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-
 int bandSSBFiltLow[numband]={300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300};
 int bandSSBFiltHigh[numband]={3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000};
 int bandFFTBW[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-
-//// A supprimer après modifications ////
-void refreshMouseBackground();
-void draw_cursor_foreground();
-bool mouse_connected;
-////////////////////////////////////////
 
 #define minFreq 0.0
 #define maxFreq 99999.99999
@@ -355,14 +362,22 @@ int main(int argc, char* argv[])
   initFifos();
   initScreen();
   initGPIO();
-  if(touchPresent) initTouch(touchPath);
-  if(mousePresent) initMouse(mousePath);
+  if(touchPresent)
+  {
+    initTouch(touchPath);
+  }
+  else
+  {
+    handle_mouse();
+  }
+  if((mousePresent) && (touchPresent)) initMouse(mousePath);
   initGUI();
   initSDR();
   togglewebcontrol();
   //              RGB Vals   Black >  Blue  >  Green  >  Yellow   >   Red     4 gradients    //number of gradients is varaible
   gen_palette((char [][3]){ {0,0,0},{0,0,255},{0,255,0},{255,255,0},{255,0,0}},4);
 
+  refreshMouseBackground();
 
   while(1)
   {
@@ -385,8 +400,24 @@ int main(int argc, char* argv[])
         fprintf(stderr,"Web touchX = %d, touchY = %d\n", touchX, touchY);
         processTouch();
       }
+    else if (MouseClickForAction == true)
+     {
+       touchX = mouse_x;
+       touchY = mouse_y;
+       MouseClickForAction = false;
+       printf("Mouse rawX = %d, rawY = %d\n", touchX, touchY);
+       processTouch();
+       refreshMouseBackground();
+     }
 
-    if(mousePresent)
+    if (scroll_change)
+    {
+      processMouse(128);
+      scroll_change = 0;
+      refreshMouseBackground();
+    }
+
+    if ((mousePresent) && (touchPresent))
       {
         int but=getMouse();
         if(but>0)
@@ -647,7 +678,7 @@ void waterfall()
         }
 
         //draw spectrum line
-  
+
         scaling = spectrum_rows/(float)(fftref-baselevel);
         for(int p=0;p<points-1;p++)
         {
@@ -1746,6 +1777,158 @@ void togglewebcontrol()
   fprintf(stderr, "Creating thread as webclick listener is not running\n");
   pthread_create (&thwebclick, NULL, &WebClickListener, NULL);
   fprintf(stderr, "Created webclick listener thread\n");
+}
+
+void *WaitMouseEvent(void * arg)
+{
+  int x = 0;
+  int y = 0;
+  int scroll = 0;
+  int fd;
+  char command[20];
+  char buffer[3];
+  bool left_button_action = false;
+
+  int number = 0;
+  FILE *nb_event = popen("ls -l /dev/input/by-id/ | grep 'mouse' | grep 'event' | tail -c2", "r");
+
+  if (!nb_event) { perror("popen"); exit(1); };
+  fscanf(nb_event, " %d", &number);
+  pclose(nb_event);
+
+  strcpy(command, "/dev/input/event");
+  sprintf(buffer, "%d", number);
+  strcat(command, buffer);
+
+  if ((fd = open(command, O_RDONLY)) < 0)
+  {
+    perror("evdev open");
+    exit(1);
+  }
+  struct input_event ev;
+  while(1)
+  {
+    read(fd, &ev, sizeof(struct input_event));
+    if (ev.type == 2)  // EV_REL
+    {
+      if (ev.code == 0) // x
+      {
+        x = x + ev.value;
+        if (x < 0)
+        {
+          x = 0;
+        }
+        if (x > 799)
+        {
+          x = 799;
+        }
+        //printf("value %d, type %d, code %d, x_pos %d, y_pos %d\n",ev.value,ev.type,ev.code, x, y);
+        //printf("x_pos %d, y_pos %d\n", x, y);
+        mouse_active = true;
+        draw_cursor2(x, y);
+      }
+      else if (ev.code == 1) // y
+      {
+        y = y - ev.value;
+        if (y < 0)
+        {
+          y = 0;
+        }
+        if (y > 479)
+        {
+          y = 479;
+        }
+        //printf("value %d, type %d, code %d, x_pos %d, y_pos %d\n",ev.value,ev.type,ev.code, x, y);
+        //printf("x_pos %d, y_pos %d\n", x, y);
+        mouse_active = true;
+        while (image_complete == false)  // Wait for menu to be drawn
+        {
+          usleep(1000);
+        }
+        draw_cursor2(x, y);
+      }
+      else if (ev.code == 8) // scroll wheel
+      {
+        scroll = scroll + ev.value;
+        mouseScroll = mouseScroll + ev.value;
+        scroll_change = 1;
+        //printf("value %d, type %d, code %d, scroll %d\n",ev.value,ev.type,ev.code, scroll);
+      }
+      else
+      {
+        //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+      }
+    }
+    else if (ev.type == 4)  // EV_MSC
+    {
+      if (ev.code == 4) // ?
+      {
+        if (ev.value == 589825)
+        {
+          //printf("value %d, type %d, code %d, left mouse click \n", ev.value, ev.type, ev.code);
+          //printf("Waiting for up or down signal\n");
+          left_button_action = true;
+        }
+        if (ev.value == 589826)
+        {
+          printf("value %d, type %d, code %d, right mouse click \n", ev.value, ev.type, ev.code);
+        }
+      }
+    }
+    else if (ev.type == 1)
+    {
+      //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+      if ((left_button_action == true) && (ev.code == 272) && (ev.value == 1) && (mouse_active == true))
+      {
+        mouse_x = x;
+        mouse_y = 479 - y;
+        MouseClickForAction = true;
+      }
+      left_button_action = false;
+    }
+    else
+    {
+      //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+    }
+  }
+}
+
+int CheckMouse()
+{
+  FILE *fp;
+  char response_line[255];
+  // Read the Webcam address if it is present
+  fp = popen("ls -l /dev/input | grep 'mouse'", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+  // Response is "crw-rw---- 1 root input 13, 32 Apr 29 17:02 mouse0" if present, null if not
+  // So, if there is a response, return 0.
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) > 1)
+    {
+      pclose(fp);
+      return 0;
+    }
+  }
+  pclose(fp);
+  return 1;
+}
+
+void handle_mouse()
+{
+  // First check if mouse is connected
+  if (CheckMouse() != 0)    // Mouse not connected
+  {
+    return;
+  }
+  mouse_connected = true;
+  printf("Starting Mouse Thread\n");
+  pthread_create (&thmouse, NULL, &WaitMouseEvent, NULL);
 }
 
 void *WebClickListener(void * arg)

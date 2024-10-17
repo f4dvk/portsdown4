@@ -134,6 +134,7 @@ pthread_t thmouse;          //  Listens to the mouse
 int CheckMouse();
 void *WaitMouseEvent(void * arg);
 void handle_mouse();
+int scroll_change = 0;
 
 double bandFreq[numband] = {70.200,144.200,432.200,1296.200,2320.200,2400.100,3400.100,5760.100,10368.200,24048.200,47088.2,10489.55,433.2,433.2,433.2,433.2,433.2,433.2,1296.2,1296.2,1296.2,1296.2,1296.2,1296.2};
 double bandTxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-9936.0,-23616.0,-46656.0,-10069.5,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -431,6 +432,13 @@ int main(int argc, char* argv[])
        refreshMouseBackground();
      }
 
+    if (scroll_change)
+    {
+      processMouse(128);
+      scroll_change = 0;
+      refreshMouseBackground();
+    }
+
     if ((mousePresent) && (touchPresent))
       {
         int but=getMouse();
@@ -498,9 +506,6 @@ int main(int argc, char* argv[])
       }
 
     }
-
-
-
 
     waterfall();
 
@@ -1962,8 +1967,8 @@ void *WaitMouseEvent(void * arg)
       else if (ev.code == 8) // scroll wheel
       {
         scroll = scroll + ev.value;
-        //mouseScroll = mouseScroll + ev.value;
-        //processMouse(128);
+        mouseScroll = mouseScroll + ev.value;
+        scroll_change = 1;
         //printf("value %d, type %d, code %d, scroll %d\n",ev.value,ev.type,ev.code, scroll);
       }
       else
@@ -2234,11 +2239,6 @@ if(buttonTouched(downButtonX,downButtonY))    //Down
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) < minHwFreq) freq=(minHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) > maxHwFreq) freq=(maxHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         setFreq(freq);
-        //gotoXY(downButtonX,downButtonY);
-        //setForeColour(0,255,0);
-        //displayButton("Down");
-        //refreshMouseBackground();
-        //draw_cursor_foreground(mouse_x, mouse_y);
         return;
       }
 
@@ -2283,11 +2283,6 @@ if(buttonTouched(upButtonX,upButtonY))    //up
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) < minHwFreq) freq=(minHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         if(((freq + bandRxOffset[band])/bandRxHarmonic[band]) > maxHwFreq) freq=(maxHwFreq - bandRxOffset[band])/bandRxHarmonic[band];
         setFreq(freq);
-        //gotoXY(upButtonX,upButtonY);
-        //setForeColour(0,255,0);
-        //displayButton("Up");
-        //refreshMouseBackground();
-        //draw_cursor_foreground(mouse_x, mouse_y);
         return;
       }
 
@@ -2406,16 +2401,12 @@ if(buttonTouched(funcButtonsX,funcButtonsY))    //Button 1 = BAND or MENU
     {
       writeConfig();
       displayPopupBand();
-      //refreshMouseBackground();
-      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
     }
     else
     {
       setInputMode(FREQ);
       clearPopUp();
-      //refreshMouseBackground();
-      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
     }
 
@@ -2426,16 +2417,12 @@ if(buttonTouched(funcButtonsX+buttonSpaceX,funcButtonsY))    //Button 2 = MODE o
      if((inputMode==FREQ) && (popupSel!=MODE))
       {
       displayPopupMode();
-      //refreshMouseBackground();
-      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
       }
       else
       {
       setInputMode(FREQ);
       clearPopUp();
-      //refreshMouseBackground();
-      //draw_cursor_foreground(mouse_x, mouse_y);
       return;
       }
     }
@@ -2477,7 +2464,6 @@ if(buttonTouched(funcButtonsX+buttonSpaceX*2,funcButtonsY))  // Button 3 =Blank 
         }
       if(settingNo==numSettings) settingNo=0;
       displaySetting(settingNo);
-      //refreshMouseBackground();
       return;
       }
       else
@@ -2502,7 +2488,6 @@ if(buttonTouched(funcButtonsX+buttonSpaceX*3,funcButtonsY))    // Button4 =SET o
         }
       if(settingNo<0) settingNo=numSettings-1;
       displaySetting(settingNo);
-      //refreshMouseBackground();
       return;
       }
     else
@@ -2612,8 +2597,6 @@ if((touchY>freqDisplayY) & (touchY < freqDisplayY+freqDisplayCharHeight) & (touc
     tuneDigit=tx;
     setFreqInc();
     setFreq(freq);
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
     return;
   }
 
@@ -2843,24 +2826,18 @@ if(inputMode==SETTINGS)
   displayStr("                                                ");
   writeConfig();
   displayMenu();
-  //refreshMouseBackground();
-  //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==VOLUME)
   {
     gotoXY(volButtonX,volButtonY);
     setForeColour(0,255,0);
     displayButton("Vol");
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==SQUELCH)
   {
     gotoXY(sqlButtonX,sqlButtonY);
     setForeColour(0,255,0);
     displayButton("SQL");
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==RIT)
   {
@@ -2870,8 +2847,6 @@ if(inputMode==RIT)
     gotoXY(ritButtonX,ritButtonY+buttonSpaceY);
     setForeColour(0,0,0);
     displayButton("Zero");
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 
 inputMode=m;
@@ -2903,24 +2878,18 @@ if(inputMode==SETTINGS)
     displayButton1x12("SHUTDOWN");
     mouseScroll=0;
     displaySetting(settingNo);
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==VOLUME)
   {
     gotoXY(volButtonX,volButtonY);
     setForeColour(255,0,0);
     displayButton("Vol");
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==SQUELCH)
   {
     gotoXY(sqlButtonX,sqlButtonY);
     setForeColour(255,0,0);
     displayButton("SQL");
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 if(inputMode==RIT)
   {
@@ -2930,8 +2899,6 @@ if(inputMode==RIT)
     gotoXY(ritButtonX,ritButtonY+buttonSpaceY);
     setForeColour(255,0,0);
     displayButton("Zero");
-    //refreshMouseBackground();
-    //draw_cursor_foreground(mouse_x, mouse_y);
   }
 
 }
@@ -2959,8 +2926,6 @@ void setRit(int ri)
   }
   displayStr(ritStr);
   setFreq(freq);
-  //refreshMouseBackground();
-  //draw_cursor_foreground(mouse_x, mouse_y);
   }
 }
 
