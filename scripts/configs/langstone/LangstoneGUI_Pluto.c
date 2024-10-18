@@ -124,6 +124,7 @@ int web_y;                     // click y 0 - 480 from top
 char WebClickForAction[7] = "no";  // no/yes
 bool mouse_active = false;             // set true after first movement of mouse
 bool MouseClickForAction = false;      // set true on left click of mouse
+bool MouseClickRight = false;
 int mouse_x;                           // click x 0 - 799 from left
 int mouse_y;                           // click y 0 - 479 from top
 bool image_complete = true;            // prevents mouse image buffer from being copied until image is complete
@@ -431,11 +432,16 @@ int main(int argc, char* argv[])
        processTouch();
        refreshMouseBackground();
      }
-
-    if (scroll_change)
+   else if (scroll_change)
     {
       processMouse(128);
       scroll_change = 0;
+      refreshMouseBackground();
+    }
+   else if (MouseClickRight)
+    {
+      processMouse(2+128);
+      MouseClickRight = 0;
       refreshMouseBackground();
     }
 
@@ -2001,6 +2007,12 @@ void *WaitMouseEvent(void * arg)
         mouse_y = 479 - y;
         MouseClickForAction = true;
       }
+      else if ((ev.code == 273) && (ev.value == 1) && (mouse_active == true))
+      {
+        mouse_x = x;
+        mouse_y = 479 - y;
+        MouseClickRight = true;
+      }
       left_button_action = false;
     }
     else
@@ -2149,10 +2161,11 @@ void processMouse(int mbut)
       if((inputMode==SETTINGS)&&((settingNo==CWID)||(settingNo==BAND_BITS_RX)||(settingNo==BAND_BITS_TX)))
        {
          setIndex=setIndex+1;
-         if(setIndex>maxSetIndex) setIndex=maxSetIndex;
+         if((setIndex>maxSetIndex)&&(!MouseClickRight)) setIndex=maxSetIndex;
+         else if(setIndex>maxSetIndex) setIndex=0;
          displaySetting(settingNo);
        }
-      else
+      else if(!MouseClickRight)
        {
          tuneDigit=tuneDigit+1;
          if(tuneDigit > maxTuneDigit) tuneDigit=maxTuneDigit;
