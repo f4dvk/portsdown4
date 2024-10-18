@@ -363,10 +363,7 @@ echo "-----------------------------------------------"
 echo "----- Installing RTL-SDR Drivers and Apps -----"
 echo "-----------------------------------------------"
 cd /home/pi
-wget https://github.com/f4dvk/rtl-sdr/archive/master.zip
-unzip master.zip
-mv rtl-sdr-master rtl-sdr
-rm master.zip
+git clone https://github.com/osmocom/rtl-sdr.git
 
 # Compile and install rtl-sdr
 cd rtl-sdr/ && mkdir build && cd build

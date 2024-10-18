@@ -4765,6 +4765,7 @@ void RTLstart()
 {
   char fragment[31];
   char fragment11[12];
+  float freq;
 
   if(RTLdetected == 1)
   {
@@ -4801,20 +4802,23 @@ void RTLstart()
     strcpyn(fragment11, RTLfreq[0], 11);
     snprintf(fragment, 18, " -f %sM", fragment11); // -f frequencyM
     strcat(rtlcall, fragment);
-    if (strcmp(RTLmode[0], "am") == 0)
+    if ((strcmp(RTLmode[0], "am") == 0) || (strcmp(RTLmode[0], "fm") == 0))
     {
       strcat(rtlcall, " -s 12k");
     }
-    if (strcmp(RTLmode[0], "fm") == 0)
+    else if ((strcmp(RTLmode[0], "usb") == 0) || (strcmp(RTLmode[0], "lsb") == 0))
     {
-      strcat(rtlcall, " -s 12k");
+      strcat(rtlcall, " -s 6k");
     }
-    if ((strcmp(RTLmode[0], "dmr") == 0) || (strcmp(RTLmode[0], "ysf") == 0) || (strcmp(RTLmode[0], "dstar") == 0))
+    else if ((strcmp(RTLmode[0], "dmr") == 0) || (strcmp(RTLmode[0], "ysf") == 0) || (strcmp(RTLmode[0], "dstar") == 0))
     {
       strcat(rtlcall, " -s 16k");
     }
-    snprintf(fragment, 12, " -g %d", RTLgain[0]); // -g gain
-    strcat(rtlcall, fragment);
+    if (RTLgain[0] != 0)
+    {
+      snprintf(fragment, 12, " -g %d", RTLgain[0]); // -g gain
+      strcat(rtlcall, fragment);
+    }
     if ((RTLsquelchoveride == 1) && ((strcmp(RTLmode[0], "dmr") != 0) && (strcmp(RTLmode[0], "ysf") != 0) && (strcmp(RTLmode[0], "dstar") != 0)))
     {
       snprintf(fragment, 12, " -l %d", RTLsquelch[0]); // -l squelch
@@ -4822,7 +4826,13 @@ void RTLstart()
     }
     snprintf(fragment, 12, " -p %d", RTLppm); // -p ppm_error
     strcat(rtlcall, fragment);
-    strcpy(fragment, " -E pad"); // -E pad so that aplay does not crash
+    freq = atof(RTLfreq[0]);
+    if (freq < 25)
+    {
+      strcpy(fragment, " -E direct2");
+      strcat(rtlcall, fragment);
+    }
+    strcpy(fragment, " -E dc"); // -E pad so that aplay does not crash
     strcat(rtlcall, fragment);
     if ((strcmp(RTLmode[0], "dmr") == 0) || (strcmp(RTLmode[0], "ysf") == 0) || (strcmp(RTLmode[0], "dstar") == 0))
     {
