@@ -56,14 +56,14 @@ ChooseBandViewerSDR()
   # Set default start code to be Portsdown main menu
   BANDVIEW_START_CODE=129
 
-  # Check for presence of Airspy   
+  # Check for presence of Airspy
   lsusb | grep -q 'Airspy'
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=140
     return
   fi
 
-  # Check for presence of SDRplay   
+  # Check for presence of SDRplay
   lsusb | grep -q '1df7:'
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=144
@@ -89,7 +89,7 @@ ChooseBandViewerSDR()
   if [ $? == 0 ]; then   ## Present
     BANDVIEW_START_CODE=141
     return
-  fi 
+  fi
 
   # Check for the presence of a Pluto (can false positive on 192.168.2.* LANs)
   # Look up Pluto IP
@@ -132,6 +132,7 @@ ChooseBandViewerSDR()
 # 148  Exit from rpidatvgui requesting start of Pluto NF Meter
 # 149  Exit from rpidatvgui requesting start of Pluto Noise Meter
 # 150  Run the Meteor Viewer
+# 155  Run the Lanstone RX V2 RtlSdr
 # 160  Shutdown from GUI
 # 192  Reboot from GUI
 # 193  Rotate 7 inch and reboot
@@ -180,6 +181,9 @@ case "$MODE_STARTUP" in
       ;;
       v2pluto)
         GUI_RETURN_CODE=146
+      ;;
+      v2rtlsdr)
+        GUI_RETURN_CODE=155
       ;;
       none)
         GUI_RETURN_CODE=129
@@ -332,7 +336,7 @@ while true; do
               DisplayMsg " "                # Display Blank screen
               /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
             else
-              RPISTATE="Ready"     
+              RPISTATE="Ready"
             fi
           else
             RPISTATE="Ready"
@@ -346,7 +350,7 @@ while true; do
       GUI_RETURN_CODE="$?"
 
       if [ $GUI_RETURN_CODE != 129 ] && [ $GUI_RETURN_CODE != 160 ]; then     # Not Portsdown and not shutdown
-        GUI_RETURN_CODE=144                         # So restart sdrplayview        
+        GUI_RETURN_CODE=144                         # So restart sdrplayview
       fi
     ;;
     145)                              # Langstone V2 Lime
@@ -368,6 +372,15 @@ while true; do
       ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "$PLUTOIP" >/dev/null 2>/dev/null
       # ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "pluto.local" >/dev/null 2>/dev/null
       timeout 2 sshpass -p analog ssh -o StrictHostKeyChecking=no root@"$PLUTOIP" 'PATH=/bin:/sbin:/usr/bin:/usr/sbin;reboot'
+      sleep 2
+      GUI_RETURN_CODE="129"
+    ;;
+    155)                              # Langstone V2 RtlSdr
+      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+      cd /home/pi
+      /home/pi/Langstone/run_RtlSdr
+      /home/pi/Langstone/stop_RtlSdr
+      /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
@@ -418,7 +431,7 @@ while true; do
               DisplayMsg " "                # Display Blank screen
               /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh &
             else
-              RPISTATE="Ready"     
+              RPISTATE="Ready"
             fi
           else
             RPISTATE="Ready"
@@ -432,7 +445,7 @@ while true; do
       GUI_RETURN_CODE="$?"
 
       if [ $GUI_RETURN_CODE != 129 ] && [ $GUI_RETURN_CODE != 160 ]; then     # Not Portsdown and not shutdown
-        GUI_RETURN_CODE=150                         # So restart meteorview        
+        GUI_RETURN_CODE=150                         # So restart meteorview
       fi
     ;;
     160)
@@ -517,5 +530,3 @@ while true; do
     ;;
   esac
 done
-
-

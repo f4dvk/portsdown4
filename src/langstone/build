@@ -1,5 +1,6 @@
 cc /home/pi/rpidatv/src/gui/ffunc.c /home/pi/rpidatv/src/gui/ffunc.h -lpthread /home/pi/Langstone/LangstoneGUI_Pluto.c -o /home/pi/Langstone/GUI_Pluto -liio -lLimeSuite -lwiringPi -lpthread -ldl -lfcgi -rdynamic
 cc /home/pi/rpidatv/src/gui/ffunc.c /home/pi/rpidatv/src/gui/ffunc.h -lpthread /home/pi/Langstone/LangstoneGUI_Lime.c -o /home/pi/Langstone/GUI_Lime -lLimeSuite -lwiringPi -lpthread -ldl -lfcgi -rdynamic
+cc /home/pi/rpidatv/src/gui/ffunc.c /home/pi/rpidatv/src/gui/ffunc.h -lpthread /home/pi/Langstone/LangstoneGUI_RtlSdr.c -o /home/pi/Langstone/GUI_RtlSdr -lwiringPi -lpthread -ldl -lfcgi -rdynamic
 cc /home/pi/Langstone/HW_Test.c -o /home/pi/Langstone/HW_Test -lwiringPi
 cc /home/pi/Langstone/Pluto_Test.c -o /home/pi/Langstone/Pluto_Test -liio
 cc /home/pi/Langstone/selectSDR.c -o /home/pi/Langstone/select

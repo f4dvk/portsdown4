@@ -655,6 +655,14 @@ make
 cp rydemon ../../bin/
 cd /home/pi
 
+# Compile Langstone
+echo
+echo "------------------------------------------"
+echo "----------- Compiling Langstone ----------"
+echo "------------------------------------------"
+/home/pi/rpidatv/add_langstone2.Sh
+cd /home/pi
+
 #echo
 #echo "-----------------------------------------"
 #echo "----- Compiling Ancilliary programs -----"

@@ -1,0 +1,18 @@
+RESULT=1
+while [ "$RESULT" -gt 0 ]
+do
+
+  /home/pi/Langstone/select
+  RESULT=$?
+  if [ "$RESULT" -eq 92 ]
+  then
+    /home/pi/Langstone/run_pluto
+  fi
+
+  if [ "$RESULT" -eq 91 ]
+  then
+    /home/pi/Langstone/run_lime
+  fi
+done
+
+sudo cp /home/pi/Langstone/splash.bgra /dev/fb0

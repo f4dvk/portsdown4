@@ -65,6 +65,8 @@ sudo make install
 sudo ldconfig
 cd /home/pi
 
+sudo apt-get -y install gr-osmosdr
+
 echo
 # Install libiio and dependencies if required (may already be there for Pluto SigGen)
 if [ ! -d  /home/pi/libiio ]; then
@@ -93,9 +95,8 @@ echo "###################################"
 sudo rm -rf /home/pi/Langstone >/dev/null 2>/dev/null
 
 cd /home/pi
-git clone https://github.com/g4eml/Langstone-V2.git
-mv Langstone-V2 Langstone
-cp -f /home/pi/rpidatv/scripts/configs/langstone/* /home/pi/Langstone/
+mkdir /home/pi/Langstone
+cp -f /home/pi/rpidatv/src/langstone/* /home/pi/Langstone/
 cd Langstone
 chmod +x build
 chmod +x run_lime

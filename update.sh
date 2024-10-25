@@ -788,6 +788,16 @@ make
 cp rydemon ../../bin/
 cd /home/pi
 
+echo
+echo "------------------------------------------"
+echo "------------ Update Langstone ------------"
+echo "------------------------------------------"
+if grep -q langstone=none "$PATHSCRIPT"/portsdown_config.txt; then
+  /home/pi/rpidatv/add_langstone2.sh
+else
+  /home/pi/rpidatv/scripts/update_langstone2.sh
+fi
+
 # Compile and install the executable for GPIO-switched transmission (201710080)
 echo "Installing keyedtx"
 cd /home/pi/rpidatv/src/keyedtx

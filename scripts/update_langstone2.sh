@@ -19,10 +19,10 @@ cp -f /home/pi/Langstone/Langstone_Pluto.conf /home/pi/rpidatv/scripts/configs/L
 # Remove the old Langstone build
 rm -rf /home/pi/Langstone
 
-# Clone the latest version
-git clone http://www.github.com/g4eml/Langstone-V2
-mv Langstone-V2 Langstone
-cp -f /home/pi/rpidatv/scripts/configs/langstone/* /home/pi/Langstone/
+sudo apt-get -y install gr-osmosdr
+
+mkdir /home/pi/Langstone
+cp -f /home/pi/rpidatv/src/langstone/* /home/pi/Langstone/
 
 # Restore the old Config files
 cp -f /home/pi/rpidatv/scripts/configs/Langstone_Lime.conf /home/pi/Langstone/Langstone_Lime.conf
