@@ -145,6 +145,7 @@ class Lang_RX_RtlSdr(gr.top_block):
         self.connect((self.blocks_complex_to_real_0_0, 0), (self.blocks_multiply_const_vxx_2_1_0, 0))
         self.connect((self.blocks_float_to_complex_0, 0), (self.analog_agc3_xx_0, 0))
         self.connect((self.blocks_multiply_const_vxx_1, 0), (self.audio_sink_0, 0))
+        self.connect((self.blocks_multiply_const_vxx_1, 0), (self.audio_sink_0, 1))
         self.connect((self.blocks_multiply_const_vxx_1, 0), (self.audio_sink_1, 0))
         self.connect((self.blocks_multiply_const_vxx_2, 0), (self.blocks_add_xx_1_0, 0))
         self.connect((self.blocks_multiply_const_vxx_2_0, 0), (self.blocks_add_xx_1, 1))
