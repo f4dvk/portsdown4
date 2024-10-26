@@ -1,5 +1,8 @@
+202410261
+Correction detection carte son
+
 202410260
-Essai detectin carte audio Langstone
+Essai detection carte audio Langstone
 
 202410250
 Langstone ajout RX avec RTLSDR

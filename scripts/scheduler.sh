@@ -15,6 +15,7 @@ PATHSCRIPT=/home/pi/rpidatv/scripts
 PATHRPI=/home/pi/rpidatv/bin
 PATHCONFIGS="/home/pi/rpidatv/scripts/configs"  ## Path to config files
 PCONFIGFILE="/home/pi/rpidatv/scripts/portsdown_config.txt"
+RCONFIGFILE="/home/pi/rpidatv/scripts/longmynd_config.txt"
 
 ############ Function to Read from Config File ###############
 
@@ -376,11 +377,19 @@ while true; do
       GUI_RETURN_CODE="129"
     ;;
     155)                              # Langstone V2 RtlSdr
-      AUDIO_DEV="$(cat /proc/asound/modules | grep -E 'usb_audio|simple_card' | head -c 2 | tail -c 1)"
+      AUDIO=$(get_config_var audio $RCONFIGFILE)
 
-      if [ "$AUDIO_DEV" == '' ]; then
-        printf "USB Dongle audio device was not found\n"
+      if [ "$AUDIO" == "usb" ]; then
+        AUDIO_DEV="$(cat /proc/asound/modules | grep -E 'usb_audio|simple_card' | head -c 2 | tail -c 1)"
+        if [ "$AUDIO_DEV" == '' ]; then
+          printf "USB Dongle audio device was not found\n"
+          GUI_RETURN_CODE="129"
+          break
+        fi
+      elif [ "$AUDIO" == "hdmi" ]; then
         AUDIO_DEV="$(cat /proc/asound/modules | grep 'snd_bcm2835' | head -c 2 | tail -c 1)"
+      else
+        AUDIO_DEV="$(aplay -l | grep bcm2835 | head -1 | cut -c6-6)"
       fi
 
       /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
