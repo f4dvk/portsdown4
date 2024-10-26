@@ -115,7 +115,7 @@ class Lang_RX_RtlSdr(gr.top_block):
                 100,
                 firdes.WIN_HAMMING,
                 6.76))
-        self.audio_sink_0 = audio.sink(48000, "hw:CARD=Device,DEV=0", False)
+        self.audio_sink_0 = audio.sink(48000, "hw:"+sys.argv[1]+",0", False)
         self.audio_sink_1 = audio.sink(48000, "plughw:Loopback,0,2", False)
         self.analog_pwr_squelch_xx_0 = analog.pwr_squelch_cc(SQL-100, 0.001, 0, False)
         self.analog_nbfm_rx_0 = analog.nbfm_rx(

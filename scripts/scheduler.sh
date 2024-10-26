@@ -376,9 +376,16 @@ while true; do
       GUI_RETURN_CODE="129"
     ;;
     155)                              # Langstone V2 RtlSdr
+      AUDIO_DEV="$(cat /proc/asound/modules | grep -E 'usb_audio|simple_card' | head -c 2 | tail -c 1)"
+
+      if [ "$AUDIO_DEV" == '' ]; then
+        printf "USB Dongle audio device was not found\n"
+        AUDIO_DEV="$(cat /proc/asound/modules | grep 'snd_bcm2835' | head -c 2 | tail -c 1)"
+      fi
+
       /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
-      /home/pi/Langstone/run_RtlSdr
+      /home/pi/Langstone/run_RtlSdr $AUDIO_DEV
       /home/pi/Langstone/stop_RtlSdr
       /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2

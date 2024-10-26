@@ -1,6 +1,8 @@
 #
 #!/bin/bash
 
+Card=$1
+
 #Create command pipe
 if test -e /tmp/langstoneRx ;then
 rm /tmp/langstoneRx
@@ -15,7 +17,7 @@ if !(ps -ax |grep -v grep| grep -q Lang_RX_RtlSdr.py) then
    sudo raspi-gpio set 17,18 pu
 
    #start up the GNU Radio flowgraph
-   python /home/pi/Langstone/Lang_RX_RtlSdr.py > /tmp/LangstoneRX_RtlSdr.log 2>&1 &
+   python /home/pi/Langstone/Lang_RX_RtlSdr.py $Card > /tmp/LangstoneRX_RtlSdr.log 2>&1 &
    sleep 10
 
    #check that the GNU module started corretly
