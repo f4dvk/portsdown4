@@ -1,3 +1,6 @@
+202410260
+Essai detectin carte audio Langstone
+
 202410250
 Langstone ajout RX avec RTLSDR
 Langstone installation et mise à jour avec portsdown
