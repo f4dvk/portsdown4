@@ -33,6 +33,10 @@ chmod +x /home/pi/Langstone/run_lime
 chmod +x /home/pi/Langstone/stop_lime
 chmod +x /home/pi/Langstone/run_pluto
 chmod +x /home/pi/Langstone/stop_pluto
+chmod +x /home/pi/Langstone/run_RtlSdr
+chmod +x /home/pi/Langstone/stop_RtlSdr
+chmod +x /home/pi/Langstone/run_Rtlhf
+chmod +x /home/pi/Langstone/stop_Rtlhf
 chmod +x /home/pi/Langstone/update
 chmod +x /home/pi/Langstone/set_pluto
 chmod +x /home/pi/Langstone/set_sdr

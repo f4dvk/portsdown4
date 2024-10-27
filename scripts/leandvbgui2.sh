@@ -262,8 +262,12 @@ echo "The RPi Jack Audio Card number is -"$RPIJ_AUDIO_DEV"-"
 USBOUT_AUDIO_DEV="$(aplay -l 2> /dev/null | grep 'USB Audio' | cut -c6-6)"
 
 if [ "$USBOUT_AUDIO_DEV" == '' ]; then
-  printf "USB Dongle audio device was not found, setting to RPi Jack\n"
-  USBOUT_AUDIO_DEV=$RPIJ_AUDIO_DEV
+  printf "USB Dongle audio device was not found\n"
+  USBOUT_AUDIO_DEV="$(aplay -l 2> /dev/null | grep HDMI | cut -c6-6)"
+  if [ "$USBOUT_AUDIO_DEV" == '' ]; then
+    printf "HDMI audio device was not found, setting to RPi Jack\n"
+    USBOUT_AUDIO_DEV=$RPIJ_AUDIO_DEV
+  fi
 fi
 
 # Take only the first character

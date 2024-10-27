@@ -103,6 +103,10 @@ chmod +x run_lime
 chmod +x stop_lime
 chmod +x run_pluto
 chmod +x stop_pluto
+chmod +x run_RtlSdr
+chmod +x stop_RtlSdr
+chmod +x run_Rtlhf
+chmod +x stop_Rtlhf
 chmod +x update
 chmod +x set_pluto
 chmod +x set_sdr

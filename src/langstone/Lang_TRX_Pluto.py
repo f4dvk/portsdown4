@@ -165,7 +165,7 @@ class Lang_TRX_Pluto(gr.top_block):
         self.band_pass_filter_0 = filter.fir_filter_ccc(1, firdes.complex_band_pass(
         	1, 48000, Rx_Filt_Low, Rx_Filt_High, 100, firdes.WIN_HAMMING, 6.76))
         self.audio_source_0 = audio.source(48000, "hw:CARD=Device,DEV=0", False)
-        self.audio_sink_0 = audio.sink(48000, "hw:CARD=Device,DEV=0", False)
+        self.audio_sink_0 = audio.sink(48000, "hw:"+sys.argv[1]+",0", False)
         self.audio_sink_1 = audio.sink(48000, "plughw:Loopback,0,2", False)
         self.analog_sig_source_x_1_0 = analog.sig_source_f(48000, analog.GR_SIN_WAVE, CTCSS/10.0, 0.15 * (CTCSS >0), 0)
         self.analog_sig_source_x_1 = analog.sig_source_f(48000, analog.GR_COS_WAVE, 1750, 1.0*ToneBurst, 0)
@@ -228,6 +228,7 @@ class Lang_TRX_Pluto(gr.top_block):
         self.connect((self.blocks_multiply_const_vxx_0, 0), (self.blocks_add_const_vxx_0_0, 0))
         self.connect((self.blocks_multiply_const_vxx_0_0, 0), (self.blocks_add_xx_0, 1))
         self.connect((self.blocks_multiply_const_vxx_1, 0), (self.audio_sink_0, 0))
+        self.connect((self.blocks_multiply_const_vxx_1, 0), (self.audio_sink_0, 1))
         self.connect((self.blocks_multiply_const_vxx_1, 0), (self.audio_sink_1, 0))
         self.connect((self.blocks_multiply_const_vxx_2, 0), (self.blocks_add_xx_1_0, 0))
         self.connect((self.blocks_multiply_const_vxx_2_0, 0), (self.blocks_add_xx_1, 1))
@@ -426,7 +427,7 @@ def docommands(tb):
     os.mkfifo("/tmp/langstoneTRx")
   except OSError as oe:
     if oe.errno != errno.EEXIST:
-      raise    
+      raise
   ex=False
   lastbase=0
   while not ex:
@@ -437,19 +438,19 @@ def docommands(tb):
          for line in filein:
            line=line.strip()
            if line[0]=='Q':
-              ex=True                  
+              ex=True
            if line[0]=='U':
               value=int(line[1:])
               tb.set_Rx_Mute(value)
            if line[0]=='H':
               value=int(line[1:])
-              if value==1:   
+              if value==1:
                   tb.lock()
               if value==0:
-                  tb.unlock() 
+                  tb.unlock()
            if line[0]=='O':
               value=int(line[1:])
-              tb.set_RxOffset(value)  
+              tb.set_RxOffset(value)
            if line[0]=='V':
               value=int(line[1:])
               tb.set_AFGain(value)
@@ -461,30 +462,30 @@ def docommands(tb):
               tb.set_Rx_Gain(value)
            if line[0]=='S':
               value=int(line[1:])
-              tb.set_SQL(value) 
+              tb.set_SQL(value)
            if line[0]=='F':
               value=int(line[1:])
-              tb.set_Rx_Filt_High(value) 
+              tb.set_Rx_Filt_High(value)
            if line[0]=='I':
               value=int(line[1:])
-              tb.set_Rx_Filt_Low(value) 
+              tb.set_Rx_Filt_Low(value)
            if line[0]=='M':
               value=int(line[1:])
-              tb.set_Rx_Mode(value) 
+              tb.set_Rx_Mode(value)
               tb.set_Tx_Mode(value)
            if line=='R':
-              tb.set_PTT(False) 
+              tb.set_PTT(False)
            if line=='T':
               tb.set_PTT(True)
            if line[0]=='K':
               value=int(line[1:])
-              tb.set_KEY(value) 
+              tb.set_KEY(value)
            if line[0]=='B':
               value=int(line[1:])
-              tb.set_ToneBurst(value) 
+              tb.set_ToneBurst(value)
            if line[0]=='G':
               value=int(line[1:])
-              tb.set_MicGain(value) 
+              tb.set_MicGain(value)
            if line[0]=='g':
               value=int(line[1:])
               tb.set_FMMIC(value)
@@ -493,23 +494,23 @@ def docommands(tb):
               tb.set_AMMIC(value)
            if line[0]=='f':
               value=int(line[1:])
-              tb.set_Tx_Filt_High(value) 
+              tb.set_Tx_Filt_High(value)
            if line[0]=='i':
               value=int(line[1:])
-              tb.set_Tx_Filt_Low(value)     
+              tb.set_Tx_Filt_Low(value)
            if line[0]=='l':
               value=int(line[1:])
-              tb.set_Tx_LO(value)  
+              tb.set_Tx_LO(value)
            if line[0]=='a':
               value=int(line[1:])
-              tb.set_Tx_Gain(value)     
+              tb.set_Tx_Gain(value)
            if line[0]=='C':
               value=int(line[1:])
-              tb.set_CTCSS(value) 
+              tb.set_CTCSS(value)
            if line[0]=='W':
               value=int(line[1:])
-              tb.set_FFT_SEL(value)   
-                                                                 
+              tb.set_FFT_SEL(value)
+
        except:
          break
 

@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0
 #
 # GNU Radio Python Flow Graph
-# Title: Lang Rx Rtlsdr
+# Title: Lang Rx Rtlhf
 # GNU Radio version: v3.8.2.0-57-gd71cd177
 
 import os
@@ -26,10 +26,10 @@ from gnuradio.fft import logpwrfft
 import osmosdr
 import time
 
-class Lang_RX_RtlSdr(gr.top_block):
+class Lang_RX_Rtlhf(gr.top_block):
 
     def __init__(self):
-        gr.top_block.__init__(self, "Lang Rx Rtlsdr")
+        gr.top_block.__init__(self, "Lang Rx Rtlhf")
 
         ##################################################
         # Variables
@@ -37,7 +37,7 @@ class Lang_RX_RtlSdr(gr.top_block):
         self.SQL = SQL = 50
         self.Rx_Mute = Rx_Mute = False
         self.Rx_Mode = Rx_Mode = 3
-        self.Rx_LO = Rx_LO = 432250000
+        self.Rx_LO = Rx_LO = 7100000
         self.Rx_Filt_Low = Rx_Filt_Low = 300
         self.Rx_Filt_High = Rx_Filt_High = 3000
         self.RxOffset = RxOffset = 0
@@ -48,7 +48,7 @@ class Lang_RX_RtlSdr(gr.top_block):
         # Blocks
         ##################################################
         self.rtlsdr_source_0 = osmosdr.source(
-            args="numchan=" + str(1) + " " + "driver=rtlsdr,soapy=0"
+            args="numchan=" + str(1) + " " + "rtl=0,direct_samp=2"
         )
         self.rtlsdr_source_0.set_time_unknown_pps(osmosdr.time_spec_t())
         self.rtlsdr_source_0.set_sample_rate(2112000)
@@ -294,17 +294,8 @@ def docommands(tb):
          break
 
 
-def main(top_block_cls=Lang_RX_RtlSdr, options=None):
+def main(top_block_cls=Lang_RX_Rtlhf, options=None):
     tb = top_block_cls()
-
-    #def sig_handler(sig=None, frame=None):
-    #    tb.stop()
-    #    tb.wait()
-
-    #    sys.exit(0)
-
-    #signal.signal(signal.SIGINT, sig_handler)
-    #signal.signal(signal.SIGTERM, sig_handler)
 
     tb.start()
     docommands(tb)

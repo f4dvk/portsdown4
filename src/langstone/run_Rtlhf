@@ -4,29 +4,29 @@
 Card=$1
 
 #Create command pipe
-if test -e /tmp/langstoneTRx ;then
-rm /tmp/langstoneTRx
+if test -e /tmp/langstoneRx ;then
+rm /tmp/langstoneRx
 fi
-mkfifo /tmp/langstoneTRx
+mkfifo /tmp/langstoneRx
 
 #Test to see if the flowgraph is already running
-if !(ps -ax |grep -v grep| grep -q Lang_TRX_Lime.py) then
+if !(ps -ax |grep -v grep| grep -q Lang_RX_RtlSdr.py) then
    sudo amixer -c1 cset numid=6 100%  > /dev/null 2>&1
    sudo amixer -c1 cset numid=8 50%  > /dev/null 2>&1
-   sudo cp /home/pi/Langstone/splashload_Lime.bgra /dev/fb0
+   sudo cp /home/pi/Langstone/splashload_RtlSdr.bgra /dev/fb0
    sudo raspi-gpio set 17,18 pu
 
    #start up the GNU Radio flowgraph
-   python /home/pi/Langstone/Lang_TRX_Lime.py $Card > /tmp/LangstoneTRX_Lime.log 2>&1 &
+   python /home/pi/Langstone/Lang_RX_Rtlhf.py $Card > /tmp/LangstoneRX_Rtlhf.log 2>&1 &
    sleep 10
 
    #check that the GNU module started corretly
 
-   if (ps -ax | grep -v grep| grep -q Lang_TRX_Lime.py)then
+   if (ps -ax | grep -v grep| grep -q Lang_RX_Rtlhf.py)then
       # If it did then start the GUI
-      /home/pi/Langstone/GUI_Lime > /tmp/LangstoneGUI_Lime.log 2>&1
+      /home/pi/Langstone/GUI_Rtlhf > /tmp/LangstoneGUI_Rtlhf.log 2>&1
    else
-      # If not then display the error screen
+      # If not then display the error screen ## Image à créer !!
       sudo cp /home/pi/Langstone/gnufail_Lime.bgra /dev/fb0
       sleep 5
    fi

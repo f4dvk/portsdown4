@@ -133,7 +133,8 @@ ChooseBandViewerSDR()
 # 148  Exit from rpidatvgui requesting start of Pluto NF Meter
 # 149  Exit from rpidatvgui requesting start of Pluto Noise Meter
 # 150  Run the Meteor Viewer
-# 155  Run the Lanstone RX V2 RtlSdr
+# 155  Run the Langstone RX V2 RtlSdr
+# 156  Run the Langstone RX V2 Rtl HF
 # 160  Shutdown from GUI
 # 192  Reboot from GUI
 # 193  Rotate 7 inch and reboot
@@ -185,6 +186,9 @@ case "$MODE_STARTUP" in
       ;;
       v2rtlsdr)
         GUI_RETURN_CODE=155
+      ;;
+      v2rtlhf)
+        GUI_RETURN_CODE=156
       ;;
       none)
         GUI_RETURN_CODE=129
@@ -355,18 +359,48 @@ while true; do
       fi
     ;;
     145)                              # Langstone V2 Lime
+      AUDIO=$(get_config_var audio $RCONFIGFILE)
+
+      if [ "$AUDIO" == "usb" ]; then
+        AUDIO_DEV="$(cat /proc/asound/modules | grep -E 'usb_audio|simple_card' | head -c 2 | tail -c 1)"
+        if [ "$AUDIO_DEV" == '' ]; then
+          printf "USB Dongle audio device was not found\n"
+          GUI_RETURN_CODE="129"
+          break
+        fi
+      elif [ "$AUDIO" == "hdmi" ]; then
+        AUDIO_DEV="$(aplay -l | grep HDMI | head -1 | cut -c6-6)"
+      else
+        AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
+      fi
+
       /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
-      /home/pi/Langstone/run_lime
+      /home/pi/Langstone/run_lime $AUDIO_DEV
       /home/pi/Langstone/stop_lime
       /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
     146)                              # Langstone V2 Pluto
+      AUDIO=$(get_config_var audio $RCONFIGFILE)
+
+      if [ "$AUDIO" == "usb" ]; then
+        AUDIO_DEV="$(cat /proc/asound/modules | grep -E 'usb_audio|simple_card' | head -c 2 | tail -c 1)"
+        if [ "$AUDIO_DEV" == '' ]; then
+          printf "USB Dongle audio device was not found\n"
+          GUI_RETURN_CODE="129"
+          break
+        fi
+      elif [ "$AUDIO" == "hdmi" ]; then
+        AUDIO_DEV="$(aplay -l | grep HDMI | head -1 | cut -c6-6)"
+      else
+        AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
+      fi
+
       /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
-      /home/pi/Langstone/run_pluto
+      /home/pi/Langstone/run_pluto $AUDIO_DEV
       /home/pi/Langstone/stop_pluto
       /home/pi/rpidatv/scripts/stop_web_update.sh
       PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
@@ -387,15 +421,39 @@ while true; do
           break
         fi
       elif [ "$AUDIO" == "hdmi" ]; then
-        AUDIO_DEV="$(cat /proc/asound/modules | grep 'snd_bcm2835' | head -c 2 | tail -c 1)"
+        AUDIO_DEV="$(aplay -l | grep HDMI | head -1 | cut -c6-6)"
       else
-        AUDIO_DEV="$(aplay -l | grep bcm2835 | head -1 | cut -c6-6)"
+        AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
       fi
 
       /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run_RtlSdr $AUDIO_DEV
       /home/pi/Langstone/stop_RtlSdr
+      /home/pi/rpidatv/scripts/stop_web_update.sh
+      sleep 2
+      GUI_RETURN_CODE="129"
+    ;;
+    156)                              # Langstone V2 Rtl HF
+      AUDIO=$(get_config_var audio $RCONFIGFILE)
+
+      if [ "$AUDIO" == "usb" ]; then
+        AUDIO_DEV="$(cat /proc/asound/modules | grep -E 'usb_audio|simple_card' | head -c 2 | tail -c 1)"
+        if [ "$AUDIO_DEV" == '' ]; then
+          printf "USB Dongle audio device was not found\n"
+          GUI_RETURN_CODE="129"
+          break
+        fi
+      elif [ "$AUDIO" == "hdmi" ]; then
+        AUDIO_DEV="$(aplay -l | grep HDMI | head -1 | cut -c6-6)"
+      else
+        AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
+      fi
+
+      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+      cd /home/pi
+      /home/pi/Langstone/run_Rtlhf $AUDIO_DEV
+      /home/pi/Langstone/stop_Rtlhf
       /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"

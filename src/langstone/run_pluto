@@ -1,9 +1,11 @@
 #
 #!/bin/bash
 
+Card=$1
+
 # Do not Change this line directly.
-# Please use the command ./set_pluto to configure the Pluto IP address if required. 
-# This will ensure that all necessary files are updated, including this one. 
+# Please use the command ./set_pluto to configure the Pluto IP address if required.
+# This will ensure that all necessary files are updated, including this one.
 
 export PLUTO_IP=pluto.local
 
@@ -19,7 +21,7 @@ if !(ps -ax |grep -v grep| grep -q Lang_TRX_Pluto.py) then
    sudo amixer -c1 cset numid=8 50%  > /dev/null 2>&1
    sudo cp /home/pi/Langstone/splashload_Pluto.bgra /dev/fb0
    sudo raspi-gpio set 17,18 pu
-   
+
    retry=0
    until [ ${retry} -ge 4 ]
    do
@@ -44,7 +46,7 @@ if !(ps -ax |grep -v grep| grep -q Lang_TRX_Pluto.py) then
    fi
 
    #start up the GNU Radio flowgraph
-   python /home/pi/Langstone/Lang_TRX_Pluto.py > /tmp/LangstoneTRX_Pluto.log 2>&1 &
+   python /home/pi/Langstone/Lang_TRX_Pluto.py $Card > /tmp/LangstoneTRX_Pluto.log 2>&1 &
    sleep 10
 
    #check that the GNU module started corretly
@@ -53,7 +55,7 @@ if !(ps -ax |grep -v grep| grep -q Lang_TRX_Pluto.py) then
       # If it did then start the GUI
       /home/pi/Langstone/GUI_Pluto > /tmp/LangstoneGUI_Pluto.log 2>&1
    else
-      # If not then display the error screen  
+      # If not then display the error screen
       sudo cp /home/pi/Langstone/gnufail_Pluto.bgra /dev/fb0
       sleep 5
    fi

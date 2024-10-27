@@ -16764,6 +16764,19 @@ void do_Langstone()
         wait_touch();
       }
     }
+    if (strcmp(langstone_version, "v2rtlhf") == 0)
+    {
+      if (CheckRTL() == 0)
+      {
+        cleanexit(156);  // Start Langstone v2 for Rtl HF
+      }
+      else
+      {
+        MsgBox4("No RtlSdr connected", "",
+                "Please correct and try again", "Touch Screen to Continue");
+        wait_touch();
+      }
+    }
   }
   else
   {
@@ -18263,7 +18276,7 @@ void ChangeStartApp(int NoButton)
     break;
   case 6:
     if ((strcmp(langstone_version, "v1pluto") == 0) || (strcmp(langstone_version, "v2lime") == 0)
-     || (strcmp(langstone_version, "v2pluto") == 0) || (strcmp(langstone_version, "v2rtlsdr") == 0))
+     || (strcmp(langstone_version, "v2pluto") == 0) || (strcmp(langstone_version, "v2rtlsdr") == 0) || (strcmp(langstone_version, "v2rtlhf") == 0))
     {
       SetConfigParam(PATH_PCONFIG, "startup", "Langstone_boot");
       strcpy(StartApp, "Langstone_boot");
@@ -18320,7 +18333,8 @@ void ChangePlutoIPLangstone()  // For Langstone
   if ((strcmp(langstone_version, "v1pluto") != 0)
   &&  (strcmp(langstone_version, "v2lime") != 0)
   &&  (strcmp(langstone_version, "v2pluto") != 0)
-  &&  (strcmp(langstone_version, "v2rtlsdr") != 0))
+  &&  (strcmp(langstone_version, "v2rtlsdr") != 0)
+  &&  (strcmp(langstone_version, "v2rtlhf") != 0))
   {
     MsgBox2("Langstone not installed", "Please install Langstone, then set Pluto IP");
     wait_touch();
@@ -20017,6 +20031,16 @@ void waituntil(int w,int h)
             UpdateWindow();
           }
           else if (strcmp(langstone_version, "v2rtlsdr") == 0)
+          {
+            SetButtonStatus(ButtonNumber(2, 15), 1);  // and highlight button
+            UpdateWindow();
+            do_Langstone();
+            SetButtonStatus(ButtonNumber(2, 15), 0);  // unhighlight button
+            setBackColour(0, 0, 0);
+            clearScreen();
+            UpdateWindow();
+          }
+          else if (strcmp(langstone_version, "v2rtlhf") == 0)
           {
             SetButtonStatus(ButtonNumber(2, 15), 1);  // and highlight button
             UpdateWindow();
@@ -22820,7 +22844,8 @@ void waituntil(int w,int h)
           }
           if ((strcmp(langstone_version, "v2pluto") == 0)
            || (strcmp(langstone_version, "v2lime") == 0)
-           || (strcmp(langstone_version, "v2rtlsdr") == 0))   // Langstone V2 installed
+           || (strcmp(langstone_version, "v2rtlsdr") == 0)
+           || (strcmp(langstone_version, "v2rtlhf") == 0))   // Langstone V2 installed
           {
             printf("Updating Langstone V2\n");
             SetButtonStatus(ButtonNumber(39, 2), 1);
@@ -22849,7 +22874,7 @@ void waituntil(int w,int h)
           break;
         case 7:                               // Toggle between Langstone V2 Lime and Langstone V2 Pluto
           printf("Changing Langstone V2 between Pluto, Lime and RtlSdr\n");
-          if (strcmp(langstone_version, "v2rtlsdr") == 0)
+          if (strcmp(langstone_version, "v2rtlhf") == 0)
           {
             strcpy(langstone_version, "v2pluto");
             SetConfigParam(PATH_PCONFIG, "langstone", "v2pluto");
@@ -22863,6 +22888,11 @@ void waituntil(int w,int h)
           {
             strcpy(langstone_version, "v2rtlsdr");
             SetConfigParam(PATH_PCONFIG, "langstone", "v2rtlsdr");
+          }
+          else if (strcmp(langstone_version, "v2rtlsdr") == 0)
+          {
+            strcpy(langstone_version, "v2rtlhf");
+            SetConfigParam(PATH_PCONFIG, "langstone", "v2rtlhf");
           }
           Start_Highlights_Menu39();
           UpdateWindow();
@@ -22915,6 +22945,16 @@ void waituntil(int w,int h)
             UpdateWindow();
           }
           else if (strcmp(langstone_version, "v2rtlsdr") == 0)
+          {
+            SetButtonStatus(ButtonNumber(39, 9), 1);  // and highlight button
+            UpdateWindow();
+            do_Langstone();
+            SetButtonStatus(ButtonNumber(39, 9), 0);  // unhighlight button
+            setBackColour(0, 0, 0);
+            clearScreen();
+            UpdateWindow();
+          }
+          else if (strcmp(langstone_version, "v2rtlhf") == 0)
           {
             SetButtonStatus(ButtonNumber(39, 9), 1);  // and highlight button
             UpdateWindow();
@@ -24746,7 +24786,8 @@ void Start_Highlights_Menu2()
   if ((strcmp(langstone_version, "v1pluto") == 0)
    || (strcmp(langstone_version, "v2pluto") == 0)
    || (strcmp(langstone_version, "v2lime") == 0)
-   || (strcmp(langstone_version, "v2rtlsdr") == 0))
+   || (strcmp(langstone_version, "v2rtlsdr") == 0)
+   || (strcmp(langstone_version, "v2rtlhf") == 0))
   {
     AmendButtonStatus(ButtonNumber(2, 15), 0, "Switch to^Langstone", &Blue);
     AmendButtonStatus(ButtonNumber(2, 15), 1, "Switch to^Langstone", &Green);
@@ -28749,7 +28790,7 @@ void Start_Highlights_Menu34()         // Start-up App
 
   // Over-ride if Langstone not installed (set to Grey)
   if ((strcmp(langstone_version, "v1pluto") != 0) && (strcmp(langstone_version, "v2lime") != 0)
-   && (strcmp(langstone_version, "v2pluto") != 0) && (strcmp(langstone_version, "v2rtlsdr") != 0))
+   && (strcmp(langstone_version, "v2pluto") != 0) && (strcmp(langstone_version, "v2rtlsdr") != 0) && (strcmp(langstone_version, "v2rtlhf") != 0))
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2);
   }
@@ -29119,6 +29160,7 @@ void Define_Menu39()
   AddButtonStatus(button,"Langstone^use Pluto",&Blue);
   AddButtonStatus(button,"Langstone^use Lime",&Blue);
   AddButtonStatus(button,"Langstone^use RtlSdr",&Blue);
+  AddButtonStatus(button,"Langstone^use RtlHF",&Blue);
   AddButtonStatus(button,"Langstone^use Pluto",&Grey);
 
   button = CreateButton(39, 9);
@@ -29144,7 +29186,7 @@ void Start_Highlights_Menu39()
     //SetButtonStatus(ButtonNumber(39, 2), 0);
     SetButtonStatus(ButtonNumber(39, 5), 2);
     SetButtonStatus(ButtonNumber(39, 6), 0);
-    SetButtonStatus(ButtonNumber(39, 7), 3);
+    SetButtonStatus(ButtonNumber(39, 7), 4);
   }
   if (strcmp(langstone_version, "v2lime") == 0)
   {
@@ -29166,6 +29208,13 @@ void Start_Highlights_Menu39()
     SetButtonStatus(ButtonNumber(39, 5), 0);
     SetButtonStatus(ButtonNumber(39, 6), 2);
     SetButtonStatus(ButtonNumber(39, 7), 2);
+  }
+  if (strcmp(langstone_version, "v2rtlhf") == 0)
+  {
+    //SetButtonStatus(ButtonNumber(39, 2), 0);
+    SetButtonStatus(ButtonNumber(39, 5), 0);
+    SetButtonStatus(ButtonNumber(39, 6), 2);
+    SetButtonStatus(ButtonNumber(39, 7), 3);
   }
 }
 
