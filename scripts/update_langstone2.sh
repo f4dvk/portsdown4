@@ -46,4 +46,23 @@ chmod +x /home/pi/Langstone/stop_both
 
 /home/pi/Langstone/build
 
+cd /home/pi
+
+if [ ! $(find /home/pi -name gr-dsd) ]; then
+  echo "#################################"
+  echo "##         Install DSD         ##"
+  echo "#################################"
+  sudo apt-get -y install libsndfile1-dev libboost-all-dev libcppunit-dev libitpp-dev liblog4cpp5-dev swig
+  git clone https://github.com/argilo/gr-dsd
+  cd gr-dsd
+  git checkout ab4a739
+  mkdir build
+  cd build
+  cmake ..
+  make
+  sudo make install
+  sudo ldconfig
+  cd /home/pi
+fi
+
 exit

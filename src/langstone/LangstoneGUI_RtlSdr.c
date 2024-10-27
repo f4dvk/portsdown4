@@ -61,7 +61,6 @@ void S_Meter(void);
 void setRit(int rit);
 void setInputMode(int n);
 void gen_palette(char colours[][3],int num_grads);
-void setRtlSdrRxGain(int gain);
 void setBand(int b);
 long long runTimeMs(void);
 void clearPopUp(void);
@@ -72,9 +71,6 @@ void displayError(char*st);
 void flushUDP(void);
 void setFFTBW(int bw);
 
-
-int minGain(double freq);
-int maxGain(double freq);
 void setDialLock(int d);
 int firstpass=1;
 double freq;
@@ -109,7 +105,6 @@ int bandMode[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 int bandBitsRx[numband]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23};
 int bandSquelch[numband]={30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30};
 int bandFFTRef[numband]={-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10};
-int bandRxGain[numband]={73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73,73};
 int bandCTCSS[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 float bandSmeterZero[numband]={-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80};
 int bandSSBFiltLow[numband]={300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300};
@@ -118,20 +113,18 @@ int bandFFTBW[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 #define minHwFreq 24.000000
 #define maxHwFreq 1750.000000
-#define MAXRXGAIN 50
-#define MINRXGAIN 0
 
-#define nummode 6
+#define nummode 7
 int mode=0;
 int lastmode=0;
-char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM "};
-enum {USB,LSB,CW,CWN,FM,AM};
+char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM ","DMR"};
+enum {USB,LSB,CW,CWN,FM,AM,DMR};
 
-#define numSettings 10
+#define numSettings 9
 
-char * settingText[numSettings]={"Rx Gain= ","CTCSS= "," Rx Offset= ","Rx Harmonic Mixing= ","Band Bits (Rx)= ","FFT Ref= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ", "24 Bands= "};
-enum {RX_GAIN,CTCSS,RX_OFFSET,RX_HARMONIC,BAND_BITS_RX,FFT_REF,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,BANDS24};
-int settingNo=RX_GAIN;
+char * settingText[numSettings]={"CTCSS= "," Rx Offset= ","Rx Harmonic Mixing= ","Band Bits (Rx)= ","FFT Ref= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ", "24 Bands= "};
+enum {CTCSS,RX_OFFSET,RX_HARMONIC,BAND_BITS_RX,FFT_REF,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,BANDS24};
+int settingNo=CTCSS;
 int setIndex=0;
 int maxSetIndex=10;
 
@@ -229,7 +222,6 @@ int TxAtt=0;
 int tuneDigit=8;
 #define maxTuneDigit 11
 
-#define TXDELAY 10000      //10ms delay between setting Tx output bit and sending tx command to SDR
 #define RXDELAY 10000       //10ms delay between sending rx command to SDR and setting Tx output bit low.
 
 #define BurstLength 500000     //length of 1750Hz Burst   500ms
@@ -893,15 +885,6 @@ void setRtlSdrRxFreq(long long rxfreq)
   sendFifo(freqStr);
 }
 
-void setRtlSdrRxGain(int gain)
-{
-  char gStr[10];
-  if(gain > 50) gain=50;
-  if(gain < 0) gain=0;
-  sprintf(gStr,"A%d",gain);
-  sendFifo(gStr);
-}
-
 void initUDP(void)
 {
    struct sockaddr_in myaddr;
@@ -1133,7 +1116,7 @@ void initGUI()
   displayMenu();
   setBand(band);
 
-  if(mode==FM)
+  if((mode==FM) || (mode==DMR))
     {
     sqlButton(1);
     }
@@ -1729,7 +1712,7 @@ if(buttonTouched(volButtonX,volButtonY))    //Vol
 
 if(buttonTouched(sqlButtonX,sqlButtonY))    //sql
     {
-     if(mode==FM)
+     if((mode==FM) || (mode==DMR))
      {
       if(inputMode==SQUELCH)
         {
@@ -1996,7 +1979,6 @@ void setBand(int b)
   setSquelch(squelch);
   setCTCSS(bandCTCSS[band]);
   FFTRef=bandFFTRef[band];
-  setRtlSdrRxGain(bandRxGain[band]);
   configCounter=configDelay;
 }
 
@@ -2021,7 +2003,7 @@ void setSquelch(int sql)
   char sqlStr[10];
   sprintf(sqlStr,"S%d",sql);
   sendFifo(sqlStr);
-  if(mode==FM)
+  if((mode==FM) || (mode==DMR))
   {
   setForeColour(0,255,0);
   textSize=2;
@@ -2128,7 +2110,7 @@ void setRit(int ri)
 {
   char ritStr[10];
   int to;
-  if(!((mode==FM) || (mode==AM)))
+  if(!((mode==FM) || (mode==AM) || (mode==DMR)))
   {
   rit=ri;
   setForeColour(0,255,0);
@@ -2258,6 +2240,15 @@ void setMode(int md)
     setRxFilter(-5000,5000);    //AM Filter
     setFreq(freq);    //set the frequency to adjust for CW offset.
     sqlButton(0);
+    ritButton(0);
+    setRit(0);
+    }
+  if (md==DMR)
+    {
+    sendFifo("M6");    // DSD DMR RX
+    setRxFilter(-7500, 7500);    //FM Filter
+    setFreq(freq);    //set the frequency to adjust for CW offset.
+    sqlButton(1);
     ritButton(0);
     setRit(0);
     }
@@ -2579,15 +2570,6 @@ void changeSetting(void)
       bandFFTRef[band]=FFTRef;
       displaySetting(settingNo);
       }
-     if(settingNo==RX_GAIN)        // Rx Gain Setting
-      {
-        bandRxGain[band]=bandRxGain[band]+mouseScroll;
-        if (bandRxGain[band] > MAXRXGAIN) bandRxGain[band]=MAXRXGAIN;
-        if (bandRxGain[band] < MINRXGAIN) bandRxGain[band]=MINRXGAIN;
-        mouseScroll=0;
-        setRtlSdrRxGain(bandRxGain[band]);
-        displaySetting(settingNo);
-      }
     if(settingNo==S_ZERO)        // S Meter Zero
       {
       bandSmeterZero[band]=bandSmeterZero[band]+mouseScroll;
@@ -2687,11 +2669,6 @@ void displaySetting(int se)
   sprintf(valStr,"%d",FFTRef);
   displayStr(valStr);
   }
-  if(se==RX_GAIN)
-  {
-  sprintf(valStr,"%d dB",bandRxGain[band]);
-  displayStr(valStr);
-  }
   if(se==S_ZERO)
   {
   sprintf(valStr,"%.0f dB",bandSmeterZero[band]);
@@ -2763,8 +2740,6 @@ while(fscanf(conffile,"%49s %99s [^\n]\n",variable,value) !=EOF)
     if(strstr(variable,vname)) sscanf(value,"%d",&bandFFTRef[b]);
     sprintf(vname,"bandSquelch%02d",b);
     if(strstr(variable,vname)) sscanf(value,"%d",&bandSquelch[b]);
-    sprintf(vname,"bandRxGain%02d",b);
-    if(strstr(variable,vname)) sscanf(value,"%d",&bandRxGain[b]);
     sprintf(vname,"bandSmeterZero%02d",b);
     if(strstr(variable,vname)) sscanf(value,"%f",&bandSmeterZero[b]);
     sprintf(vname,"bandSSBFiltLow%02d",b);
@@ -2824,7 +2799,6 @@ for(int b=0;b<numband;b++)
   fprintf(conffile,"bandRxBits%02d %d\n",b,bandBitsRx[b]);
   fprintf(conffile,"bandFFTRef%02d %d\n",b,bandFFTRef[b]);
   fprintf(conffile,"bandSquelch%02d %d\n",b,bandSquelch[b]);
-  fprintf(conffile,"bandRxGain%02d %d\n",b,bandRxGain[b]);
   fprintf(conffile,"bandSmeterZero%02d %f\n",b,bandSmeterZero[b]);
   fprintf(conffile,"bandSSBFiltLow%02d %d\n",b,bandSSBFiltLow[b]);
   fprintf(conffile,"bandSSBFiltHigh%02d %d\n",b,bandSSBFiltHigh[b]);

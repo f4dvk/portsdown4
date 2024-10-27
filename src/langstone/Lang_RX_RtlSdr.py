@@ -25,6 +25,7 @@ from gnuradio import eng_notation
 from gnuradio.fft import logpwrfft
 import osmosdr
 import time
+import dsd
 
 class Lang_RX_RtlSdr(gr.top_block):
 
@@ -58,6 +59,11 @@ class Lang_RX_RtlSdr(gr.top_block):
         self.rtlsdr_source_0.set_iq_balance_mode(2, 0)
         self.rtlsdr_source_0.set_gain_mode(True, 0)
         self.rtlsdr_source_0.set_antenna('', 0)
+        self.rational_resampler_xxx_0 = filter.rational_resampler_fff(
+                interpolation=6,
+                decimation=1,
+                taps=None,
+                fractional_bw=None)
         self.rational_resampler_xxx_1_1 = filter.rational_resampler_ccc(
                 interpolation=1,
                 decimation=2,
@@ -81,6 +87,7 @@ class Lang_RX_RtlSdr(gr.top_block):
             avg_alpha=0.9,
             average=True)
         self.freq_xlating_fir_filter_xxx_0 = filter.freq_xlating_fir_filter_ccc(44, firdes.low_pass(1,2112000,23000,2000), RxOffset, 2112000)
+        self.dsd_block_ff_0 = dsd.dsd_block_ff(dsd.dsd_FRAME_AUTO_DETECT,dsd.dsd_MOD_AUTO_SELECT,3,False,0)
         self.blocks_udp_sink_0 = blocks.udp_sink(gr.sizeof_float*512, '127.0.0.1', 7373, 1472, False)
         self.blks2_selector_0 = grc_blks2.selector(
         	item_size=gr.sizeof_gr_complex*1,
@@ -89,6 +96,7 @@ class Lang_RX_RtlSdr(gr.top_block):
         	input_index=FFT_SEL,
         	output_index=0,
         )
+        self.blocks_multiply_const_vxx_6 = blocks.multiply_const_ff(Rx_Mode==6)
         self.blocks_multiply_const_vxx_2_1_0 = blocks.multiply_const_ff(1.0 + (Rx_Mode==5))
         self.blocks_multiply_const_vxx_2_1 = blocks.multiply_const_ff(Rx_Mode==5)
         self.blocks_multiply_const_vxx_2_0 = blocks.multiply_const_ff((Rx_Mode==4) * 0.2)
@@ -129,6 +137,7 @@ class Lang_RX_RtlSdr(gr.top_block):
         ##################################################
         self.connect((self.analog_agc3_xx_0, 0), (self.blocks_complex_to_real_0_0, 0))
         self.connect((self.analog_nbfm_rx_0, 0), (self.blocks_multiply_const_vxx_2_0, 0))
+        self.connect((self.analog_nbfm_rx_0, 0), (self.blocks_multiply_const_vxx_6, 0))
         self.connect((self.analog_pwr_squelch_xx_0, 0), (self.analog_nbfm_rx_0, 0))
         self.connect((self.band_pass_filter_0, 0), (self.analog_pwr_squelch_xx_0, 0))
         self.connect((self.band_pass_filter_0, 0), (self.blocks_complex_to_mag_0, 0))
@@ -147,6 +156,8 @@ class Lang_RX_RtlSdr(gr.top_block):
         self.connect((self.blocks_multiply_const_vxx_2_1, 0), (self.blocks_add_xx_1_0, 1))
         self.connect((self.blocks_multiply_const_vxx_2_1_0, 0), (self.blocks_add_xx_1, 0))
         self.connect((self.blks2_selector_0, 0), (self.logpwrfft_x_0_1, 0))
+        self.connect((self.blocks_multiply_const_vxx_6, 0), (self.dsd_block_ff_0, 0))
+        self.connect((self.dsd_block_ff_0, 0), (self.rational_resampler_xxx_0, 0))
         self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.band_pass_filter_0, 0))
         self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.blks2_selector_0, 0))
         self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.rational_resampler_xxx_1, 0))
@@ -157,6 +168,7 @@ class Lang_RX_RtlSdr(gr.top_block):
         self.connect((self.rational_resampler_xxx_1_0, 0), (self.blks2_selector_0, 2))
         self.connect((self.rational_resampler_xxx_1_1, 0), (self.blks2_selector_0, 3))
         self.connect((self.rtlsdr_source_0, 0), (self.freq_xlating_fir_filter_xxx_0, 0))
+        self.connect((self.rational_resampler_xxx_0, 0), (self.blocks_add_xx_1, 2))
 
 
     def get_SQL(self):
@@ -178,6 +190,7 @@ class Lang_RX_RtlSdr(gr.top_block):
 
     def set_Rx_Mode(self, Rx_Mode):
         self.Rx_Mode = Rx_Mode
+        self.blocks_multiply_const_vxx_6.set_k(self.Rx_Mode==6)
         self.blocks_multiply_const_vxx_2.set_k(self.Rx_Mode<4)
         self.blocks_multiply_const_vxx_2_0.set_k((self.Rx_Mode==4) * 0.2)
         self.blocks_multiply_const_vxx_2_1.set_k(self.Rx_Mode==5)

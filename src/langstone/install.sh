@@ -179,6 +179,22 @@ cd Langstone
 ./set_sdr
 
 echo "#################################"
+echo "##         Install DSD         ##"
+echo "#################################"
+cd ~
+sudo apt-get -y install libsndfile1-dev libboost-all-dev libcppunit-dev libitpp-dev liblog4cpp5-dev swig
+git clone https://github.com/argilo/gr-dsd
+cd gr-dsd
+git checkout ab4a739
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
+sudo ldconfig
+cd ~
+
+echo "#################################"
 echo "##       Reboot and Start      ##"
 echo "#################################"
 

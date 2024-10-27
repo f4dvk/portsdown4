@@ -1,3 +1,6 @@
+202410271
+Langstone RTL SDR ajout DMR
+
 202410270
 Langstone RTL HF
 
