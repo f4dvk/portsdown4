@@ -1,3 +1,6 @@
+202410290
+Correction bug Langstone Lime et Pluto
+
 202410271
 Langstone RTL SDR ajout DMR
 

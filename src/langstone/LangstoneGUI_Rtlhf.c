@@ -119,10 +119,10 @@ int lastmode=0;
 char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM "};
 enum {USB,LSB,CW,CWN,FM,AM};
 
-#define numSettings 9
+#define numSettings 8
 
-char * settingText[numSettings]={"CTCSS= "," Rx Offset= ","Rx Harmonic Mixing= ","Band Bits (Rx)= ","FFT Ref= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ", "24 Bands= "};
-enum {CTCSS,RX_OFFSET,RX_HARMONIC,BAND_BITS_RX,FFT_REF,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,BANDS24};
+char * settingText[numSettings]={"CTCSS= "," Rx Offset= ","Rx Harmonic Mixing= ","Band Bits (Rx)= ","FFT Ref= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= "};
+enum {CTCSS,RX_OFFSET,RX_HARMONIC,BAND_BITS_RX,FFT_REF,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH};
 int settingNo=CTCSS;
 int setIndex=0;
 int maxSetIndex=10;
@@ -184,8 +184,6 @@ int dialLock=0;
 
 int rxFilterLow;
 int rxFilterHigh;
-
-int bands24 = 0;
 
 int keyDownTimer=0;
 
@@ -1862,14 +1860,9 @@ if(popupSel==BAND)
   if(buttonTouched(popupX,popupY))
   {
   popupFirstBand=popupFirstBand+6;
-  //if(bands24)
-  //{
-  //  if(popupFirstBand>23) popupFirstBand=0;
-  //}
-  //else
-  //{
-    if(popupFirstBand>6) popupFirstBand=0;
-  //}
+
+  if(popupFirstBand>6) popupFirstBand=0;
+
   displayPopupBand();
   }
 
@@ -2515,13 +2508,6 @@ void changeSetting(void)
       setMode(mode);                 //refresh mode to set new filter settings
       displaySetting(settingNo);
       }
-    if(settingNo==BANDS24)        // 24 band mode
-      {
-      if(mouseScroll > 0)   bands24= 1;
-      if(mouseScroll < 0)   bands24= 0;
-      mouseScroll=0;
-      displaySetting(settingNo);
-      }
 }
 
 void displaySetting(int se)
@@ -2603,17 +2589,6 @@ void displaySetting(int se)
   sprintf(valStr,"%d Hz",bandSSBFiltHigh[band]);
   displayStr(valStr);
   }
-  if(se==BANDS24)
-  {
-    if(bands24 == 0)
-    {
-      displayStr("No");
-    }
-    else
-    {
-        displayStr("Yes");
-    }
-  }
 }
 
 int readConfig(void)
@@ -2673,7 +2648,6 @@ while(fscanf(conffile,"%49s %99s [^\n]\n",variable,value) !=EOF)
     if(strstr(variable,"tuneDigit")) sscanf(value,"%d",&tuneDigit);
     if(strstr(variable,"mode")) sscanf(value,"%d",&mode);
     if(strstr(variable,"volume")) sscanf(value,"%d",&volume);
-    if(strstr(variable,"bands24")) sscanf(value,"%d",&bands24);
     if(mode>nummode-1) mode=0;
 
   }
@@ -2728,7 +2702,6 @@ fprintf(conffile,"currentBand %d\n",band);
 fprintf(conffile,"tuneDigit %d\n",tuneDigit);
 fprintf(conffile,"mode %d\n",mode);
 fprintf(conffile,"volume %d\n",volume);
-fprintf(conffile,"bands24 %d\n",bands24);
 
 fclose(conffile);
 return 0;

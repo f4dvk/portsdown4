@@ -19,6 +19,7 @@ from gnuradio.filter import firdes
 from grc_gnuradio import blks2 as grc_blks2
 from optparse import OptionParser
 import limesdr
+import sys
 
 
 class Lang_TRX_Lime(gr.top_block):

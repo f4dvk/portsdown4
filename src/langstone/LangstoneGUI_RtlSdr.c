@@ -66,7 +66,6 @@ long long runTimeMs(void);
 void clearPopUp(void);
 void displayPopupMode(void);
 void displayPopupBand(void);
-void setCTCSS(int t);
 void displayError(char*st);
 void flushUDP(void);
 void setFFTBW(int bw);
@@ -98,14 +97,13 @@ void *WaitMouseEvent(void * arg);
 void handle_mouse();
 int scroll_change = 0;
 
-double bandFreq[numband] = {50.200,70.200,144.200,432.200,1296.200,2320.200,2400.100,3400.100,5760.100,10368.200,24048.200,10489.55,433.2,433.2,433.2,433.2,433.2,433.2,1296.2,1296.2,1296.2,1296.2,1296.2,1296.2};
+double bandFreq[numband] = {28.500,50.200,70.200,144.200,432.200,1296.200,2320.200,2400.100,3400.100,5760.100,10368.200,24048.200,10489.55,433.2,433.2,433.2,433.2,433.2,433.2,1296.2,1296.2,1296.2,1296.2,1296.2};
 double bandRxOffset[numband]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-5328.0,-9936.0,-23616.0,-10345.0,0,0,0,0,0,0,0,0,0,0,0,0};
 int bandRxHarmonic[numband]={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
 int bandMode[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 int bandBitsRx[numband]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23};
 int bandSquelch[numband]={30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30};
 int bandFFTRef[numband]={-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10};
-int bandCTCSS[numband]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 float bandSmeterZero[numband]={-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80,-80};
 int bandSSBFiltLow[numband]={300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300};
 int bandSSBFiltHigh[numband]={3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000};
@@ -120,20 +118,16 @@ int lastmode=0;
 char * modename[nummode]={"USB","LSB","CW ","CWN","FM ","AM ","DMR"};
 enum {USB,LSB,CW,CWN,FM,AM,DMR};
 
-#define numSettings 9
+#define numSettings 8
 
-char * settingText[numSettings]={"CTCSS= "," Rx Offset= ","Rx Harmonic Mixing= ","Band Bits (Rx)= ","FFT Ref= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ", "24 Bands= "};
-enum {CTCSS,RX_OFFSET,RX_HARMONIC,BAND_BITS_RX,FFT_REF,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,BANDS24};
-int settingNo=CTCSS;
+char * settingText[numSettings]={" Rx Offset= ","Rx Harmonic Mixing= ","Band Bits (Rx)= ","FFT Ref= ","S-Meter Zero= ", "SSB Rx Filter Low= ", "SSB Rx Filter High= ", "24 Bands= "};
+enum {RX_OFFSET,RX_HARMONIC,BAND_BITS_RX,FFT_REF,S_ZERO,SSB_FILT_LOW,SSB_FILT_HIGH,BANDS24};
+int settingNo=RX_OFFSET;
 int setIndex=0;
 int maxSetIndex=10;
 
 enum {FREQ,SETTINGS,VOLUME,SQUELCH,RIT};
 int inputMode=FREQ;
-
-#define NUMCTCSS 52
-int CTCSSTone[NUMCTCSS] = {0,670,693,719,744,770,797,825,854,885,915,948,974,1000,1035,1072,1109,1148,1188,1230,1273,1318,1365,1413,1462,1500,1514,1567,1598,1622,1655,1679,1713,1738,1773,1799,1835,1862,1899,1928,1966,1995,2035,2065,2107,2181,2257,2291,2336,2418,2503,2541};
-
 
 //GUI Layout values X and Y coordinates for each group of buttons.
 
@@ -1977,7 +1971,6 @@ void setBand(int b)
   setBandBits(bandBitsRx[band]);
   squelch=bandSquelch[band];
   setSquelch(squelch);
-  setCTCSS(bandCTCSS[band]);
   FFTRef=bandFFTRef[band];
   configCounter=configDelay;
 }
@@ -2130,13 +2123,6 @@ void setRit(int ri)
   displayStr(ritStr);
   setFreq(freq);
   }
-}
-
-void setCTCSS(int t)
-{
-  char ctStr[10];
-  sprintf(ctStr,"C%d",CTCSSTone[t]);
-  sendFifo(ctStr);
 }
 
 void setRxFilter(int low,int high)
@@ -2476,15 +2462,6 @@ if(MCP23017Present==1)                       //optional extender chip has port b
 
 void changeSetting(void)
 {
-    if(settingNo==CTCSS)        //CTCSS Tone
-      {
-        bandCTCSS[band]=bandCTCSS[band]+mouseScroll;
-        if(bandCTCSS[band] < 0 ) bandCTCSS[band]=0;
-        if(bandCTCSS[band] > (NUMCTCSS - 1) ) bandCTCSS[band]= NUMCTCSS - 1;
-        mouseScroll=0;
-        setCTCSS(bandCTCSS[band]);
-        displaySetting(settingNo);
-      }
    if(settingNo==RX_OFFSET)        //Transverter Rx Offset
       {
         bandRxOffset[band]=bandRxOffset[band]-mouseScroll*freqInc;
@@ -2621,11 +2598,6 @@ void displaySetting(int se)
   }
   displayStr(settingText[se]);
 
-  if(se==CTCSS)
-  {
-  sprintf(valStr,"%.1f Hz",CTCSSTone[bandCTCSS[band]]/10.0);
-  displayStr(valStr);
-  }
   if(se==RX_OFFSET)
   {
   sprintf(valStr,"%.5f",bandRxOffset[band]);
@@ -2724,8 +2696,6 @@ while(fscanf(conffile,"%49s %99s [^\n]\n",variable,value) !=EOF)
     if(strstr(variable,vname)) sscanf(value,"%lf",&bandRxOffset[b]);
     sprintf(vname,"bandRxHarmonic%02d",b);
     if(strstr(variable,vname)) sscanf(value,"%d",&bandRxHarmonic[b]);
-    sprintf(vname,"bandCTCSS%02d",b);
-    if(strstr(variable,vname)) sscanf(value,"%d",&bandCTCSS[b]);
 
  //handle old config file format by converting bandbits to bandbitsRx
     sprintf(vname,"bandBits%02d",b);
@@ -2795,7 +2765,6 @@ for(int b=0;b<numband;b++)
   fprintf(conffile,"bandMode%02d %d\n",b,bandMode[b]);
   fprintf(conffile,"bandRxOffSet%02d %lf\n",b,bandRxOffset[b]);
   fprintf(conffile,"bandRxHarmonic%02d %d\n",b,bandRxHarmonic[b]);
-  fprintf(conffile,"bandCTCSS%02d %d\n",b,bandCTCSS[b]);
   fprintf(conffile,"bandRxBits%02d %d\n",b,bandBitsRx[b]);
   fprintf(conffile,"bandFFTRef%02d %d\n",b,bandFFTRef[b]);
   fprintf(conffile,"bandSquelch%02d %d\n",b,bandSquelch[b]);
