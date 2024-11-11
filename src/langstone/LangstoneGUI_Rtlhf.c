@@ -92,6 +92,10 @@ bool mouse_connected = false;          // Set true if mouse detected at startup
 pthread_t thwebclick;          //  Listens for clicks from web interface
 pthread_t thmouse;          //  Listens to the mouse
 
+int wscreen, hscreen;
+float scaleXvalue = 1;
+float scaleYvalue = 1;
+
 int CheckMouse();
 void *WaitMouseEvent(void * arg);
 void handle_mouse();
@@ -281,6 +285,8 @@ float sMeterPeak;
 int main(int argc, char* argv[])
 {
   strcpy(ProgramName, argv[0]);
+  wscreen = 800;
+  hscreen = 480;
   initUDP();
   lastClock=0;
   readConfig();
@@ -320,8 +326,8 @@ int main(int argc, char* argv[])
 
     if (strcmp(WebClickForAction, "yes") == 0)
       {
-        touchX = web_x;
-        touchY = web_y;
+        touchX = (web_x * scaleXvalue);
+        touchY = (web_y * scaleYvalue);
         strcpy(WebClickForAction, "no");
         fprintf(stderr,"Web touchX = %d, touchY = %d\n", touchX, touchY);
         processTouch();
@@ -736,6 +742,13 @@ void detectHw()
           {
            p=1;
            hyperPixelPresent=0;
+          }
+        if(strstr(ln,"MPI7003")!=NULL)
+          {
+           p=1;
+           hyperPixelPresent=0;
+           scaleXvalue = (1024 / wscreen);
+           scaleYvalue = (600 / hscreen);
           }
         if(strstr(ln,"Goodix")!=NULL)                                         //Found Hyperpixel TouchScreen entry
           {
@@ -1514,6 +1527,9 @@ void processTouch()
 {
 
 int number = 7;
+
+touchX=touchX/scaleXvalue;
+touchY=touchY/scaleYvalue;
 
 if(hyperPixelPresent==1)
 {

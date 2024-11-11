@@ -7738,8 +7738,8 @@ int getTouchSample(int *rawX, int *rawY, int *rawPressure)
     }
     else if ((webcontrol == true) && (strcmp(WebClickForAction, "yes") == 0))
     {
-      *rawX = web_x;
-      *rawY = web_y;
+      *rawX = (web_x * scaleXvalue);
+      *rawY = (web_y * scaleYvalue);
       *rawPressure = 0;
       strcpy(WebClickForAction, "no");
       printf("Web rawX = %d, rawY = %d, rawPressure = %d\n", *rawX, *rawY, *rawPressure);
