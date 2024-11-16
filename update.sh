@@ -788,16 +788,6 @@ make
 cp rydemon ../../bin/
 cd /home/pi
 
-echo
-echo "------------------------------------------"
-echo "------------ Update Langstone ------------"
-echo "------------------------------------------"
-if grep -q langstone=none "$PATHSCRIPT"/portsdown_config.txt; then
-  /home/pi/rpidatv/add_langstone2.sh
-else
-  /home/pi/rpidatv/scripts/update_langstone2.sh
-fi
-
 # Compile and install the executable for GPIO-switched transmission (201710080)
 echo "Installing keyedtx"
 cd /home/pi/rpidatv/src/keyedtx
@@ -1176,6 +1166,18 @@ fi
 sudo sed -i 's/^TimeoutStartSec.*/TimeoutStartSec=5/' /etc/systemd/system/network-online.target.wants/networking.service
 sudo sed -i 's/^#timeout.*/timeout 8;/' /etc/dhcp/dhclient.conf
 sudo sed -i 's/^#retry.*/retry 20;/' /etc/dhcp/dhclient.conf
+
+DisplayUpdateMsg "Step 9 of 10\nInstall Or Update Langstone\n\nXXXXXXXXX-"
+
+echo
+echo "------------------------------------------"
+echo "------------ Update Langstone ------------"
+echo "------------------------------------------"
+if grep -q langstone=none "$PATHSCRIPT"/portsdown_config.txt; then
+  /home/pi/rpidatv/add_langstone2.sh
+else
+  /home/pi/rpidatv/scripts/update_langstone2.sh
+fi
 
 # Reboot
 DisplayRebootMsg "Step 10 of 10\nRebooting\n\nUpdate Complete"
