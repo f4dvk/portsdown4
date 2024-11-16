@@ -1,3 +1,7 @@
+202411160
+Correction Langstone avec nouvel ecran
+Langstone RTL sans carte audio USB
+
 202411110
 Preparation prise en charge nouvel ecran
 

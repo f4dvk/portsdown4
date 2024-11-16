@@ -1023,8 +1023,8 @@ void detectHw()
           {
            p=1;
            hyperPixelPresent=0;
-           scaleXvalue = (1024 / wscreen);
-           scaleYvalue = (600 / hscreen);
+           scaleXvalue = (1024.00 / wscreen);
+           scaleYvalue = (600.00 / hscreen);
           }
         if(strstr(ln,"Goodix")!=NULL)                                         //Found Hyperpixel TouchScreen entry
           {

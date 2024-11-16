@@ -16707,7 +16707,7 @@ static void cleanexit(int exit_code)
 void do_Langstone()
 {
   // Check that audio dongle exists before exit, otherwise display error message
-  if (DetectUSBAudio() == 0)
+  if ((DetectUSBAudio() == 0) || (strcmp(langstone_version, "v2rtlsdr") == 0) || (strcmp(langstone_version, "v2rtlhf") == 0))
   {
     if (strcmp(langstone_version, "v1pluto") == 0)
     {
