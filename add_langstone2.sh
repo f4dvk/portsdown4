@@ -135,9 +135,9 @@ sudo make install
 sudo ldconfig
 cd /home/pi
 
-echo "#################################"
-echo "##       Reboot and Start      ##"
-echo "#################################"
+#echo "#################################"
+#echo "##       Reboot and Start      ##"
+#echo "#################################"
 
 #Reboot and start
-sudo reboot now
+#sudo reboot now
