@@ -660,7 +660,7 @@ echo
 echo "------------------------------------------"
 echo "----------- Compiling Langstone ----------"
 echo "------------------------------------------"
-/home/pi/rpidatv/add_langstone2.Sh
+/home/pi/rpidatv/add_langstone2.sh
 cd /home/pi
 
 #echo

@@ -23933,7 +23933,7 @@ void waituntil(int w,int h)
            {
              strcpy(LMRXaudio, "usb");
            }
-           else if (strcmp(LMRXaudio, "usb") == 0)
+           else if ((strcmp(LMRXaudio, "usb") == 0) || ((strcmp(LMRXaudio, "rpi") == 0) && (strlen(mic) != 1)))
            {
              strcpy(LMRXaudio, "hdmi");
            }
@@ -30277,6 +30277,15 @@ void Start_Highlights_Menu53()
     AmendButtonStatus(ButtonNumber(53, 5), 0, "Audio out^RPi Jack", &Blue);
     strcpy(result, "0%");
     GetAudioLevel(result);
+    strcpy(level, "Level^");
+    strcat(level, result);
+    AmendButtonStatus(ButtonNumber(53, 6), 0, level, &Blue);
+  }
+  else if (strcmp(LMRXaudio, "hdmi") == 0)
+  {
+    AmendButtonStatus(ButtonNumber(53, 5), 0, "Audio out^HDMI", &Blue);
+    strcpy(result, "0%");
+    GetAudioLevel2(result);
     strcpy(level, "Level^");
     strcat(level, result);
     AmendButtonStatus(ButtonNumber(53, 6), 0, level, &Blue);

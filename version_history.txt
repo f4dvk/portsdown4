@@ -1,6 +1,7 @@
 202411160
 Correction Langstone avec nouvel ecran
 Langstone RTL sans carte audio USB
+Correction bug mise à jour (du a Langstone)
 
 202411110
 Preparation prise en charge nouvel ecran
