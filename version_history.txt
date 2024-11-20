@@ -1,3 +1,6 @@
+202411200
+Gestion carte audio
+
 202411160
 Correction Langstone avec nouvel ecran
 Langstone RTL sans carte audio USB

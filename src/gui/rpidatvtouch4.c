@@ -1096,8 +1096,15 @@ void GetAudioLevel2(char AudioLevel[256])
   char Command[100];
 
   /* Open the command for reading. */
-  GetAudioVol2(Vol);
-  snprintf(Command, 100, "amixer -M sget -c 2 %s | grep 'Left:' | awk -F'[][]' '{ print $2 }'", Vol);
+  if (strcmp(LMRXaudio, "hdmi") != 0)
+  {
+    GetAudioVol2(Vol);
+    snprintf(Command, 100, "amixer -M sget -c 2 %s | grep 'Left:' | awk -F'[][]' '{ print $2 }'", Vol);
+  }
+  else
+  {
+    snprintf(Command, 100, "amixer -M sget -c 1 HDMI | grep 'Mono:' | awk -F'[][]' '{ print $2 }'");
+  }
 
   fp = popen(Command, "r");
   //fp = popen("amixer sget -c 2 Speaker | grep 'Left:' | awk -F'[][]' '{ print $2 }'", "r");
@@ -4240,6 +4247,11 @@ void ReadLMRXPresets()
 
   // Audio output port: (rpi or usb or hdmi)
   GetConfigParam(PATH_LMCONFIG, "audio", LMRXaudio);
+  if ((strcmp(LMRXaudio, "usb") == 0) && (DetectUSBAudio() != 0))
+  {
+    strcpy(LMRXaudio, "rpi");
+    SetConfigParam(PATH_LMCONFIG, "audio", "rpi");
+  }
 
   // QO-100 LNB Offset:
   GetConfigParam(PATH_LMCONFIG, "qoffset", Value);
@@ -20289,11 +20301,11 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 13:                               // Set Audio output
-          if (strcmp(LMRXaudio, "rpi") == 0)
+          if ((strcmp(LMRXaudio, "rpi") == 0) && (DetectUSBAudio() == 0))
           {
             strcpy(LMRXaudio, "usb");
           }
-          else if (strcmp(LMRXaudio, "usb") == 0)
+          else if ((strcmp(LMRXaudio, "usb") == 0) || ((strcmp(LMRXaudio, "rpi") == 0) && (DetectUSBAudio() != 0)))
           {
             strcpy(LMRXaudio, "hdmi");
           }
@@ -23552,11 +23564,11 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 9:                                        // Audio Output
-          if (strcmp(LMRXaudio, "rpi") == 0)
+          if ((strcmp(LMRXaudio, "rpi") == 0) && (DetectUSBAudio() == 0))
           {
             strcpy(LMRXaudio, "usb");
           }
-          else if (strcmp(LMRXaudio, "usb") == 0)
+          else if ((strcmp(LMRXaudio, "usb") == 0) || ((strcmp(LMRXaudio, "rpi") == 0) && (DetectUSBAudio() != 0)))
           {
             strcpy(LMRXaudio, "hdmi");
           }
@@ -23880,6 +23892,10 @@ void waituntil(int w,int h)
            {
              system("amixer -M -q sset -c 1 Headphone 2%-");
            }
+           else if (strcmp(LMRXaudio, "hdmi") == 0)
+           {
+             system("amixer -M -q sset -c 1 HDMI 2%-");
+           }
            else
            {
              GetAudioVol2(Vol);
@@ -23894,6 +23910,10 @@ void waituntil(int w,int h)
            if (strcmp(LMRXaudio, "rpi") == 0)
            {
              system("amixer -M -q sset -c 1 Headphone 2%+");
+           }
+           else if (strcmp(LMRXaudio, "hdmi") == 0)
+           {
+             system("amixer -M -q sset -c 1 HDMI 2%+");
            }
            else
            {
