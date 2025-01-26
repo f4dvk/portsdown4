@@ -30839,7 +30839,13 @@ int main(int argc, char **argv)
   {
     if (openTouchScreen(NoDeviceEvent) == 1)
     {
-      if(getTouchScreenDetails(&screenXmin,&screenXmax,&screenYmin,&screenYmax)==1) break;
+      if(getTouchScreenDetails(&screenXmin,&screenXmax,&screenYmin,&screenYmax)==1)
+      {
+        // Calculate screen parameters
+        scaleXvalue = ((float)screenXmax-screenXmin) / wscreen;
+        scaleYvalue = ((float)screenYmax-screenYmin) / hscreen;
+        break;
+      }
     }
   }
 
@@ -30864,6 +30870,8 @@ int main(int argc, char **argv)
   else // No touchscreen detected, so enable webcontrol, change display type and reboot if required
   {
     touchscreen_present = false;
+    scaleXvalue = 1;
+    scaleYvalue = 1;
 
     if ((strcmp(DisplayType, "Browser") != 0) && (strcmp(DisplayType, "hdmi") != 0)
      && (strcmp(DisplayType, "hdmi480") != 0) && (strcmp(DisplayType, "hdmi720") != 0)
@@ -30880,10 +30888,6 @@ int main(int argc, char **argv)
   // Show Portsdown Logo
   system("sudo fbi -T 1 -noverbose -a \"/home/pi/rpidatv/scripts/images/BATC_Black.png\" >/dev/null 2>/dev/null");
   system("(sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &");
-
-  // Calculate screen parameters
-  scaleXvalue = ((float)screenXmax-screenXmin) / wscreen;
-  scaleYvalue = ((float)screenYmax-screenYmin) / hscreen;
 
   // Define button grid
   // -25 keeps right hand side symmetrical with left hand side
