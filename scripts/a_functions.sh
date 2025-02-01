@@ -476,6 +476,15 @@ detect_video()
 
   printf "The first Webcam device string is $VID_WEBCAM\n"
 
+  lsusb 2> /dev/null | grep -q '534d:2109'
+
+  if [ $? == 0 ]; then
+    VID_HDMI="$(v4l2-ctl --list-devices 2> /dev/null | \
+      sed -n '/USB/,/dev/p' | grep 'dev' | tr -d '\t')"
+  fi
+
+  printf "The first HDMI USB dongle string is $VID_HDMI\n"
+
   # List the video devices, select the 2 lines for any usb device, then
   # select the line with the device details and delete the leading tab
   VID_USB1="$(v4l2-ctl --list-devices 2> /dev/null | \
@@ -487,12 +496,12 @@ detect_video()
     sed -n '/usb/,/dev/p' | grep 'dev' | tr -d '\t' | tail -n1)"
   printf "The second USB device string is $VID_USB2\n"
 
-  if [ "$VID_USB1" != "$VID_WEBCAM" ]; then
+  if [ "$VID_USB1" != "$VID_WEBCAM" ] && [ "$VID_USB1" != "$VID_HDMI" ]; then
     VID_USB=$VID_USB1
   printf "The first test passed"
   fi
 
-  if [ "$VID_USB2" != "$VID_WEBCAM" ]; then
+  if [ "$VID_USB2" != "$VID_WEBCAM" ] && [ "$VID_USB2" != "$VID_HDMI" ]; then
     VID_USB=$VID_USB2
   printf "The second test passed"
   fi
@@ -515,10 +524,15 @@ detect_video()
     printf "VID_WEBCAM was not found, setting to /dev/video2\n"
     VID_WEBCAM="/dev/video2"
   fi
+  if [ "$VID_HDMI" == '' ]; then
+    printf "VID_HDMI was not found, setting to /dev/video2\n"
+    VID_HDMI="/dev/video2"
+  fi
 
   printf "The PI-CAM device string is $VID_PICAM\n"
   printf "The USB device string is $VID_USB\n"
   printf "The Webcam device string is $VID_WEBCAM\n"
+  printf "The HDMI USB dongle string is $VID_HDMI\n"
 
   # Check for the presence of a new C920 without H264 encoder
   NEWC920Present=0

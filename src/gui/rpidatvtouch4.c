@@ -206,7 +206,7 @@ char CurrentFrames[7] = "long";
 //char CurrentModeInput[255] = "DESKTOP";
 char TabEncoding[7][15] = {"MPEG-2", "H264", "H265", "IPTS in", "TS File", "IPTS in H264", "IPTS in H265"};
 char CurrentEncoding[255] = "H264";
-char TabSource[10][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "PiScreen", "Contest", "Webcam", "C920", "HDMI", "PC"};
+char TabSource[11][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "PiScreen", "Contest", "Webcam", "C920", "HDMI", "PC", "HDMI Usb"};
 char CurrentSource[15] = "PiScreen";
 char TabFormat[4][15] = {"4:3", "16:9", "720p", "1080p"};
 char CurrentFormat[15] = "4:3";
@@ -2332,6 +2332,17 @@ void ReadModeInput(char coding[256], char vsource[256])
     strcpy(vsource, "HDMI");
     strcpy(CurrentSource, TabSource[8]); // HDMI
   }
+  else if (strcmp(ModeInput, "HDMIUSB") == 0)
+  {
+    strcpy(coding, "H264");
+    strcpy(vsource, "HDMI Usb");
+    strcpy(CurrentEncoding, "H264");
+    if(strcmp(CurrentFormat, "16:9") != 0) // Test format 16:9
+    {
+      strcpy(CurrentFormat, "4:3");
+    }
+    strcpy(CurrentSource, TabSource[10]); // HDMI Usb
+  }
   else
   {
     strcpy(coding, "notset");
@@ -3583,7 +3594,40 @@ int CheckLangstonePlutoIP()
   return 0;
 }
 
+/***************************************************************************//**
+ * @brief Detects if a HDMI Usb Dongle is currently connected
+ *
+ * @param nil
+ *
+ * @return 1 if connected, 0 if not connected
+*******************************************************************************/
 
+int CheckHDMIUSB()
+{
+  FILE *fp;
+  char response_line[255];
+
+  // Read the Webcam address if it is present
+
+  fp = popen("lsusb 2> /dev/null | sed -n '/534d:2109/,/Bus/p' | grep 'Bus' | tr -d '\t' | head -n1", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) > 1)
+    {
+      pclose(fp);
+      return 1;
+    }
+  }
+  pclose(fp);
+  return 0;
+}
 
 /***************************************************************************//**
  * @brief Initialises all the GPIOs at startup
@@ -8368,6 +8412,10 @@ void ApplyTXConfig()
         {
           strcpy(ModeInput, "WEBCAMH264");
         }
+        else if (strcmp(CurrentSource, "HDMI Usb") == 0)
+        {
+          strcpy(ModeInput, "HDMIUSB");
+        }
         else // Shouldn't happen
         {
           strcpy(ModeInput, "DESKTOP");
@@ -9899,6 +9947,7 @@ void GreyOut45()
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2); // Comp Vid
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // PiScreen
     SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // HDMI
+    SetButtonStatus(ButtonNumber(CurrentMenu, 10), 2); // HDMI Usb
   }
   else if (strcmp(CurrentModeOP, "STREAMER") == 0) // Streamer
   {
@@ -9906,6 +9955,7 @@ void GreyOut45()
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0); // Comp Vid
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // PiScreen
     SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // HDMI
+    SetButtonStatus(ButtonNumber(CurrentMenu, 10), 0); // HDMI Usb
   }
   else if (strcmp(CurrentModeOP, "PLUTO") == 0) // Pluto
   {
@@ -9913,6 +9963,7 @@ void GreyOut45()
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0); // Comp Vid
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // PiScreen
     SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // HDMI
+    SetButtonStatus(ButtonNumber(CurrentMenu, 10), 2); // HDMI Usb
   }
   else
   {
@@ -9920,6 +9971,7 @@ void GreyOut45()
     SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0); // Contest
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0); // Comp Vid
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0); // PiScreen
+    SetButtonStatus(ButtonNumber(CurrentMenu, 10), 0); // HDMI Usb
 
     if (strcmp(CurrentFormat, "1080p") == 0)
     {
@@ -9929,6 +9981,7 @@ void GreyOut45()
       SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // PiScreen
       SetButtonStatus(ButtonNumber(CurrentMenu, 0), 2); // Contest
       SetButtonStatus(ButtonNumber(CurrentMenu, 1), 2); // Webcam
+      SetButtonStatus(ButtonNumber(CurrentMenu, 10), 2); // HDMI Usb
     }
     else
     {
@@ -9938,6 +9991,7 @@ void GreyOut45()
       SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0); // PiScreen
       SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0); // Contest
       SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0); // Webcam
+      SetButtonStatus(ButtonNumber(CurrentMenu, 10), 0); // HDMI Usb
 
       if (strcmp(CurrentEncoding, "H264") == 0)
       {
@@ -9948,10 +10002,12 @@ void GreyOut45()
       {
         SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // PiScreen
         SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0); // CompVid
+        SetButtonStatus(ButtonNumber(CurrentMenu, 10), 2); // HDMI Usb
 
         if (strcmp(CurrentFormat, "720p") == 0)
         {
           SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2); // CompVid
+          SetButtonStatus(ButtonNumber(CurrentMenu, 10), 2); // HDMI Usb
         }
       }
     }
@@ -9961,6 +10017,7 @@ void GreyOut45()
       SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // HDMI
     }
   }
+  if (CheckHDMIUSB() != 1)  SetButtonStatus(ButtonNumber(CurrentMenu, 10), 2); // HDMI Usb
 }
 
 
@@ -10149,6 +10206,10 @@ void SelectSource(int NoButton)  // Video Source
 {
   SelectInGroupOnMenu(CurrentMenu, 5, 9, NoButton, 1);
   SelectInGroupOnMenu(CurrentMenu, 0, 3, NoButton, 1);
+  if (NoButton >= 10) // allow for reverse numbering of rows
+  {
+    NoButton = NoButton + 5;
+  }
   if (NoButton < 4) // allow for reverse numbering of rows
   {
     NoButton = NoButton + 10;
@@ -11991,7 +12052,8 @@ void TransmitStart()
     ||(strcmp(ModeInput,"JCARD") == 0)
     ||(strcmp(ModeInput,"HDMI") == 0)
     ||(strcmp(CurrentEncoding, "TS File") == 0)
-    ||(strcmp(CurrentEncoding, "IPTS in") == 0))
+    ||(strcmp(CurrentEncoding, "IPTS in") == 0)
+    ||(strcmp(ModeInput,"HDMIUSB") == 0))
   {
      strcpy(ScreenState, "TXwithMenu");
   }
@@ -23438,6 +23500,13 @@ void waituntil(int w,int h)
           SelectSource(i);
           printf("PiScreen\n");
           break;
+        case 10:                               // HDMI Usb
+          if (CheckHDMIUSB() == 1)
+          {
+            SelectSource(i);
+            printf("HDMI Usb\n");
+          }
+          break;
         case 0:                               // Contest
           SelectSource(i);
           printf("Contest\n");
@@ -29674,6 +29743,14 @@ void Define_Menu45()
   AddButtonStatus(button, TabSource[4], &Blue);
   AddButtonStatus(button, TabSource[4], &Green);
   AddButtonStatus(button, TabSource[4], &Grey);
+
+  // 3 Row, Menu 45
+
+  button = CreateButton(45, 10);                     // HDMI Usb
+  AddButtonStatus(button, "HDMI^Usb", &Blue);
+  AddButtonStatus(button, "HDMI^Usb", &Green);
+  AddButtonStatus(button, "HDMI^Usb", &Grey);
+
 }
 
 void Start_Highlights_Menu45()
@@ -29726,6 +29803,11 @@ void Start_Highlights_Menu45()
   {
     SelectInGroupOnMenu(45, 5, 9, 3, 1);
     SelectInGroupOnMenu(45, 0, 3, 3, 1);
+  }
+  if(strcmp(CurrentSource, TabSource[10]) == 0)
+  {
+    SelectInGroupOnMenu(45, 5, 9, 10, 1);
+    SelectInGroupOnMenu(45, 0, 3, 10, 1);
   }
 
   // Call to GreyOut inappropriate buttons
