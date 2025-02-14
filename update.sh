@@ -318,6 +318,19 @@ if [ ! $(find /usr/bin -name aplay2) ]; then
   sudo cp /usr/bin/aplay /usr/bin/aplay2
 fi
 
+sudo apt-get install -y picotool # Flasheur de RP2040
+
+echo
+echo "----------------------------------"
+echo "------- Compiling cam_ctl --------"
+echo "----------------------------------"
+cd /home/pi/rpidatv/src/cam_ctl
+rm cam_ctl >/dev/null 2>/dev/null
+gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl
+cp cam_ctl ../../bin
+
+cd /home/pi
+
 # -----------Update LimeSuite if required -------------
 
 if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
@@ -1094,6 +1107,17 @@ if ! grep -q timeoverlay= "$PATHSCRIPT"/portsdown_config.txt; then
   sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
   # Add the new entry and a new line
   echo "timeoverlay=off" >> "$PATHSCRIPT"/portsdown_config.txt
+fi
+
+if ! grep -q rtsp_ip= "$PATHSCRIPT"/portsdown_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
+  # Add the new entry and a new line
+  echo "rtsp_ip=192.168.0.26" >> "$PATHSCRIPT"/portsdown_config.txt
+  echo "rtsp_port=8554" >> "$PATHSCRIPT"/portsdown_config.txt
+  echo "rtsp_usr=admin" >> "$PATHSCRIPT"/portsdown_config.txt
+  echo "rtsp_pwd=admin" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
 # Streaming audio source: https://github.com/JoJoBond/3LAS

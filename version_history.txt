@@ -1,3 +1,7 @@
+202502090
+Sarsat : verrouillage ecran sur detection crc2 au lieu de crc1
+Sarsat : alarme sonore USB (RP2040) sur detection trame crc2 OK
+
 202502010
 Ajout entree HDMI USB (a tester !!)
 

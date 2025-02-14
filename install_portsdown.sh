@@ -112,6 +112,8 @@ sudo adduser pi bluetooth
 sudo cp /lib/systemd/system/bluetooth.service /lib/systemd/system/bluetooth.service-org
 sudo sed -i 's|^ExecStart=/usr/lib/bluetooth/bluetoothd$|ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap|' /lib/systemd/system/bluetooth.service
 
+sudo apt-get install -y picotool # Flasheur de RP2040
+
 # Install WiringPi
 cd /tmp
 wget https://project-downloads.drogon.net/wiringpi-latest.deb
@@ -314,6 +316,15 @@ echo "----------------------------------"
 cd /home/pi/rpidatv/src/gui
 make
 sudo make install
+
+echo
+echo "----------------------------------"
+echo "------- Compiling cam_ctl --------"
+echo "----------------------------------"
+cd /home/pi/rpidatv/src/cam_ctl
+rm cam_ctl >/dev/null 2>/dev/null
+gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl
+cp cam_ctl ../../bin
 
 # Build avc2ts and dependencies
 echo

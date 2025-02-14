@@ -61,3 +61,7 @@ langstone=none
 upsample=2
 gpio=on
 timeoverlay=off
+rtsp_ip=192.168.0.26
+rtsp_port=8554
+rtsp_usr=admin
+rtsp_pwd=admin

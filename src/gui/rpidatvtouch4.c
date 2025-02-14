@@ -403,6 +403,12 @@ bool mouse_connected = false;          // Set true if mouse detected at startup
 // GPIO
 char Gpio[4] = "on";
 
+//////////////////// USB ///////////////////
+char USB[8];            // Sirene USB Sarsat
+int RP2040 = 0;         // Presence du module
+char COM_USB[40];       // Commande
+int RP2040_Flashed = 0; // Confirmation installation firmware RP2040
+
 // Threads for Touchscreen monitoring
 
 pthread_t thbutton;         //
@@ -4608,6 +4614,130 @@ void ChangeLMChan()
 void AutosetLMRXOffset()
 {
   LMRX(5);
+}
+
+int checkRP()
+{
+  char Status[256];
+  FILE *fp;
+  int stat = 1;
+
+  /* Open the command for reading. */
+  fp = popen("/home/pi/rpidatv/scripts/check_rp.sh", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Read the output a line at a time - output it
+  while (fgets(Status, sizeof(Status)-1, fp) != NULL)
+  {
+    if (Status[0] == '0')
+    {
+      printf("RP2040 Detected\n" );
+      stat = 0;
+    }
+    else
+    {
+      printf("No RP2040 Detected\n" );
+    }
+  }
+  pclose(fp);
+  return(stat);
+}
+
+int Install_RP2040()
+{
+  char Status[256];
+  FILE *fp;
+  int stat = 1;
+
+  /* Open the command for reading. */
+  fp = popen("/home/pi/rpidatv/scripts/check_rp.sh -load", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Read the output a line at a time - output it
+  while (fgets(Status, sizeof(Status)-1, fp) != NULL)
+  {
+    if (Status[0] == '0')
+    {
+      printf("RP2040 flash OK\n" );
+      stat = 0;
+    }
+    else
+    {
+      printf("Failed RP2040 flash\n" );
+    }
+  }
+  pclose(fp);
+  return(stat);
+}
+
+int checkRP_BOOTSEL()
+{
+  char Status[256];
+  FILE *fp;
+  int stat = 1;
+
+  /* Open the command for reading. */
+  fp = popen("/home/pi/rpidatv/scripts/check_rp.sh -f", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Read the output a line at a time - output it
+  while (fgets(Status, sizeof(Status)-1, fp) != NULL)
+  {
+    if (Status[0] == '0')
+    {
+      printf("RP2040 in BOOTSEL mode\n" );
+      stat = 0;
+    }
+    else
+    {
+      printf("No BOOTSEL RP2040 Detected\n" );
+    }
+  }
+  pclose(fp);
+  return(stat);
+}
+
+void initCOM(void) // Sarsat signal sonore USB (RP2040)
+{
+  char commande[150];
+
+  FILE *fp;
+
+  fp = popen("ls -l /dev/serial/by-id | grep RP2040 | grep -o '.\\{7\\}$' | tr -d '\n'", "r");
+  if (fp == NULL) {
+    printf("Erreur Commande recherche nom USB\n" );
+    exit(1);
+  }
+
+  while (fgets(USB, 8, fp) != NULL)
+  {
+    //printf("%s", USB);
+  }
+
+  pclose(fp);
+
+  system("sudo killall cat >/dev/null 2>/dev/null");
+
+  snprintf(commande, 150, "sudo chmod o+rw /dev/%s", USB);
+  system(commande);
+
+  snprintf(commande, 150, "stty 9600 -F /dev/%s raw -echo", USB);
+  system(commande);
+
+  snprintf(commande, 150, "cat /dev/%s >/dev/null 2>/dev/null &", USB);
+  system(commande);
 }
 
 void ChangeSarsatFreq()
@@ -15546,10 +15676,15 @@ void SARSAT_DECODER()
        if (strcmp(strTag, "Contenu")==0)
          {
            char CRC_Word[30];
-           sscanf(crc1,"%s %s", CRC_Word, CRC_Word);
+           sscanf(crc2,"%s %s", CRC_Word, CRC_Word);
            if ((strcmp(CRC_Word, "OK")==0) || (strcmp(CRC_Word, "null?")==0))
            {
              Lock_GUI = 1;
+           }
+           if ((strcmp(CRC_Word, "OK")==0) && (RP2040 == 1))
+           {
+             snprintf(COM_USB, 40, "echo 'Sirene!'>/dev/%s", USB);
+             system(COM_USB);
            }
            clearScreen();
            setBackColour(0, 0, 0);
@@ -24098,6 +24233,13 @@ void waituntil(int w,int h)
           {
             setBackColour(255, 255, 255);
             clearScreen();
+            if (checkRP() == 0)
+            {
+              initCOM();
+              RP2040 = 1;
+              snprintf(COM_USB, 40, "echo 'Sirene2!'>/dev/%s", USB);
+              system(COM_USB);
+            }
             SARSAT_DECODER();
             setBackColour(255, 255, 255);
             clearScreen();
@@ -24153,26 +24295,36 @@ void waituntil(int w,int h)
           Start_Highlights_Menu57();
           UpdateWindow();
           break;
-        case 5:
-          SelectInGroupOnMenu(CurrentMenu, 5, 5, 5, 1);
-          UpdateWindow();
-          usleep(50000);
-          SelectInGroupOnMenu(CurrentMenu, 5, 5, 5, 0);
-          SetConfigParam(PATH_406CONFIG, "low", "406.028");
-          SetConfigParam(PATH_406CONFIG, "high", "406.028");
+        case 5: // Flash RP2040
+          if (checkRP_BOOTSEL() == 0)
+          {
+            SelectInGroupOnMenu(CurrentMenu, 5, 5, 5, 1);
+            UpdateWindow();
+            usleep(50000);
+            SelectInGroupOnMenu(CurrentMenu, 5, 5, 5, 0);
+            if (Install_RP2040() == 0)
+            {
+              RP2040_Flashed = 1;
+            }
+            else
+            {
+              RP2040_Flashed = 2;
+            }
+          }
           CurrentMenu=57;
           setBackColour(255, 255, 255);
           clearScreen();
           Start_Highlights_Menu57();
           UpdateWindow();
+          RP2040_Flashed = 0;
           break;
         case 6:
           SelectInGroupOnMenu(CurrentMenu, 6, 6, 6, 1);
           UpdateWindow();
           usleep(50000);
           SelectInGroupOnMenu(CurrentMenu, 6, 6, 6, 0);
-          SetConfigParam(PATH_406CONFIG, "low", "433.95");
-          SetConfigParam(PATH_406CONFIG, "high", "433.95");
+          SetConfigParam(PATH_406CONFIG, "low", "406.028");
+          SetConfigParam(PATH_406CONFIG, "high", "406.028");
           CurrentMenu=57;
           setBackColour(255, 255, 255);
           clearScreen();
@@ -30467,14 +30619,16 @@ void Define_Menu57()
   AddButtonStatus(button, "Exit", &LBlue);
 
   button = CreateButton(57, 5);
+  AddButtonStatus(button, "Flash^RP2040", &DBlue);
+  AddButtonStatus(button, "Flash^RP2040", &LBlue);
+  AddButtonStatus(button, "RP2040^Flashed", &Green);
+  AddButtonStatus(button, "Flash^Failed", &Red);
+  AddButtonStatus(button, "", &Grey);
+
+  button = CreateButton(57, 6);
   AddButtonStatus(button, "406.028M", &DBlue);
   AddButtonStatus(button, "406.028M", &LBlue);
   AddButtonStatus(button, "406.028M", &Green);
-
-  button = CreateButton(57, 6);
-  AddButtonStatus(button, "433.95M", &DBlue);
-  AddButtonStatus(button, "433.95M", &LBlue);
-  AddButtonStatus(button, "433.95M", &Green);
 
   button = CreateButton(57, 7);
   AddButtonStatus(button, "434.2M", &DBlue);
@@ -30511,14 +30665,24 @@ void Start_Highlights_Menu57()
   // High:
   GetConfigParam(PATH_406CONFIG, "high", ValueHigh);
 
-  if ((atof(ValueLow) == 406.028) && (atof(ValueHigh) == 406.028))
+  if (checkRP_BOOTSEL() == 0)
   {
-    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2);
-  }else{
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
   }
+  else if (RP2040_Flashed == 1)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2);
+  }
+  else if (RP2040_Flashed == 2)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 3);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 4);
+  }
 
-  if ((atof(ValueLow) == 433.95) && (atof(ValueHigh) == 433.95))
+  if ((atof(ValueLow) == 406.028) && (atof(ValueHigh) == 406.028))
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2);
   }else{
