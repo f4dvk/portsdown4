@@ -18,7 +18,7 @@ elif [ "$1" == "-load" ]; then
     echo "1"
   fi
 else
-  lsusb | grep -E -q "2e8a:f00a"
+  lsusb | grep -E -q "2e8a:f00a|2e8a:000a"
   if [ $? == 0 ]; then   ## Present
     echo "0"
   else

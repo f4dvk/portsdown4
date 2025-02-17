@@ -70,6 +70,7 @@ Rewitten by Dave, G8GKQ
 #define PATH_PB_CONFIG "/home/pi/rpidatv/src/plutoview/plutoview_config.txt"
 #define PATH_SV_CONFIG "/home/pi/rpidatv/src/sdrplayview/sdrplayview_config.txt"
 #define PATH_TC_CONFIG "/home/pi/rpidatv/scripts/images/testcard_config.txt"
+#define PATH_SERIAL_COM "/home/pi/rpidatv/bin/serial_com"
 
 #define PI 3.14159265358979323846
 #define deg2rad(DEG) ((DEG)*((PI)/(180.0)))
@@ -405,9 +406,9 @@ char Gpio[4] = "on";
 
 //////////////////// USB ///////////////////
 char USB[8];            // Sirene USB Sarsat
-int RP2040 = 0;         // Presence du module
+int RP2040=0;           // Presence du module
 char COM_USB[40];       // Commande
-int RP2040_Flashed = 0; // Confirmation installation firmware RP2040
+int RP2040_Flashed=0;   // Confirmation installation firmware RP2040
 
 // Threads for Touchscreen monitoring
 
@@ -4709,13 +4710,51 @@ int checkRP_BOOTSEL()
   return(stat);
 }
 
+void Bootsel(void)
+{
+	char command[50];
+
+  snprintf(command, 50, "stty 1200 -F /dev/%s", USB);
+  system(command);
+}
+
+int send_serial(char envoi[10]) // Envoi commande serie
+{
+  char commande[150];
+  char retour[6];
+
+  FILE *fp;
+
+  sprintf(commande, "%s %s %s | tr -d '\n' | tr -d '\r'", PATH_SERIAL_COM, USB, envoi);
+
+  fp = popen(commande, "r");
+  if (fp == NULL) {
+    printf("Erreur commande serie\n" );
+    exit(1);
+  }
+
+  while (fgets(retour, 6, fp) != NULL)
+  {
+    //printf("%s\n", retour);
+  }
+
+  pclose(fp);
+
+  if ((strcmp(retour, "OK") == 0) || (strcmp(retour, "Pong") == 0))
+  {
+    return 0;
+  }
+
+  return 1;
+}
+
 void initCOM(void) // Sarsat signal sonore USB (RP2040)
 {
   char commande[150];
 
   FILE *fp;
 
-  fp = popen("ls -l /dev/serial/by-id | grep RP2040 | grep -o '.\\{7\\}$' | tr -d '\n'", "r");
+  fp = popen("ls -l /dev/serial/by-id | grep -E 'RP2040|Pico' | tail -c8 | tr -d '\n'", "r");
   if (fp == NULL) {
     printf("Erreur Commande recherche nom USB\n" );
     exit(1);
@@ -4728,7 +4767,7 @@ void initCOM(void) // Sarsat signal sonore USB (RP2040)
 
   pclose(fp);
 
-  system("sudo killall cat >/dev/null 2>/dev/null");
+  //system("sudo killall cat >/dev/null 2>/dev/null");
 
   snprintf(commande, 150, "sudo chmod o+rw /dev/%s", USB);
   system(commande);
@@ -4736,8 +4775,8 @@ void initCOM(void) // Sarsat signal sonore USB (RP2040)
   snprintf(commande, 150, "stty 9600 -F /dev/%s raw -echo", USB);
   system(commande);
 
-  snprintf(commande, 150, "cat /dev/%s >/dev/null 2>/dev/null &", USB);
-  system(commande);
+  //snprintf(commande, 150, "cat /dev/%s >/dev/null 2>/dev/null &", USB);
+  //system(commande);
 }
 
 void ChangeSarsatFreq()
@@ -15683,8 +15722,7 @@ void SARSAT_DECODER()
            }
            if ((strcmp(CRC_Word, "OK")==0) && (RP2040 == 1))
            {
-             snprintf(COM_USB, 40, "echo 'Sirene!'>/dev/%s", USB);
-             system(COM_USB);
+             send_serial("Sirene!");
            }
            clearScreen();
            setBackColour(0, 0, 0);
@@ -20359,6 +20397,32 @@ void waituntil(int w,int h)
         case 20:                              // Sarsat Decoder
           printf("MENU  57\n");
           CurrentMenu=57;
+          if (checkRP() == 0)
+          {
+            if (!RP2040)
+            {
+              initCOM();
+              RP2040=1;
+            }
+            if (send_serial("Ping") == 0)
+            {
+              printf("Ok, ping reçu\n");
+              RP2040_Flashed=1;
+            }
+            else
+            {
+              RP2040_Flashed=4;
+            }
+          }
+          else if (checkRP_BOOTSEL() == 0)
+          {
+            RP2040_Flashed=3;
+          }
+          else
+          {
+            RP2040_Flashed=0;
+            RP2040=0;
+          }
           setBackColour(0, 0, 0);
           clearScreen();
           Start_Highlights_Menu57();
@@ -24233,12 +24297,14 @@ void waituntil(int w,int h)
           {
             setBackColour(255, 255, 255);
             clearScreen();
-            if (checkRP() == 0)
+            if (send_serial("Sirene2!") == 0)
             {
-              initCOM();
-              RP2040 = 1;
-              snprintf(COM_USB, 40, "echo 'Sirene2!'>/dev/%s", USB);
-              system(COM_USB);
+              RP2040=1;
+              //printf("Ok, confirmation reçue\n");
+            }
+            else
+            {
+              RP2040=0;
             }
             SARSAT_DECODER();
             setBackColour(255, 255, 255);
@@ -24304,19 +24370,24 @@ void waituntil(int w,int h)
             SelectInGroupOnMenu(CurrentMenu, 5, 5, 5, 0);
             if (Install_RP2040() == 0)
             {
-              RP2040_Flashed = 1;
+              RP2040_Flashed=1;
             }
             else
             {
-              RP2040_Flashed = 2;
+              RP2040_Flashed=2;
             }
+          }
+          if (RP2040_Flashed == 4)
+          {
+            Bootsel();
+            usleep(1000000);
+            if (checkRP_BOOTSEL() == 0) RP2040_Flashed=3;
           }
           CurrentMenu=57;
           setBackColour(255, 255, 255);
           clearScreen();
           Start_Highlights_Menu57();
           UpdateWindow();
-          RP2040_Flashed = 0;
           break;
         case 6:
           SelectInGroupOnMenu(CurrentMenu, 6, 6, 6, 1);
@@ -30622,8 +30693,9 @@ void Define_Menu57()
   AddButtonStatus(button, "Flash^RP2040", &DBlue);
   AddButtonStatus(button, "Flash^RP2040", &LBlue);
   AddButtonStatus(button, "RP2040^Flashed", &Green);
+  AddButtonStatus(button, "Switch^to Bootsel", &Orange);
   AddButtonStatus(button, "Flash^Failed", &Red);
-  AddButtonStatus(button, "", &Grey);
+  AddButtonStatus(button, "No^RP2040", &Grey);
 
   button = CreateButton(57, 6);
   AddButtonStatus(button, "406.028M", &DBlue);
@@ -30665,21 +30737,25 @@ void Start_Highlights_Menu57()
   // High:
   GetConfigParam(PATH_406CONFIG, "high", ValueHigh);
 
-  if (checkRP_BOOTSEL() == 0)
-  {
-    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
-  }
-  else if (RP2040_Flashed == 1)
+  if (RP2040_Flashed == 1)
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2);
   }
   else if (RP2040_Flashed == 2)
   {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 4);
+  }
+  else if (RP2040_Flashed == 3)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+  }
+  else if (RP2040_Flashed == 4)
+  {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 3);
   }
   else
   {
-    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 4);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 5);
   }
 
   if ((atof(ValueLow) == 406.028) && (atof(ValueHigh) == 406.028))

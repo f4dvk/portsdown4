@@ -326,6 +326,15 @@ rm cam_ctl >/dev/null 2>/dev/null
 gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl
 cp cam_ctl ../../bin
 
+echo
+echo "----------------------------------"
+echo "------ Compiling serial_com ------"
+echo "----------------------------------"
+cd /home/pi/rpidatv/src/serial_com
+rm serial_com >/dev/null 2>/dev/null
+gcc serial_com.c -o serial_com -I/usr/include/libusb-1.0 -L/usr/lib/arm-linux-gnueabihf -lusb-1.0
+cp serial_com ../../bin
+
 # Build avc2ts and dependencies
 echo
 echo "--------------------------------------------"
@@ -809,6 +818,8 @@ sudo service dnsmasq stop
 sudo sed -i 's/^TimeoutStartSec.*/TimeoutStartSec=5/' /etc/systemd/system/network-online.target.wants/networking.service
 sudo sed -i 's/^#timeout.*/timeout 8;/' /etc/dhcp/dhclient.conf
 sudo sed -i 's/^#retry.*/retry 20;/' /etc/dhcp/dhclient.conf
+
+sudo sed -i 's/^#host-name=foo.*/host-name=rpidatv4/' /etc/avahi/avahi-daemon.conf
 
 # Reboot
 echo
