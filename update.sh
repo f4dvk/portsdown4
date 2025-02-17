@@ -320,24 +320,6 @@ fi
 
 sudo apt-get install -y picotool # Flasheur de RP2040
 
-echo
-echo "----------------------------------"
-echo "------- Compiling cam_ctl --------"
-echo "----------------------------------"
-cd /home/pi/rpidatv/src/cam_ctl
-rm cam_ctl >/dev/null 2>/dev/null
-gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl
-cp cam_ctl ../../bin
-
-echo
-echo "----------------------------------"
-echo "------ Compiling serial_com ------"
-echo "----------------------------------"
-cd /home/pi/rpidatv/src/serial_com
-rm serial_com >/dev/null 2>/dev/null
-gcc serial_com.c -o serial_com -I/usr/include/libusb-1.0 -L/usr/lib/arm-linux-gnueabihf -lusb-1.0
-cp serial_com ../../bin
-
 cd /home/pi
 
 # -----------Update LimeSuite if required -------------
@@ -835,6 +817,25 @@ cd /home/pi/rpidatv/src/wav2lime
 touch wav2lime.c
 gcc -o wav2lime wav2lime.c -lLimeSuite
 cp /home/pi/rpidatv/src/wav2lime/wav2lime /home/pi/rpidatv/bin/wav2lime
+
+echo
+echo "----------------------------------"
+echo "------- Compiling cam_ctl --------"
+echo "----------------------------------"
+cd /home/pi/rpidatv/src/cam_ctl
+rm cam_ctl >/dev/null 2>/dev/null
+gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl
+cp cam_ctl ../../bin
+
+echo
+echo "----------------------------------"
+echo "------ Compiling serial_com ------"
+echo "----------------------------------"
+cd /home/pi/rpidatv/src/serial_com
+rm serial_com >/dev/null 2>/dev/null
+gcc serial_com.c -o serial_com -I/usr/include/libusb-1.0 -L/usr/lib/arm-linux-gnueabihf -lusb-1.0
+cp serial_com ../../bin
+
 cd /home/pi
 
 DisplayUpdateMsg "Step 8 of 10\nRestoring Config\n\nXXXXXXXX--"
