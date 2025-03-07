@@ -15720,7 +15720,8 @@ void SARSAT_DECODER()
            {
              Lock_GUI = 1;
            }
-           if ((strcmp(CRC_Word, "OK")==0) && (RP2040 == 1))
+           //if ((strcmp(CRC_Word, "OK")==0) && (RP2040 == 1))
+           if ((strcmp(CRC_Word, "OK")==0) && (RP2040_Flashed == 1))
            {
              send_serial("Sirene!");
            }
@@ -24299,11 +24300,13 @@ void waituntil(int w,int h)
             clearScreen();
             if (send_serial("Sirene2!") == 0)
             {
+              RP2040_Flashed=1;
               RP2040=1;
               //printf("Ok, confirmation reçue\n");
             }
             else
             {
+              RP2040_Flashed=0;
               RP2040=0;
             }
             SARSAT_DECODER();

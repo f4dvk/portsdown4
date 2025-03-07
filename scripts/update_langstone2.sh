@@ -11,10 +11,14 @@ cd /home/pi
 killall python >/dev/null 2>&1
 killall /home/pi/Langstone/GUI_Lime >/dev/null 2>&1
 killall /home/pi/Langstone/GUI_Pluto >/dev/null 2>&1
+killall /home/pi/Langstone/GUI_RtlSdr >/dev/null 2>&1
+killall /home/pi/Langstone/GUI_Rtlhf >/dev/null 2>&1
 
 # Keep a copy of the old Config files
 cp -f /home/pi/Langstone/Langstone_Lime.conf /home/pi/rpidatv/scripts/configs/Langstone_Lime.conf
 cp -f /home/pi/Langstone/Langstone_Pluto.conf /home/pi/rpidatv/scripts/configs/Langstone_Pluto.conf
+cp -f /home/pi/Langstone/Langstone_RtlSdr.conf /home/pi/rpidatv/scripts/configs/Langstone_RtlSdr.conf
+cp -f /home/pi/Langstone/Langstone_Rtlhf.conf /home/pi/rpidatv/scripts/configs/Langstone_Rtlhf.conf
 
 # Remove the old Langstone build
 rm -rf /home/pi/Langstone
@@ -27,6 +31,8 @@ cp -f /home/pi/rpidatv/src/langstone/* /home/pi/Langstone/
 # Restore the old Config files
 cp -f /home/pi/rpidatv/scripts/configs/Langstone_Lime.conf /home/pi/Langstone/Langstone_Lime.conf
 cp -f /home/pi/rpidatv/scripts/configs/Langstone_Pluto.conf /home/pi/Langstone/Langstone_Pluto.conf
+cp -f /home/pi/rpidatv/scripts/configs/Langstone_RtlSdr.conf /home/pi/Langstone/Langstone_RtlSdr.conf
+cp -f /home/pi/rpidatv/scripts/configs/Langstone_Rtlhf.conf /home/pi/Langstone/Langstone_Rtlhf.conf
 
 chmod +x /home/pi/Langstone/build
 chmod +x /home/pi/Langstone/run_lime

@@ -1,3 +1,6 @@
+202503070
+Detection RP2040, amelioration mineure
+
 202502150
 Sarsat : detection programme dans rp2040 et possibilité de passage en BOOTSEL
 
