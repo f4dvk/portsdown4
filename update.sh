@@ -286,6 +286,7 @@ sudo apt-get -y install uhubctl                                         # For SD
 sudo apt-get -y install libssl-dev                                      # For libwebsockets
 sudo apt-get -y install libiio-dev libzstd-dev                          # For libiio 202309040
 sudo apt-get -y install arp-scan                                        # For List Network Devices
+sudo apt-get -y install libcurl4-openssl-dev                            # ctl_cam
 
 sudo apt-get -y install pi-bluetooth
 sudo apt-get -y install bluealsa

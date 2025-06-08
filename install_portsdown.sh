@@ -85,6 +85,7 @@ sudo apt-get -y install libasound2-dev sox # 201910230 for LongMynd tone and avc
 sudo apt-get -y install libavcodec-dev libavformat-dev libswscale-dev libavdevice-dev # Required for ffmpegsrc.cpp
 sudo apt-get -y install mplayer # 202004300 Used for video monitor and LongMynd (not libpng12-dev)
 sudo apt-get -y install vlc  # Latest version works for Portsdown again as of 202207130
+sudo apt-get -y install libcurl4-openssl-dev # ctl_cam
 
 sudo apt-get -y install autoconf libtool # for fdk aac
 
