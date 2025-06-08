@@ -13625,6 +13625,8 @@ void ReceiveStop()
 {
   GetConfigParam(PATH_RXPRESETS, "rx0sdr", RXKEY);
   system("sudo killall leandvb >/dev/null 2>/dev/null");
+  system("sudo killall -9 rtl_sdr >/dev/null 2>/dev/null");
+  system("sudo killall -9 rx_sdr >/dev/null 2>/dev/null");
   system("sudo killall -9 hello_video.bin >/dev/null 2>/dev/null");
   system("sudo killall -9 hello_video2.bin >/dev/null 2>/dev/null");
   system("sudo killall omxplayer.bin >/dev/null 2>/dev/null");
@@ -15720,7 +15722,6 @@ void SARSAT_DECODER()
            {
              Lock_GUI = 1;
            }
-           //if ((strcmp(CRC_Word, "OK")==0) && (RP2040 == 1))
            if ((strcmp(CRC_Word, "OK")==0) && (RP2040_Flashed == 1))
            {
              send_serial("Sirene!");
@@ -24065,8 +24066,8 @@ void waituntil(int w,int h)
 	         Start_Highlights_Menu5();
 	         UpdateWindow();
 	        }
-          break;
-         case 6:                               // LIMEMINI
+        break;
+        case 6:                               // LIMEMINI
 	        if (CheckLimeMiniConnect() == 0)
 	        {
            SetConfigParam(PATH_RXPRESETS, "rx0sdr", "LIMEMINI");
@@ -24075,8 +24076,18 @@ void waituntil(int w,int h)
            Start_Highlights_Menu5();
 	         UpdateWindow();
 	        }
-         break;
-         default:
+        break;
+        case 8:                               // PlutoSDR
+				 if (CheckPlutoIPConnect() == 0)
+				 {
+					SetConfigParam(PATH_RXPRESETS, "rx0sdr", "PLUTOSDR");
+					CurrentMenu=5;
+					setBackColour(0, 0, 0);
+					Start_Highlights_Menu5();
+					UpdateWindow();
+				 }
+        break;
+        default:
           printf("Menu 51 Error\n");
        }
         continue;   // Completed Menu 51 action, go and wait for touch
@@ -25592,6 +25603,12 @@ void Start_Highlights_Menu5()
   {
     strcpy(RXsdr[0], "Lime Mini");
   }
+
+  if (strcmp(RXKEY, "PLUTOSDR") == 0)
+  {
+    strcpy(RXsdr[0], "Pluto SDR");
+  }
+
   strcpy(RXBtext, "SDR^");
   strcat(RXBtext, RXsdr[0]);
   AmendButtonStatus(ButtonNumber(5, 17), 0, RXBtext, &Blue);
@@ -30423,8 +30440,8 @@ void Define_Menu51()
   AddButtonStatus(button,"Lime USB",&Grey);
 
   button = CreateButton(51, 8);
-//  AddButtonStatus(button,"Pluto",&Blue);
-//  AddButtonStatus(button,"Pluto",&Green);
+  AddButtonStatus(button,"Pluto",&Blue);
+  AddButtonStatus(button,"Pluto",&Green);
   AddButtonStatus(button,"Pluto",&Grey);
 }
 
@@ -30433,6 +30450,11 @@ void Start_Highlights_Menu51()
   if (CheckLimeMiniConnect() == 1)  // Lime Mini not connected so GreyOut
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2); // Lime Mini
+  }
+
+  if (CheckPlutoIPConnect() == 1) // PlutoSDR not connected
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 2);
   }
 
   if ((CheckLimeMiniConnect() == 0)  && (strcmp(RXKEY, "LIMEMINI") == 0))// Lime Mini
@@ -30458,6 +30480,16 @@ void Start_Highlights_Menu51()
   if ((CheckRTL()==0)  && (strcmp(RXKEY, "RTLSDR") != 0))// RTLSDR
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0); // RTLSDR
+  }
+
+  if ((CheckPlutoIPConnect() == 0)  && (strcmp(RXKEY, "PLUTOSDR") == 0))// PlutoSDR
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 1); // PlutoSDR Green
+  }
+
+  if ((CheckPlutoIPConnect() == 0)  && (strcmp(RXKEY, "PLUTOSDR") != 0))// PlutoSDR
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0); // PlutoSDR Blue
   }
 
 }

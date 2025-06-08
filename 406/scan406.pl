@@ -40,7 +40,7 @@ my $fixe = 0;
 my $no_checksum = 0;
 my $mic = 0;
 my $card = 0;
-my $filter = "lowpass 3000 highpass 400"; #highpass de 10Hz à 400Hz selon la qualité du signal
+my $filter = "lowpass 3000 highpass 100"; #highpass de 10Hz à 400Hz selon la qualité du signal
 
 my $largeur = "12k";
 my $WFM="";

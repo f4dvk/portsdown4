@@ -89,7 +89,7 @@ sudo apt-get -y install vlc  # Latest version works for Portsdown again as of 20
 sudo apt-get -y install autoconf libtool # for fdk aac
 
 sudo apt-get -y install libxml2 libxml2-dev bison flex libcdk5-dev                   # for libiio
-sudo apt-get -y install libaio-dev libserialport-dev libxml2-dev libavahi-client-dev # for libiio
+sudo apt-get -y install libiio-dev libaio-dev libserialport-dev libxml2-dev libavahi-client-dev # for libiio
 
 sudo apt-get -y install nginx-light                                     # For web access
 sudo apt-get -y install libfcgi-dev                                     # For web control
@@ -129,6 +129,35 @@ cmake -DWITH_EXAMPLES=ON ./
 make all
 sudo make install
 cd /home/pi
+
+# Install SoapySDR
+git clone https://github.com/pothosware/SoapySDR.git
+cd SoapySDR
+mkdir build && cd build
+cmake ..
+make -j4
+sudo make install
+cd /home/pi
+
+# Install SoapyPlutoSDR
+git clone https://github.com/pothosware/SoapyPlutoSDR.git
+cd SoapyPlutoSDR
+mkdir build && cd build
+cmake ..
+make -j4
+sudo make install
+cd /home/pi
+
+sudo rm -r SoapySDR
+sudo rm -r SoapyPlutoSDR
+
+git clone https://github.com/ha7ilm/csdr.git
+cd csdr
+make -j4
+sudo make install
+cd /home/pi
+
+sudo rm -r csdr
 
 # Install Websockets for Meteor Beacon RX server
 git clone https://github.com/warmcat/libwebsockets.git
@@ -390,6 +419,17 @@ cd rtl-sdr/ && mkdir build && cd build
 cmake ../ -DINSTALL_UDEV_RULES=ON
 make && sudo make install && sudo ldconfig
 sudo bash -c 'echo -e "\n# for RTL-SDR:\nblacklist dvb_usb_rtl28xxu\n" >> /etc/modprobe.d/blacklist.conf'
+cd /home/pi
+
+echo
+echo "-----------------------------------------------"
+echo "---------- Installing rx_tools Apps -----------"
+echo "-----------------------------------------------"
+# Install rx_tools
+cd /home/pi/rpidatv/src/rx_tools
+cmake .
+make
+sudo make install
 cd /home/pi
 
 # Download, compile and install DATV Express-server

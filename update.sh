@@ -284,7 +284,7 @@ sudo apt-get -y install libairspy-dev                                   # For Ai
 sudo apt-get -y install expect                                          # For unattended installs
 sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
 sudo apt-get -y install libssl-dev                                      # For libwebsockets
-sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
+sudo apt-get -y install libiio-dev libzstd-dev                          # For libiio 202309040
 sudo apt-get -y install arp-scan                                        # For List Network Devices
 
 sudo apt-get -y install pi-bluetooth
@@ -487,6 +487,57 @@ git clone https://github.com/osmocom/rtl-sdr.git
 cd rtl-sdr/ && mkdir build && cd build
 cmake ../ -DINSTALL_UDEV_RULES=ON
 make && sudo make install && sudo ldconfig
+
+if [ ! -f  /usr/local/lib/libSoapySDR.so ]; then
+  # Install SoapySDR
+  git clone https://github.com/pothosware/SoapySDR.git
+  cd SoapySDR
+  mkdir build && cd build
+  cmake ..
+  make -j4
+  sudo make install
+  cd /home/pi
+
+  # Install SoapyPlutoSDR
+  git clone https://github.com/pothosware/SoapyPlutoSDR.git
+  cd SoapyPlutoSDR
+  mkdir build && cd build
+  cmake ..
+  make -j4
+  sudo make install
+  cd /home/pi
+
+  sudo rm -r SoapySDR
+  sudo rm -r SoapyPlutoSDR
+else
+  echo "Found SoapySDR installed"
+  echo
+fi
+
+if [ ! -f /usr/bin/csdr ]; then
+  # Install csdr
+  git clone https://github.com/ha7ilm/csdr.git
+  cd csdr
+  make -j4
+  sudo make install
+  cd /home/pi
+
+  sudo rm -r csdr
+else
+  echo "Found csdr installed"
+  echo
+fi
+
+echo
+echo "-----------------------------------------------"
+echo "---------- Installing rx_tools Apps -----------"
+echo "-----------------------------------------------"
+# Install rx_tools
+cd /home/pi/rpidatv/src/rx_tools
+cmake .
+make
+sudo make install
+cd /home/pi
 
 # Update limesdr_toolbox
 echo "Updating limesdr_toolbox"

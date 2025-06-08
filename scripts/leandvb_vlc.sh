@@ -55,7 +55,7 @@ if [ "$SAMPLERATEK" == "0" ]; then
     SR_RTLSDR=1200000
   elif [ "$SYMBOLRATEK" -gt 999 ] && [ "$SYMBOLRATEK" -lt 1101 ]; then
     SR_RTLSDR=1250000
-  elif [ "$SYMBOLRATEK" -gt 249 ] && [ "$SYMBOLRATEK" -lt 500 ] && [ "$SDR" == "LIMEMINI" ]; then
+  elif [ "$SYMBOLRATEK" -gt 249 ] && [ "$SYMBOLRATEK" -lt 500 ] && [ "$SDR" != "RTLSDR" ]; then
     SR_RTLSDR=850000
   else
     SR_RTLSDR=2400000
@@ -107,6 +107,14 @@ if [ "$SDR" == "LIMEMINI" ]; then
   KEY="/home/pi/rpidatv/bin/limesdr_dump -f $FreqHz -b 2.5e6 -s $SR_RTLSDR -r $UPSAMPLE_RX -g $GAIN_LIME -l 1024*1024 | buffer"
   B="--s12"
 fi
+if [ "$SDR" == "PLUTOSDR" ]; then
+  KEY="rx_sdr -I CS16 -F CS16 -s $SR_RTLSDR -f $FreqHz - 2>/dev/null "
+  B="--s16"
+fi
+
+# Pluto
+# Phonie : rx_sdr -F CF32 -s 1200000 -f 430500000 - | csdr fir_decimate_cc 25 0.005 HAMMING | csdr fmdemod_quadri_cf  | csdr limit_ff | csdr deemphasis_nfm_ff 48000 | csdr fastagc_ff | csdr convert_f_i16  | aplay -f S16_LE -c1 -r48000
+# DATV : rx_sdr -I CS16 -F CS16 -s 1200000 -f 437000000 -
 
 sudo rm fifo.264 >/dev/null 2>/dev/null
 sudo rm videots >/dev/null 2>/dev/null
@@ -133,7 +141,7 @@ sudo fbi -T 1 -noverbose -a $PATHSCRIPT"/images/Blank_Black.png"
 (sleep 0.2; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
 
 sudo $KEY\
-      | $PATHBIN"leandvb" $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 100 -f $SR_RTLSDR >videots 2>/dev/null &
+      | $PATHBIN"leandvb" $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 -f $SR_RTLSDR >videots 2>/dev/null &
 
 cvlc -I rc --rc-host 127.0.0.1:1111 -f --codec ffmpeg --video-title-timeout=100 \
   --width 800 --height 480 \

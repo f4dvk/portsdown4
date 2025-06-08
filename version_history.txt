@@ -1,3 +1,6 @@
+202506070
+Ajout SoapySDR, SoapyPlutoSDR et rx_tools pour prise en charge RX avec PlutoSDR
+
 202503070
 Detection RP2040, amelioration mineure
 

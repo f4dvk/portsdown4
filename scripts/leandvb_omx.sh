@@ -118,7 +118,7 @@ if [ "$SAMPLERATEK" == "0" ]; then
     SR_RTLSDR=1200000
   elif [ "$SYMBOLRATEK" -gt 999 ] && [ "$SYMBOLRATEK" -lt 1101 ]; then
     SR_RTLSDR=1250000
-  elif [ "$SYMBOLRATEK" -gt 249 ] && [ "$SYMBOLRATEK" -lt 500 ] && [ "$SDR" == "LIMEMINI" ]; then
+  elif [ "$SYMBOLRATEK" -gt 249 ] && [ "$SYMBOLRATEK" -lt 500 ] && [ "$SDR" != "RTLSDR" ]; then
     SR_RTLSDR=850000
   else
     SR_RTLSDR=2400000
@@ -166,13 +166,17 @@ if [ "$SDR" == "LIMEMINI" ]; then
   KEY="/home/pi/rpidatv/bin/limesdr_dump -f $FreqHz -b 2.5e6 -s $SR_RTLSDR -r $UPSAMPLE_RX -g $GAIN_LIME -l 1024*1024 | buffer"
   B="--s12"
 fi
+if [ "$SDR" == "PLUTOSDR" ]; then
+  KEY="rx_sdr -I CS16 -F CS16 -s $SR_RTLSDR -f $FreqHz - 2>/dev/null "
+  B="--s16"
+fi
 
 sudo rm videots >/dev/null 2>/dev/null
 sudo killall omxplayer.bin >/dev/null 2>/dev/null
 mkfifo videots
 
 sudo $KEY\
-      | $PATHBIN"leandvb" $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 100 -f $SR_RTLSDR >videots 2>/dev/null &
+      | $PATHBIN"leandvb" $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 -f $SR_RTLSDR >videots 2>/dev/null &
 
 omxplayer --vol 600 --adev alsa:plughw:"$AUDIO_OUT_DEV",0 \
   --live --layer 6 videots &
