@@ -112,14 +112,12 @@ fi
 if [ "$SAMPLERATEK" == "0" ]; then
   if [ "$SYMBOLRATEK" -lt 250 ]; then
     SR_RTLSDR=300000
-  elif [ "$SYMBOLRATEK" -gt 249 ] && [ "$SYMBOLRATEK" -lt 500 ] && [ "$SDR" == "RTLSDR" ]; then
+  elif [ "$SYMBOLRATEK" -gt 249 ] && [ "$SYMBOLRATEK" -lt 500 ]; then
     SR_RTLSDR=1000000
   elif [ "$SYMBOLRATEK" -gt 499 ] && [ "$SYMBOLRATEK" -lt 1000 ]; then
     SR_RTLSDR=1200000
   elif [ "$SYMBOLRATEK" -gt 999 ] && [ "$SYMBOLRATEK" -lt 1101 ]; then
     SR_RTLSDR=1250000
-  elif [ "$SYMBOLRATEK" -gt 249 ] && [ "$SYMBOLRATEK" -lt 500 ] && [ "$SDR" != "RTLSDR" ]; then
-    SR_RTLSDR=850000
   else
     SR_RTLSDR=2400000
   fi
@@ -167,7 +165,8 @@ if [ "$SDR" == "LIMEMINI" ]; then
   B="--s12"
 fi
 if [ "$SDR" == "PLUTOSDR" ]; then
-  KEY="rx_sdr -I CS16 -F CS16 -s $SR_RTLSDR -f $FreqHz - 2>/dev/null "
+  let BW_PLUTO=SR_RTLSDR/2
+  KEY="rx_sdr -I CS16 -F CS16 -B $BW_PLUTO -s $SR_RTLSDR -f $FreqHz - 2>/dev/null "
   B="--s16"
 fi
 
@@ -175,8 +174,10 @@ sudo rm videots >/dev/null 2>/dev/null
 sudo killall omxplayer.bin >/dev/null 2>/dev/null
 mkfifo videots
 
+sudo sysctl fs.pipe-max-size=32000000 2>/dev/null
+
 sudo $KEY\
-      | $PATHBIN"leandvb" $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 -f $SR_RTLSDR >videots 2>/dev/null &
+      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 6 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 -f $SR_RTLSDR >videots 2>/dev/null &
 
 omxplayer --vol 600 --adev alsa:plughw:"$AUDIO_OUT_DEV",0 \
   --live --layer 6 videots &

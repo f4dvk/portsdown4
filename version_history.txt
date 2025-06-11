@@ -1,3 +1,6 @@
+202506110
+PluoSDR DVB-S2 RX
+
 202506070
 Ajout SoapySDR, SoapyPlutoSDR et rx_tools pour prise en charge RX avec PlutoSDR
 

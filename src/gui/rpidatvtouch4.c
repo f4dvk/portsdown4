@@ -11668,7 +11668,7 @@ void SetSampleRate()
   snprintf(Value, 6, "%d", RXsamplerate[0]);
   while ((NewSampleRate < 0) || (NewSampleRate > 4000))
   {
-    snprintf(Prompt, 63, "Set the LeanDVB Sample Rate in KSamples/sec (0 = auto)");
+    snprintf(Prompt, 63, "LeanDVB Sample Rate in KSamples/sec (0 = auto)");
     Keyboard(Prompt, Value, 6);
     NewSampleRate = atoi(KeyboardReturn);
   }
