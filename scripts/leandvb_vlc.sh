@@ -142,10 +142,10 @@ sudo fbi -T 1 -noverbose -a $PATHSCRIPT"/images/Blank_Black.png"
 sudo sysctl fs.pipe-max-size=32000000 2>/dev/null
 
 sudo $KEY\
-      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 6 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 -f $SR_RTLSDR >videots 2>/dev/null &
+      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 6 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
 
 cvlc -I rc --rc-host 127.0.0.1:1111 -f --codec ffmpeg --video-title-timeout=100 \
   --width 800 --height 480 \
   --sub-filter marq --marq-x 25 --marq-file "/home/pi/tmp/vlc_overlay.txt" \
   --gain 3 --alsa-audio-device $AUDIO_DEVICE \
-  videots >/dev/null 2>/dev/null &
+  udp://@127.0.0.1:10123 >/dev/null 2>/dev/null &
