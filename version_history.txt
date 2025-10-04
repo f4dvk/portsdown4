@@ -1,3 +1,6 @@
+202508230
+Use new version of WiringPi
+
 202506110
 PluoSDR DVB-S2 RX
 

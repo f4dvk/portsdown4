@@ -99,6 +99,6 @@ sudo killall leandvb >/dev/null 2>/dev/null
 sudo sysctl fs.pipe-max-size=32000000 2>/dev/null
 
 sudo $KEY\
-      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 6 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 --ts-udp $UDPIP:$UDPPORT -f $SR_RTLSDR >/dev/null 2>/dev/null &
+      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 --ts-udp $UDPIP:$UDPPORT -f $SR_RTLSDR >/dev/null 2>/dev/null &
 
 exit
