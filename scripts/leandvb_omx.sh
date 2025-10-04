@@ -72,8 +72,11 @@ echo "The RPi Jack Audio Card number is -"$RPIJ_AUDIO_DEV"-"
 USBOUT_AUDIO_DEV="$(aplay -l 2> /dev/null | grep 'USB Audio' | cut -c6-6)"
 
 if [ "$USBOUT_AUDIO_DEV" == '' ]; then
-  printf "USB Dongle audio device was not found, setting to RPi Jack\n"
-  USBOUT_AUDIO_DEV=$RPIJ_AUDIO_DEV
+  USBOUT_AUDIO_DEV="$(aplay -l 2> /dev/null | grep 'seeed' | cut -c6-6)"
+  if [ "$USBOUT_AUDIO_DEV" == '' ]; then
+    printf "USB Dongle audio device was not found, setting to RPi Jack\n"
+    USBOUT_AUDIO_DEV=$RPIJ_AUDIO_DEV
+  fi
 fi
 
 # Take only the first character
@@ -177,7 +180,7 @@ mkfifo videots
 sudo sysctl fs.pipe-max-size=32000000 2>/dev/null
 
 sudo $KEY\
-      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 6 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-steps 35 --rrc-rej 10 --roll-off 0.35 --ldpc-bf 150 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
+      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
 
 omxplayer --vol 600 --adev alsa:plughw:"$AUDIO_OUT_DEV",0 \
   --live --layer 6 udp://127.0.0.1:10123 &
