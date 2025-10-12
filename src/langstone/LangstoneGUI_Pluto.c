@@ -69,6 +69,7 @@ void changeSetting(void);
 void processGPIO(void);
 void initGPIO(void);
 void initMCP23017(int add);
+void GetConfigParam(char *PathConfigFile, char *Param, char *Value);
 int readConfig(void);
 int writeConfig(void);
 int satMode(void);
@@ -234,7 +235,10 @@ int CTCSSTone[NUMCTCSS] = {0,670,693,719,744,770,797,825,854,885,915,948,974,100
 #define diallockX 316
 #define diallockY 15
 
+#define PATH_PCONFIG "/home/pi/rpidatv/scripts/portsdown_config.txt"
 
+// GPIO
+char Gpio[4] = "on";
 
 int ptt=0;
 int ptts=0;
@@ -391,7 +395,11 @@ int main(int argc, char* argv[])
   initPluto();
   initFifos();
   initScreen();
-  initGPIO();
+  // Check gpio status
+  GetConfigParam(PATH_PCONFIG, "gpio", Gpio);
+
+  if (strcmp(Gpio, "on") == 0) initGPIO();
+
   if(touchPresent)
   {
     initTouch(touchPath);
@@ -411,7 +419,7 @@ int main(int argc, char* argv[])
   while(1)
   {
 
-    processGPIO();
+    if (strcmp(Gpio, "on") == 0) processGPIO();
 
    if(touchPresent)
      {
@@ -4275,6 +4283,39 @@ if(se==BANDS24)
         displayStr("Yes");
     }
   }
+}
+
+void GetConfigParam(char *PathConfigFile, char *Param, char *Value)
+{
+  char * line = NULL;
+  size_t len = 0;
+  int read;
+  char ParamWithEquals[255];
+  char ErrorMessage1[255];
+  strcpy(ParamWithEquals, Param);
+  strcat(ParamWithEquals, "=");
+
+  //printf("Get Config reads %s for %s ", PathConfigFile , Param);
+
+  FILE *fp=fopen(PathConfigFile, "r");
+  if(fp != 0)
+  {
+    while ((read = getline(&line, &len, fp)) != -1)
+    {
+      if(strncmp (line, ParamWithEquals, strlen(Param) + 1) == 0)
+      {
+        strcpy(Value, line+strlen(Param)+1);
+        char *p;
+        if((p=strchr(Value,'\n')) !=0 ) *p=0; //Remove \n
+        break;
+      }
+    }
+  }
+  else
+  {
+    printf("Config file not found \n");
+  }
+  fclose(fp);
 }
 
 int readConfig(void)

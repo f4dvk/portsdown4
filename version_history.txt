@@ -1,4 +1,7 @@
-20251012
+202510121
+Prise en compte dans Langstone de la desactivation GPIO
+
+202510120
 Ajout Menu Sarsat dans Sart-up App
 
 202508230
