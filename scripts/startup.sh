@@ -197,6 +197,11 @@ case "$MODE_STARTUP" in
     /home/pi/rpidatv/scripts/menu.sh
     return
   ;;
+  Sarsat_boot)
+    # Start the Touchscreen Scheduler
+    source /home/pi/rpidatv/scripts/scheduler.sh
+    #return
+  ;;
   Display_boot)
     # Start the Touchscreen Scheduler
     source /home/pi/rpidatv/scripts/scheduler.sh

@@ -803,9 +803,8 @@ echo "alias stop='/home/pi/rpidatv/scripts/utils/stop.sh'"  >> /home/pi/.bash_al
 #cd /home/pi
 #sed -i 's|/home/pi/Langstone/run|source /home/pi/rpidatv/scripts/startup.sh|' .bashrc
 
-echo if test -z \"\$SSH_CLIENT\" >> ~/.bashrc
-echo then >> ~/.bashrc
-echo "source /home/pi/rpidatv/scripts/startup.sh" >> ~/.bashrc
+echo if test -z \"\$SSH_CLIENT\""; then" >> ~/.bashrc
+echo "  source /home/pi/rpidatv/scripts/startup.sh" >> ~/.bashrc
 echo fi >> ~/.bashrc
 
 #Configure the boot parameters

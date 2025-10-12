@@ -141,6 +141,7 @@ ChooseBandViewerSDR()
 # 197  Start Ryde RX
 # 198  Boot to Portsdown RX Receive
 # 199  Boot to Portsdown TX
+# 200  Boot to Portsdown Sarsat Menu
 # 207  Exit from any app requesting restart of main rpidatvgui on Menu 7 (test equipment)
 # 208  Exit from any app requesting start of main rpidatvgui on Menu 8 (Receive)
 
@@ -154,6 +155,10 @@ case "$MODE_STARTUP" in
   Testmenu_boot)
     # Start the Portsdown in the test equipment menu
     GUI_RETURN_CODE=207
+  ;;
+  Sarsat_boot)
+    # Start the Portsdown Sarsat Menu
+    GUI_RETURN_CODE=200
   ;;
   Transmit_boot)
     # Start the Portsdown in Transmit Mode
@@ -584,6 +589,11 @@ while true; do
     ;;
     199)
       /home/pi/rpidatv/bin/rpidatvgui -b tx   # Start Portsdown in TX mode
+      GUI_RETURN_CODE="$?"
+      sudo killall vlc >/dev/null 2>/dev/null
+    ;;
+    200)
+      /home/pi/rpidatv/bin/rpidatvgui -b 57   # Start Portsdown Sarsat Menu
       GUI_RETURN_CODE="$?"
       sudo killall vlc >/dev/null 2>/dev/null
     ;;

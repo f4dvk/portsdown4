@@ -18539,6 +18539,10 @@ void ChangeStartApp(int NoButton)
     SetConfigParam(PATH_PCONFIG, "startup", "Meteorview_boot");
     strcpy(StartApp, "Meteorview_boot");
     break;
+  case 9:
+    SetConfigParam(PATH_PCONFIG, "startup", "Sarsat_boot");
+    strcpy(StartApp, "Sarsat_boot");
+    break;
   default:
     break;
   }
@@ -22864,6 +22868,7 @@ void waituntil(int w,int h)
         case 6:                               // Boot to Langstone
         case 7:                               // Boot to Band Viewer
         case 8:                               // Boot to Meteor Viewer
+        case 9:                               // Boot to Portsdown Sarsat Menu
           ChangeStartApp(i);
           //wait_touch();
           setBackColour(0, 0, 0);
@@ -29003,9 +29008,9 @@ void Define_Menu34()
   AddButtonStatus(button, "Boot to^Meteor Viewer", &Blue);
   AddButtonStatus(button, "Boot to^Meteor Viewer", &Green);
 
-  //button = CreateButton(34, 9);
-  //AddButtonStatus(button, "Boot to^Meteor Bcn RX", &Blue);
-  //AddButtonStatus(button, "Boot to^Meteor Bcn RX", &Green);
+  button = CreateButton(34, 9);
+  AddButtonStatus(button, "Boot to^Sarsat Menu", &Blue);
+  AddButtonStatus(button, "Boot to^Sarsat Menu", &Green);
 }
 
 
@@ -29058,6 +29063,18 @@ void Start_Highlights_Menu34()         // Start-up App
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
+  }
+  else if (strcmp(StartApp, "Sarsat_boot") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 1);
   }
   else if (strcmp(StartApp, "Display_boot") == 0)
   {
@@ -31383,6 +31400,13 @@ int main(int argc, char **argv)
     clearScreen();
     CurrentMenu = startupmenu;
     Start_Highlights_Menu8();
+  }
+  else if (startupmenu == 57)              // Sarsat Menu
+  {
+    setBackColour(0, 0, 0);
+    clearScreen();
+    CurrentMenu = startupmenu;
+    Start_Highlights_Menu57();
   }
   else
   {
