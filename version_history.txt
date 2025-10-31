@@ -1,3 +1,8 @@
+202510310
+Suppression accents
+Correction detection Langstone changement IP Pluto
+Installation carte audio WM8960 (script installation)
+
 202510121
 Prise en compte dans Langstone de la desactivation GPIO
 

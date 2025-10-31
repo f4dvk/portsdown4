@@ -3572,6 +3572,8 @@ int CheckLangstonePlutoIP()
     pclose(fp);
   }
   else if ((strcmp(langstone_version, "v2pluto") == 0)
+        || (strcmp(langstone_version, "v2rtlsdr") == 0)
+        || (strcmp(langstone_version, "v2rtlhf") == 0)
         || (strcmp(langstone_version, "v2lime") == 0))
   {
     fp = popen("grep '^export PLUTO_IP=' /home/pi/Langstone/run_pluto | cut -c17-", "r");
@@ -24334,7 +24336,7 @@ void waituntil(int w,int h)
           }
           else
           {
-            MsgBox("Clé RTL non connectée!");
+            MsgBox("RTL SDR Not connected!");
             wait_touch();
             setBackColour(255, 255, 255);
             clearScreen();

@@ -217,6 +217,18 @@ sudo make install
 cd /home/pi
 sudo rm -r dsd
 
+echo
+echo "----------------------------------"
+echo "--- Installing WM8960 Drivers ----"
+echo "----------------------------------"
+git clone https://github.com/waveshare/WM8960-Audio-HAT
+cd WM8960-Audio-HAT
+sudo chmod +x install.sh
+sudo ./install.sh
+
+cd /home/pi
+sudo rm -r WM8960-Audio-HAT
+
 # Enable USB Storage automount in Buster
 echo
 echo "----------------------------------"
@@ -810,7 +822,7 @@ echo fi >> ~/.bashrc
 #Configure the boot parameters
 
 if !(grep lcd_rotate /boot/config.txt) then
-  sudo sh -c "echo lcd_rotate=2 >> /boot/config.txt"
+  sudo sh -c "echo #lcd_rotate=2 >> /boot/config.txt"
 fi
 if !(grep disable_splash /boot/config.txt) then
   sudo sh -c "echo disable_splash=1 >> /boot/config.txt"
