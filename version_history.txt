@@ -1,3 +1,6 @@
+202511230
+Decodeur Sarsat: Ajout modification de Jacky F4EHY : Ajout protocole ELT-DT
+
 202510310
 Suppression accents
 Correction detection Langstone changement IP Pluto
