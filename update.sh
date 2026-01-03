@@ -187,6 +187,9 @@ cp -f -r /home/pi/rpidatv/406/config.txt "$PATHUBACKUP"/sarsat_config.txt
 
 DisplayUpdateMsg "Step 4 of 10\nUpdating Software Package List\n\nXXXX------"
 
+# Amend the sources.list to legacy
+sudo bash -c 'echo -e "deb http://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" > /etc/apt/sources.list'
+
 # Check for the VLC apt Preferences File.  If not present, write it, and re-install VLC
 # Because installed version may not be the right one
 cd /home/pi
