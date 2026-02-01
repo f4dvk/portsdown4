@@ -205,7 +205,7 @@ char CurrentTXMode[255] = "DVB-S";
 char CurrentPilots[7] = "off";
 char CurrentFrames[7] = "long";
 //char CurrentModeInput[255] = "DESKTOP";
-char TabEncoding[7][15] = {"MPEG-2", "H264", "H265", "IPTS in", "TS File", "IPTS in H264", "IPTS in H265"};
+char TabEncoding[8][15] = {"MPEG-2", "H264", "H265", "IPTS in", "TS File", "IPTS in H264", "IPTS in H265", "RTSP"};
 char CurrentEncoding[255] = "H264";
 char TabSource[11][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "PiScreen", "Contest", "Webcam", "C920", "HDMI", "PC", "HDMI Usb"};
 char CurrentSource[15] = "PiScreen";
@@ -227,7 +227,7 @@ char CurrentPiCamOrientation[15] = "normal";
 // "IPTSIN","ANALOGMPEG-2", "CARDMPEG-2", "CAMHDMPEG-2", "DESKTOP", "FILETS"
 //  NOT "C920"
 // "JHDMI", "JCAM", "JPC", "JCARD", "JWEBCAM", "HDMI"
-// "IPTSIN264", "IPTSIN265"
+// "IPTSIN264", "IPTSIN265", "RTSP"
 
 // Composite Video Output variables
 char TabVidSource[8][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "Snap", "Contest", "Webcam", "Movie"};
@@ -2222,6 +2222,12 @@ void ReadModeInput(char coding[256], char vsource[256])
     strcpy(coding, "Native");
     strcpy(vsource, "Raw IP Transport Stream H265");
     strcpy(CurrentEncoding, "IPTS in H265");
+  }
+  else if (strcmp(ModeInput, "RTSP") == 0)
+  {
+    strcpy(coding, "Native");
+    strcpy(vsource, "RTSP Input");
+    strcpy(CurrentEncoding, "RTSP");
   }
   else if (strcmp(ModeInput, "VNC") == 0)
   {
@@ -8449,10 +8455,23 @@ void ApplyTXConfig()
     {
       strcpy(ModeInput, "FILETS");
     }
+    else if (strcmp(CurrentEncoding, "IPTS in H264") == 0)
+    {
+      strcpy(ModeInput, "IPTSIN264");
+    }
+    else if (strcmp(CurrentEncoding, "IPTS in H265") == 0)
+    {
+      strcpy(ModeInput, "IPTSIN265");
+    }
+    else if (strcmp(CurrentEncoding, "RTSP") == 0)
+    {
+      strcpy(ModeInput, "RTSP");
+    }
 
     if ((strcmp(CurrentEncoding, "IPTS in") != 0)      // Only check if not IPTS, or not TS File input
     &&  (strcmp(CurrentEncoding, "IPTS in H264") != 0)
     &&  (strcmp(CurrentEncoding, "IPTS in H265") != 0)
+    &&  (strcmp(CurrentEncoding, "RTSP") != 0)
     &&  (strcmp(CurrentEncoding, "TS File") != 0))
     {
       if (strcmp(CurrentEncoding, "MPEG-2") == 0)
@@ -8509,6 +8528,10 @@ void ApplyTXConfig()
     else if (strcmp(CurrentEncoding, "IPTS in H265") == 0)
     {
       strcpy(ModeInput, "IPTSIN265");
+    }
+    else if (strcmp(CurrentEncoding, "RTSP") == 0)
+    {
+      strcpy(ModeInput, "RTSP");
     }
     else if (strcmp(CurrentEncoding, "TS File") == 0)
     {
@@ -9851,7 +9874,7 @@ void GreyOut1()
       SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0); // Caption
       SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0); // EasyCap
 
-      if ((strcmp(CurrentEncoding, "IPTS in") == 0) || (strcmp(CurrentEncoding, "TS File") == 0))
+      if ((strcmp(CurrentEncoding, "IPTS in") == 0) || (strcmp(CurrentEncoding, "TS File") == 0) || (strcmp(CurrentEncoding, "RTSP") == 0))
       {
         SetButtonStatus(ButtonNumber(CurrentMenu, 18), 2); // Format
         SetButtonStatus(ButtonNumber(CurrentMenu, 19), 2); // Source
@@ -10012,10 +10035,12 @@ void GreyOut12()
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2); // Grey-out MPEG-2 button
     SetButtonStatus(ButtonNumber(CurrentMenu, 2), 2); // Grey-out Raw IPTS H265 button button
+    //SetButtonStatus(ButtonNumber(CurrentMenu, 3), 2); // Grey-out RTSP
   }
   else
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0); // Show MPEG-2 Button
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // Grey-out RTSP
   }
 }
 
@@ -10303,6 +10328,11 @@ void SelectEncoding(int NoButton)  // Encoding
   {
     SetConfigParam(PATH_PCONFIG, "modeinput", "IPTSIN265");
     strcpy(CurrentEncoding, "IPTS in H265");
+  }
+  else if (NoButton == 3)       // RTSP
+  {
+    SetConfigParam(PATH_PCONFIG, "modeinput", "RSTP");
+    strcpy(CurrentEncoding, "RTSP");
   }
   else if (NoButton == 9) // TS File
   {
@@ -12160,7 +12190,7 @@ void TransmitStart()
   // If Pi Cam source, and not IPTS or TS File input, clear the screen
   if ((strcmp(CurrentSource, "Pi Cam") == 0) && (strcmp(CurrentEncoding, "IPTS in") != 0)
    && (strcmp(CurrentEncoding, "IPTS in H264") != 0) && (strcmp(CurrentEncoding, "IPTS in H265") != 0)
-   && (strcmp(CurrentEncoding, "TS File") != 0))
+   && (strcmp(CurrentEncoding, "RTSP") != 0) && (strcmp(CurrentEncoding, "TS File") != 0))
   {
     setBackColour(0, 0, 0);
     clearScreen();
@@ -12208,6 +12238,7 @@ void TransmitStart()
     ||(strcmp(ModeInput,"IPTSIN") == 0)
     ||(strcmp(ModeInput,"IPTSIN264") == 0)
     ||(strcmp(ModeInput,"IPTSIN265") == 0)
+    ||(strcmp(ModeInput,"RTSP") == 0)
     ||(strcmp(ModeInput,"FILETS") == 0)
     ||(strcmp(ModeInput,"WEBCAMMPEG-2") == 0)
     ||(strcmp(ModeInput,"ANALOG16MPEG-2") == 0)
@@ -21716,6 +21747,10 @@ void waituntil(int w,int h)
           SelectEncoding(i);
           printf("Raw IPTS in H265\n");
           break;
+        case 3:                               // RTSP
+          SelectEncoding(i);
+          printf("RTSP\n");
+          break;
         case 4:                               // Cancel
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
           printf("Encoding Cancel\n");
@@ -27230,6 +27265,11 @@ void Define_Menu12()
   AddButtonStatus(button, "Raw IPTS in^H265", &Green);
   AddButtonStatus(button, "Raw IPTS in^H265", &Grey);
 
+  button = CreateButton(12, 3);
+  AddButtonStatus(button, TabEncoding[7], &Blue);
+  AddButtonStatus(button, TabEncoding[7], &Green);
+  AddButtonStatus(button, TabEncoding[7], &Grey);
+
   button = CreateButton(12, 4);
   AddButtonStatus(button, "Cancel", &DBlue);
   AddButtonStatus(button, "Cancel", &LBlue);
@@ -27299,6 +27339,11 @@ void Start_Highlights_Menu12()
   {
     SelectInGroupOnMenu(12, 5, 9, 2, 1);
     SelectInGroupOnMenu(12, 1, 2, 2, 1);
+  }
+  if(strcmp(CurrentEncoding, TabEncoding[7]) == 0)
+  {
+    SelectInGroupOnMenu(12, 5, 9, 3, 1);
+    SelectInGroupOnMenu(12, 1, 2, 3, 1);
   }
   GreyOut12();  // Grey out H265 if not available
 }

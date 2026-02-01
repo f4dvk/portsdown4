@@ -436,6 +436,15 @@ else # h264
     BITRATE_AUDIO=24000
     let TS_AUDIO_BITRATE=$BITRATE_AUDIO*15/10
     let BITRATE_VIDEO=($BITRATE_TS-24000-$TS_AUDIO_BITRATE)*725/1000
+  elif [ "$MODE_INPUT" == "RTSP" ]; then
+    RTSP_AUDIO="-c:a aac -ac 1 -b:a 24k -minrate:a 24k -maxrate:a 24k"
+    BITRATE_AUDIO=24000
+    let TS_AUDIO_BITRATE=$BITRATE_AUDIO*15/10
+    let BITRATE_VIDEO=($BITRATE_TS-24000-$TS_AUDIO_BITRATE)*725/1000
+    if [ "$BITRATE_VIDEO" -lt 110000 ]; then  # Pas d'audio si débit trop bas
+      let BITRATE_VIDEO=($BITRATE_TS-12000)*725/1000
+      RTSP_AUDIO="-an"
+    fi
   else                                                # H264 or H265 no audio
     let BITRATE_VIDEO=($BITRATE_TS-12000)*725/1000
   fi
@@ -450,12 +459,13 @@ else # h264
     RESOLUTION=352
     VIDEO_WIDTH=352
     VIDEO_HEIGHT=288
-    VIDEO_FPS=25
+    VIDEO_FPS=22
   fi
   if [ "$BITRATE_VIDEO" -lt 100000 ]; then
     RESOLUTION=352
     VIDEO_WIDTH=160
     VIDEO_HEIGHT=120
+    VIDEO_FPS=15
   fi
 fi
 
@@ -1691,14 +1701,29 @@ fi
   "RTSP")
 
   let BITRATE_VIDEO=BITRATE_VIDEO/1000
-  $PATHRPI"/cam_ctl" $RTSPIP h265 $VIDEO_FPS $RESOLUTION $BITRATE_VIDEO >/dev/null 2>/dev/null
+
+  case "$MODE_OUTPUT" in
+    "LIMEMINI" | "LIMEUSB" | "LIMEDVB" | "DATVEXPRESS")
+      $PATHRPI"/cam_ctl" $RTSPIP h265 $VIDEO_FPS $RESOLUTION $BITRATE_VIDEO >/dev/null 2>/dev/null
+    ;;
+    "PLUTO")
+      $PATHRPI"/cam_ctl" $RTSPIP h264 $VIDEO_FPS $RESOLUTION $BITRATE_VIDEO >/dev/null 2>/dev/null
+    ;;
+  esac
 
   if [ "$MODULATION" != "DVB-T" ]; then                    ######### DVB-S/S2
     OUTPUT_FFMPEG="-y videots"
     case "$MODE_OUTPUT" in
       "LIMEMINI" | "LIMEUSB" | "LIMEDVB")
-      $PATHRPI"/limesdr_dvb" -i videots -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
-        -t "$FREQ_OUTPUT"e6 -g $LIME_GAINF -q $CAL $CUSTOM_FPGA -D $DIGITAL_GAIN -e $BAND_GPIO $LIMETYPE &
+        $PATHRPI"/limesdr_dvb" -i videots -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
+          -t "$FREQ_OUTPUT"e6 -g $LIME_GAINF -q $CAL $CUSTOM_FPGA -D $DIGITAL_GAIN -e $BAND_GPIO $LIMETYPE &
+      ;;
+      "PLUTO")
+        $PATHRPI"/ffmpeg" -thread_queue_size 1024 -fflags nobuffer -analyzeduration 500000 \
+          -i rtsp://$RTSPUSR:$RTSPPWD"@"$RTSPIP":"$RTSPPORT"/profile1" -c:v copy $RTSP_AUDIO \
+          -f flv \
+          rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
+        exit
       ;;
     esac
   else                                                    ########### DVB-T
