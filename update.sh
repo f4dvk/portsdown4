@@ -186,7 +186,7 @@ cp -f -r /home/pi/rpidatv/406/decode.txt "$PATHUBACKUP"/decode.txt
 cp -f -r /home/pi/rpidatv/406/config.txt "$PATHUBACKUP"/sarsat_config.txt
 
 # Make a safe copy of the HamTV Merger config
-#cp -f -r "$PATHSCRIPT"/merger_config.txt "$PATHUBACKUP"/merger_config.txt
+cp -f -r "$PATHSCRIPT"/merger_config.txt "$PATHUBACKUP"/merger_config.txt
 
 # Make a safe copy of the potential Fixed IP config
 cp -f -r /home/pi/rpidatv/scripts/configs/dhcpcd.conf.prep "$PATHUBACKUP"/dhcpcd.conf.prep
@@ -295,6 +295,7 @@ sudo apt-get -y install uhubctl                                         # For SD
 sudo apt-get -y install libssl-dev                                      # For libwebsockets
 sudo apt-get -y install libiio-dev libzstd-dev                          # For libiio 202309040
 sudo apt-get -y install arp-scan                                        # For List Network Devices
+sudo apt-get -y install cppcheck                                        # For HamTV Merger Client
 sudo apt-get -y install libcurl4-openssl-dev                            # ctl_cam
 
 sudo apt-get -y install pi-bluetooth
@@ -869,6 +870,20 @@ make
 cp rydemon ../../bin/
 cd /home/pi
 
+# Compile client for HamTV Merger
+echo
+echo "---------------------------------------------"
+echo "----- Compiling Client for HamTV Merger -----"
+echo "---------------------------------------------"
+
+wget https://github.com/ARISS-UK/tsmerge-client-linuxcli/archive/refs/heads/master.zip
+unzip master.zip
+rm master.zip
+rm /home/pi/tsmerge
+mv tsmerge-client-linuxcli-master tsmerge
+cd /home/pi/tsmerge
+make cppcheck && make
+
 # Compile and install the executable for GPIO-switched transmission (201710080)
 echo "Installing keyedtx"
 cd /home/pi/rpidatv/src/keyedtx
@@ -1001,7 +1016,7 @@ if test -f "$PATHUBACKUP"/images/tccw.jpg ; then     # Test card functionality i
 fi
 
 # Restore the user's original HamTV Merger config
-#cp -f -r "$PATHUBACKUP"/merger_config.txt "$PATHSCRIPT"/merger_config.txt
+cp -f -r "$PATHUBACKUP"/merger_config.txt "$PATHSCRIPT"/merger_config.txt
 
 # Restore the user's original potential Fixed IP config
 cp -f -r "$PATHUBACKUP"/dhcpcd.conf.prep /home/pi/rpidatv/scripts/configs/dhcpcd.conf.prep

@@ -34,6 +34,9 @@ Prise en compte dans Langstone de la desactivation GPIO
 202510120
 Ajout Menu Sarsat dans Sart-up App
 
+202508290
+Add ISS HamTV Merger Client
+
 202508230
 Use new version of WiringPi
 
@@ -48,10 +51,13 @@ Enlarge RX mute button
 Tidy large MER Display
 Add IPTSIN264 and IPTSIN265 modes to ssh Menu
 
+202504211
+Add new USB ID for Cam Link 4K
+
 202504210
 Correct Lime Mini update filepath in ssh menu
 
-02504080
+202504080
 Increase limit on Muntjac gain to 20
 
 202503310
