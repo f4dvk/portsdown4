@@ -158,6 +158,14 @@ cp -f -r /home/pi/rpidatv/src/plutoview/plutoview_bands.txt "$PATHUBACKUP"/pluto
 # Make a safe copy of the SDRplay Band Viewer config
 cp -f -r /home/pi/rpidatv/src/sdrplayview/sdrplayview_config.txt "$PATHUBACKUP"/sdrplayview_config.txt
 
+# Make a safe copy of the Lime and Pluto NF Meter Configs
+cp -f -r /home/pi/rpidatv/src/nf_meter/nf_meter_config.txt "$PATHUBACKUP"/nf_meter_config.txt
+cp -f -r /home/pi/rpidatv/src/pluto_nf_meter/pluto_nf_meter_config.txt "$PATHUBACKUP"/pluto_nf_meter_config.txt
+
+# Make a safe copy of the Lime and Pluto Noise Meter Configs
+cp -f -r /home/pi/rpidatv/src/noise_meter/noise_meter_config.txt "$PATHUBACKUP"/noise_meter_config.txt
+cp -f -r /home/pi/rpidatv/src/pluto_noise_meter/pluto_noise_meter_config.txt "$PATHUBACKUP"/pluto_noise_meter_config.txt
+
 # Make a safe copy of the Meteor Viewer config
 cp -f -r /home/pi/rpidatv/src/meteorview/meteorview_config.txt "$PATHUBACKUP"/meteorview_config.txt
 
@@ -876,10 +884,13 @@ echo "---------------------------------------------"
 echo "----- Compiling Client for HamTV Merger -----"
 echo "---------------------------------------------"
 
+cd /home/pi
+rm master.zip >/dev/null 2>/dev/null
+rm -r tsmerge-client-linuxcli-master >/dev/null 2>/dev/null   # (from earlier faulty update)
 wget https://github.com/ARISS-UK/tsmerge-client-linuxcli/archive/refs/heads/master.zip
 unzip master.zip
 rm master.zip
-rm /home/pi/tsmerge
+rm -r /home/pi/tsmerge >/dev/null 2>/dev/null
 mv tsmerge-client-linuxcli-master tsmerge
 cd /home/pi/tsmerge
 make cppcheck && make
@@ -984,6 +995,14 @@ fi
 
 # Restore the user's original SDRplay Band Viewer config
 cp -f -r "$PATHUBACKUP"/sdrplayview_config.txt /home/pi/rpidatv/src/sdrplayview/sdrplayview_config.txt
+
+# Restore the user's original Lime and Pluto NF Meter Configs
+cp -f -r "$PATHUBACKUP"/nf_meter_config.txt /home/pi/rpidatv/src/nf_meter/nf_meter_config.txt
+cp -f -r "$PATHUBACKUP"/pluto_nf_meter_config.txt /home/pi/rpidatv/src/pluto_nf_meter/pluto_nf_meter_config.txt
+
+# Restore the user's original Lime and Pluto Noise Meter Configs
+cp -f -r "$PATHUBACKUP"/noise_meter_config.txt /home/pi/rpidatv/src/noise_meter/noise_meter_config.txt
+cp -f -r "$PATHUBACKUP"/pluto_noise_meter_config.txt /home/pi/rpidatv/src/pluto_noise_meter/pluto_noise_meter_config.txt
 
 # Restore the user's original Meteor Viewer config
 cp -f -r "$PATHUBACKUP"/meteorview_config.txt /home/pi/rpidatv/src/meteorview/meteorview_config.txt
@@ -1256,6 +1275,18 @@ if ! grep -q muntjacgain= "$PATHSCRIPT"/portsdown_config.txt; then
   echo "t8muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
 fi
 
+# Correct HamTV merger test port 202510030
+sed -i -e 's/testport=6789/testport=9978/g' /home/pi/rpidatv/scripts/merger_config.txt
+
+# Add HamTV Merger LNB Voltage parameter to config file if required 202510030
+if ! grep -q lnbvolts= "$PATHSCRIPT"/merger_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/merger_config.txt
+  # Add the new entry and a new line
+  echo "lnbvolts=off" >> "$PATHSCRIPT"/merger_config.txt
+fi
+
 # Streaming audio source: https://github.com/JoJoBond/3LAS
 
 if [ ! -d "/home/pi/rpidatv/server/node_modules" ];then
@@ -1269,34 +1300,6 @@ cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
 
 if ! grep -q snd-aloop /etc/modules; then
   sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules
-fi
-
-# Add Muntjac entries to config file if not included 202503310
-if ! grep -q muntjacgain= "$PATHSCRIPT"/portsdown_config.txt; then
-  # File needs updating
-  # Delete any blank lines first
-  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
-  # Add the new entry and a new line
-  echo "muntjacgain=15" >> "$PATHSCRIPT"/portsdown_config.txt
-  # Delete any blank lines first
-  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_presets.txt
-  # Add the new entry and a new line
-  echo "d0muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "d1muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "d2muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "d3muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "d4muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "d5muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "d6muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t0muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t1muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t2muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t3muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t4muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t5muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t6muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t7muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
-  echo "t8muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
 fi
 
 # Add libreSDR IP setting to config file if not included  202406160

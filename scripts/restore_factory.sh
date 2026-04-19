@@ -76,6 +76,23 @@ cp -f /home/pi/rpidatv/src/meteorview/meteorview_config.txt.factory /home/pi/rpi
 cp -f /home/pi/rpidatv/src/nf_meter/nf_meter_config.txt /home/pi/rpidatv/src/nf_meter/nf_meter_config.txt.bak
 cp -f /home/pi/rpidatv/src/nf_meter/nf_meter_config.txt.factory /home/pi/rpidatv/src/nf_meter/nf_meter_config.txt
 
+# pluto_nf_meter_config.txt
+cp -f /home/pi/rpidatv/src/pluto_nf_meter/pluto_nf_meter_config.txt /home/pi/rpidatv/src/pluto_nf_meter/pluto_nf_meter_config.txt.bak
+cp -f /home/pi/rpidatv/src/pluto_nf_meter/pluto_nf_meter_config.txt.factory /home/pi/rpidatv/src/pluto_nf_meter/pluto_nf_meter_config.txt
+
 # noise_meter_config.txt
 cp -f /home/pi/rpidatv/src/noise_meter/noise_meter_config.txt /home/pi/rpidatv/src/noise_meter/noise_meter_config.txt.bak
 cp -f /home/pi/rpidatv/src/noise_meter/noise_meter_config.txt.factory /home/pi/rpidatv/src/noise_meter/noise_meter_config.txt
+
+# pluto_noise_meter_config.txt
+cp -f /home/pi/rpidatv/src/pluto_noise_meter/pluto_noise_meter_config.txt /home/pi/rpidatv/src/pluto_noise_meter/pluto_noise_meter_config.txt.bak
+cp -f /home/pi/rpidatv/src/pluto_noise_meter/pluto_noise_meter_config.txt.factory /home/pi/rpidatv/src/pluto_noise_meter/pluto_noise_meter_config.txt
+
+# sweeper_config.txt
+cp -f /home/pi/rpidatv/src/sweeper/sweeper_config.txt /home/pi/rpidatv/src/sweeper/sweeper_config.txt.bak
+cp -f /home/pi/rpidatv/src/sweeper/sweeper_config.txt.factory /home/pi/rpidatv/src/sweeper/sweeper_config.txt
+
+# merger_config.txt
+cp -f $PATHSCRIPT"/merger_config.txt" $PATHSCRIPT"/merger_config.txt.bak"
+cp -f $PATHSCRIPT"/configs/merger_config.txt.factory" $PATHSCRIPT"/merger_config.txt"
+

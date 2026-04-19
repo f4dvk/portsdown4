@@ -34,6 +34,17 @@ Prise en compte dans Langstone de la desactivation GPIO
 202510120
 Ajout Menu Sarsat dans Sart-up App
 
+202510040
+Correct Displayed HamTV Frequency
+Add NF Meters to saved USB parameters
+
+202510030
+Correct HamTV Test Port and add LNB Volts Option
+Preserve NF Meter settings through updates and allow save to USB
+
+202509170
+Add invert touchscreen option to SSH Console menu
+
 202508290
 Add ISS HamTV Merger Client
 
