@@ -1200,6 +1200,43 @@ if ! grep -q snd-aloop /etc/modules; then
   sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules
 fi
 
+# Add Muntjac entries to config file if not included 202503310
+if ! grep -q muntjacgain= "$PATHSCRIPT"/portsdown_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
+  # Add the new entry and a new line
+  echo "muntjacgain=15" >> "$PATHSCRIPT"/portsdown_config.txt
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_presets.txt
+  # Add the new entry and a new line
+  echo "d0muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "d1muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "d2muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "d3muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "d4muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "d5muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "d6muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t0muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t1muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t2muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t3muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t4muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t5muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t6muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t7muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+  echo "t8muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+fi
+
+# Add libreSDR IP setting to config file if not included  202406160
+if ! grep -q libreip= "$PATHSCRIPT"/portsdown_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
+  # Add the new entry and a new line
+  echo "libreip=dhcp" >> "$PATHSCRIPT"/portsdown_config.txt
+fi
+
 # Add new stop alias if required  202311xxx
 if ! grep -q rpidatv/scripts/utils/stop.sh /home/pi/.bash_aliases; then
   # File needs updating

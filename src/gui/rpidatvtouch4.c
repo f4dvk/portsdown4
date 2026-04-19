@@ -110,6 +110,7 @@ color_t Blue  = {.r = 0  , .g = 0  , .b = 128};
 color_t LBlue = {.r = 64 , .g = 64 , .b = 192};
 color_t DBlue = {.r = 0  , .g = 0  , .b = 64 };
 color_t Grey  = {.r = 127, .g = 127, .b = 127};
+color_t DGrey  = {.r = 63, .g = 63, .b = 63};
 color_t Red   = {.r = 255, .g = 0  , .b = 0  };
 color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 color_t Orange = {.r = 248, .g = 185, .b = 4  };
@@ -194,9 +195,9 @@ char TabModeAudio[6][15]={"auto", "mic", "video", "bleeps", "no_audio", "webcam"
 char TabModeSTD[2][7]={"6","0"};
 char TabModeVidIP[2][7]={"0","1"};
 char TabModeOP[14][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
-  "DTX1", "IP", "LIMEMINI", "JLIME", "JSTREAM", "EXPRESS2", "LIMEDVB", "PLUTO"};
+  "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "EXPRESS2", "LIMEDVB", "PLUTO"};
 char TabModeOPtext[14][31]={"Portsdown", " Ugly ", "Express", "Lime USB", "BATC^Stream", "Comp Vid", \
-  " DTX1 ", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Express S2", "Lime DVB", "Pluto"};
+  "LIBRESDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Express S2", "Lime DVB", "Pluto"};
 char TabAtten[4][15] = {"NONE", "PE4312", "PE43713", "HMC1119"};
 char CurrentModeOP[31] = "QPSKRF";
 char CurrentModeOPtext[31] = " UGLY ";
@@ -367,6 +368,8 @@ char PlutoIP[63];             // Portsdown Pluto IP address
 char LangstonePlutoIP[63];    // Langstone Pluto IP address
 char langstone_version[31] = "none";
 
+// LibreSDR
+char LibreIP[63];             // LibreSDR IP address (or text dhcp)
 
 // Touch display variables
 int Inversed=0;               //Display is inversed (Waveshare=1)
@@ -440,6 +443,7 @@ void GetIPAddr2(char IPAddress[256]);
 void Get_wlan0_IPAddr(char IPAddress[255]);
 void GetSWVers(char SVersion[256]);
 void GetLatestVers(char LatestVersion[256]);
+int CheckPing(char *host_address);
 int CheckGoogle();
 int CheckJetson();
 int valid_digit(char *ip_str);
@@ -522,6 +526,7 @@ int GetPlutoXO();
 int GetPlutoAD();
 int GetPlutoCPU();
 void CheckPlutoReady();
+void CheckLibreSDRReady();
 void CheckLimeReady();
 void LimeInfo();
 int LimeGWRev();
@@ -692,6 +697,9 @@ void ChangePlutoAD();
 void ChangePlutoCPU();
 void RebootPluto(int context);
 void CheckPlutoFirmware();
+void ChangeLibreIP();
+void ToggleDHCP(bool approved);
+int CheckDHCP();
 void UpdateLangstone(int version_number);
 void InstallLangstone(int NoButton);
 void ChangeADFRef(int NoButton);
@@ -1438,6 +1446,62 @@ void GetLatestVers(char LatestVersion[256])
   /* close */
   pclose(fp);
 }
+
+
+/***************************************************************************//**
+ * @brief Checks whether a ping to specified host works
+ *
+ * @param char* host_address (IPV4 or hostname)
+ *
+ * @return 0 if it pings OK, 1 if it doesn't
+*******************************************************************************/
+
+int CheckPing(char *host_address)
+{
+  FILE *fp;
+  char response[127];
+  char pingCommand[255];
+
+  strcpy(pingCommand, "timeout 0.1 ping ");
+
+  // Deal with special case for LibreSDR (dhcp = libre)
+  if (strcmp(host_address, "dhcp") == 0)
+  {
+    strcat(pingCommand, "libre");
+  }
+  else
+  {
+    strcat(pingCommand, host_address);
+  }
+  strcat(pingCommand, " -c1 | head -n 5 | tail -n 1 | grep -o \"1 received,\" | head -c 11");
+
+   //printf("Ping Command: -%s-\n", pingCommand);
+
+  /* Open the command for reading. */
+  fp = popen(pingCommand, "r");
+  if (fp == NULL) {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response, 12, fp) != NULL)
+  {
+    //printf("ping Response in loop:%s\n", response);
+  }
+    //printf("ping Response after loop %s\n", response);
+  /* close */
+  pclose(fp);
+  if (strcmp (response, "1 received,") == 0)
+  {
+    return 0;
+  }
+  else
+  {
+    return 1;
+  }
+}
+
 
 /***************************************************************************//**
  * @brief Checks whether a ping to google on 8.8.4.4 works
@@ -2470,6 +2534,11 @@ void ReadModeOutput(char Moutput[256])
     strcpy(Moutput, "Pluto");
     strcpy(CurrentModeOPtext, TabModeOPtext[13]);
   }
+  else if (strcmp(ModeOutput, "LIBRESDR") == 0)
+  {
+    strcpy(Moutput, "LibreSDR");
+    strcpy(CurrentModeOPtext, TabModeOPtext[6]);
+  }
   else  // Possibly Ugly or IQ, so set to Lime Mini
   {
     strcpy(Moutput, "LimeSDR Mini");
@@ -2893,6 +2962,10 @@ void ReadLangstone()
   strcpy(Param, "plutoip");
   GetConfigParam(PATH_PCONFIG, Param, Value);
   strcpy(PlutoIP, Value);
+
+  strcpy(Param, "libreip");
+  GetConfigParam(PATH_PCONFIG, Param, Value);
+  strcpy(LibreIP, Value);
 
   strcpy(Param, "langstone");
   strcpy(Value, "none");   // default
@@ -5807,6 +5880,96 @@ void CheckPlutoReady()
 
 
 /***************************************************************************//**
+ * @brief Checks whether a LibreSDR is connected on the saved address
+ *        and tries to find it if not.  If successful new address is used
+ *        if still unsuccessful, displays error message
+ * @param
+ *
+ * @return void
+*******************************************************************************/
+
+void CheckLibreSDRReady()
+{
+  FILE *fp;
+  char response[255];
+  int i = 0;
+  char *last_word;
+  char IPforCheck[127];
+
+  if (strcmp(CurrentModeOP, TabModeOP[6]) == 0)  // LibreSDR Output selected
+  {
+    if (CheckPing(LibreIP) != 0)                 // LibreSDR does not respond to ping on current address
+    {
+      // Open the command to find the libre host address
+      // response is like "libre.lan has address 192.168.2.221" or nothing
+      fp = popen("host libre | grep 'has address'", "r");
+
+      if (fp == NULL)
+      {
+        printf("Failed to run command\n" );
+        pclose(fp);
+        return;
+      }
+
+      // Read the output a line at a time
+      while (fgets(response, 255, fp) != NULL)
+      {
+        if (strlen(response) > 12)
+        {
+          printf("host command returned: %s\n", response);
+
+          while (response[i] != '\0')
+          {
+            if (response[i] <= 32 && response[i + 1] > 32)
+            {
+              last_word = &response[i + 1];
+            }
+            i++;
+          }
+          i = 0;
+          while (last_word && last_word[i] > 32)
+          {
+            write(1, &last_word[i], 1);
+            i++;
+          }
+          last_word[strlen(last_word) - 1] = '\0';
+
+          printf("IP Address is -%s- %d\n", last_word, strlen(last_word));
+
+          strcpy(IPforCheck, last_word);  // because is_valid_ip mangles parameter
+
+
+          if (is_valid_ip(IPforCheck) == 1)  // valid IP address, so check it can be pinged
+          {
+            // printf("It's a valid IP address\n");
+            if (CheckPing(last_word) == 0)
+            {
+              // So change the LibreIp in memory and the config file
+              strcpy(LibreIP, last_word);
+              SetConfigParam(PATH_PCONFIG, "libreip", LibreIP);
+            }
+            else
+            {
+              MsgBox4("No LibreSDR Detected", "Check Config and Connections", " ", "Touch Screen to Continue");
+              wait_touch();
+            }
+          }
+        }
+        else  // string length less than 12
+        {
+          MsgBox4("No LibreSDR Detected", "Check Config and Connections", " ", "Touch Screen to Continue");
+          wait_touch();
+        }
+      }
+
+      // close the command
+      pclose(fp);
+    }
+  }
+}
+
+
+/***************************************************************************//**
  * @brief Checks whether a Lime Mini or Lime USB is connected if selected
  *        and displays error message if not
  * @param
@@ -8445,7 +8608,7 @@ void ApplyTXConfig()
       strcpy(ModeInput, "CARDMPEG-2");
     }
   }
-  else if (strcmp(CurrentModeOP, "PLUTO") == 0) //          PLUTO Modes
+  else if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0)) //          PLUTO Modes
   {
     if (strcmp(CurrentEncoding, "IPTS in") == 0)
     {
@@ -8476,7 +8639,7 @@ void ApplyTXConfig()
     {
       if (strcmp(CurrentEncoding, "MPEG-2") == 0)
       {
-        MsgBox2("MPEG-2 encoding not available with Pluto", "Selecting H264");
+        MsgBox2("MPEG-2 encoding not available with Pluto", "or LibreSDR.  Selecting H264");
         wait_touch();
         strcpy(CurrentEncoding, "H264");
         SetConfigParam(PATH_PCONFIG, "encoding", CurrentEncoding);
@@ -8816,7 +8979,8 @@ void EnforceValidTXMode()
        && (strcmp(CurrentModeOP, "IP") != 0)
        && (strcmp(CurrentModeOP, "JLIME") != 0)
        && (strcmp(CurrentModeOP, "JEXPRESS") != 0)
-       && (strcmp(CurrentModeOP, "PLUTO") != 0)) // If not any of these, then not DVB-S2-capable
+       && (strcmp(CurrentModeOP, "PLUTO") != 0)
+       && (strcmp(CurrentModeOP, "LIBRESDR") != 0)) // If not any of these, then not DVB-S2-capable
   {
     if ((strcmp(CurrentTXMode, TabTXMode[0]) != 0) && (strcmp(CurrentTXMode, TabTXMode[1]) != 0))  // Not DVB-S and not Carrier
     {
@@ -9939,9 +10103,10 @@ void GreyOut1()
         SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // Attenuator Level
       }
 
-      // If not DATV Express, Lime, JLIME or Pluto then Grey out Device Level
+      // If not DATV Express, Lime, JLIME, LIBRESDR or Pluto then Grey out Device Level
       if ((strcmp(CurrentModeOP, "DATVEXPRESS") != 0)
         && (strcmp(CurrentModeOP, "PLUTO") != 0)
+        && (strcmp(CurrentModeOP, "LIBRESDR") != 0)
         && (strcmp(CurrentModeOP, TabModeOP[3]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[8]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[9]) != 0)
@@ -9973,6 +10138,7 @@ void GreyOut11()
    && (strcmp(CurrentModeOP, "LIMEMINI") != 0)
    && (strcmp(CurrentModeOP, "LIMEDVB") != 0)
    && (strcmp(CurrentModeOP, "PLUTO") != 0)
+   && (strcmp(CurrentModeOP, "LIBRESDR") != 0)
    && (strcmp(CurrentModeOP, "STREAMER") != 0)
    && (strcmp(CurrentModeOP, "COMPVID") != 0)
    && (strcmp(CurrentModeOP, "IP") != 0)
@@ -10002,8 +10168,8 @@ void GreyOut11()
     // Until short/long frames working, grey out frames
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // grey-out Frames long/short
   }
-  // For Pluto
-  if (strcmp(CurrentModeOP, "PLUTO") == 0)
+  // For Pluto and LibreSDR
+  if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0))
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 3), 2); // grey-out 32APSK
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2); // grey-out carrier
@@ -10031,7 +10197,7 @@ void GreyOut12()
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 2); // Grey-out H265 Button
   }
-  if(strcmp(CurrentModeOP, "PLUTO") == 0) // Pluto Selected
+  if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0)) // Pluto or LibreSDR Selected
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2); // Grey-out MPEG-2 button
     SetButtonStatus(ButtonNumber(CurrentMenu, 2), 2); // Grey-out Raw IPTS H265 button button
@@ -10085,12 +10251,14 @@ void GreyOut25()
 
 void GreyOutReset42()
 {
+  SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0); // LibreSDR
   SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // Lime Mini
   SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0); // DATV Express
   SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0); // Lime USB
   SetButtonStatus(ButtonNumber(CurrentMenu, 10), 0); // Jetson
   SetButtonStatus(ButtonNumber(CurrentMenu, 13), 0); // LimeMini DVB
   SetButtonStatus(ButtonNumber(CurrentMenu, 14), 0); // Pluto
+  SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);  // LibreSDR
 }
 
 void GreyOut42()
@@ -10117,6 +10285,11 @@ void GreyOut42()
   if ((CheckPlutoIPConnect() == 1) && (CheckPlutoUSBConnect() != 0))   // Pluto not connected, so GreyOut
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 14), 2); // Pluto
+  }
+  // Check LibreSDR
+  if (CheckPing(LibreIP) != 0)   // LibreSDR not connected, so GreyOut
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 2); // LibreSDR
   }
 }
 
@@ -10153,7 +10326,7 @@ void GreyOut45()
     SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // HDMI
     SetButtonStatus(ButtonNumber(CurrentMenu, 10), 0); // HDMI Usb
   }
-  else if (strcmp(CurrentModeOP, "PLUTO") == 0) // Pluto
+  else if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0)) // Pluto
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0); // Contest
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0); // Comp Vid
@@ -10393,6 +10566,8 @@ void SelectOP(int NoButton)      // Output device
   CheckLimeReady();
   // and check Pluto connected if selected
   CheckPlutoReady();
+  // and check LibreSDR connected if selected
+  CheckLibreSDRReady();
 }
 
 void SelectFormat(int NoButton)  // Video Format
@@ -11044,7 +11219,14 @@ void ChangeBandDetails(int NoButton)
   snprintf(ActualValue, 30, "%d", TabBandPlutoLevel[band]);
   while ((PlutoLevel < -71) || (PlutoLevel > 0) || (strlen(KeyboardReturn) < 1))  // PlutoLevel init at 1
   {
-    snprintf(Prompt, 63, "Set the Pluto Power for the %s Band (0 to -71):", TabBandLabel[band]);
+    if (strcmp(CurrentModeOPtext, "Pluto") == 0)
+    {
+      snprintf(Prompt, 63, "Set the Pluto Power for the %s Band (0 to -71):", TabBandLabel[band]);
+    }
+    else
+    {
+      snprintf(Prompt, 63, "Set the LibreSDR Power for the %s Band (0 to -71):", TabBandLabel[band]);
+    }
     Keyboard(Prompt, ActualValue, 3);
     PlutoLevel = atoi(KeyboardReturn);
   }
@@ -11559,11 +11741,18 @@ void SetDeviceLevel()
     strcpy(Param, "limegain");
     SetConfigParam(PATH_PCONFIG, Param, KeyboardReturn);
   }
-  else if (strcmp(CurrentModeOP, "PLUTO") == 0)  // Pluto
+  else if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0))  // Pluto
   {
     while ((PlutoLevel < -71) || (PlutoLevel > 0) || (strlen(KeyboardReturn) < 1))
     {
-      snprintf(Prompt, 62, "Set the Pluto Power for the %s Band (0 to -71):", TabBandLabel[CurrentBand]);
+      if (strcmp(CurrentModeOPtext, "Pluto") == 0)
+      {
+        snprintf(Prompt, 63, "Set the Pluto Power for the %s Band (0 to -71):", TabBandLabel[CurrentBand]);
+      }
+      else
+      {
+        snprintf(Prompt, 63, "Set the LibreSDR Power for the %s Band (0 to -71):", TabBandLabel[CurrentBand]);
+      }
       snprintf(Value, 5, "%d", TabBandPlutoLevel[CurrentBand]);
       Keyboard(Prompt, Value, 3);
       PlutoLevel = atoi(KeyboardReturn);
@@ -12182,6 +12371,8 @@ void TransmitStart()
   CheckLimeReady();
   // and Check Pluto connected if selected
   CheckPlutoReady();
+  // and Check LibreSDR connected if selected
+  CheckLibreSDRReady();
 
   strcpy(Param,"modeinput");
   GetConfigParam(PATH_PCONFIG,Param,Value);
@@ -15975,6 +16166,24 @@ void YesNo(int i)  // i == 6 Yes, i == 8 No
   // First switch on what was calling the Yes/No question
   switch(CallingMenu)
   {
+  case 158:
+    printf("reached case 158\n");
+    switch (i)
+    {
+    case 6:     // Yes
+      MsgBox4("Reconfiguring and rebooting", " ", " ", " ");
+      ToggleDHCP(true);
+      CurrentMenu = 15;
+      Start_Highlights_Menu15();
+      UpdateWindow();
+      break;
+    case 8:    // No
+      CurrentMenu = 15;
+      Start_Highlights_Menu15();
+      UpdateWindow();
+      break;
+    }
+  break;
   case 414:         // Download ISS file??
     switch (i)
     {
@@ -18955,6 +19164,133 @@ void CheckPlutoFirmware()
 }
 
 
+void ChangeLibreIP()
+{
+  char RequestText[64];
+  char InitText[64];
+  bool IsValid = FALSE;
+  char LibreIPCopy[31];
+  char LibreIPCopy2[31];
+
+  strcpyn(InitText, LibreIP, 17);
+
+  while (IsValid == FALSE)
+  {
+    strcpy(RequestText, "Enter \"dhcp\" or IP address for LibreSDR");
+    Keyboard(RequestText, InitText, 17);
+
+    strcpy(LibreIPCopy, KeyboardReturn);
+    if ((LibreIPCopy[0] == 'd') ||  (LibreIPCopy[0] == 'D'))
+    {
+      strcpy(LibreIP, "dhcp");
+      IsValid = TRUE;
+    }
+    else
+    {
+      strcpy(LibreIPCopy2, LibreIPCopy);
+
+      if(is_valid_ip(LibreIPCopy2) == 1)
+      {
+        strcpy(LibreIP, LibreIPCopy);
+        IsValid = TRUE;
+      }
+    }
+  }
+  printf("Libre IP set to: %s\n", LibreIP);
+
+  // Save IP to config file
+  SetConfigParam(PATH_PCONFIG, "libreip", LibreIP);
+}
+
+
+/***************************************************************************//**
+ * @brief Toggles DHCP on or off.  Triggers reboot
+ *
+ * @param nil
+ *
+ * @return nil
+*******************************************************************************/
+
+void ToggleDHCP(bool approved)
+{
+  if (CheckDHCP() == 0)  // DHCP enabled, so disable it
+  {
+    if (approved == false)  // Ask first
+    {
+      // Display warning and exit clause
+      MsgBox4("Portsdown will disable DHCP,", "disconnect from LibreSDR and reboot", "Continue?", " ");
+    }
+    else                   // Just do it
+    {
+      printf("Disable DHCP\n");
+      system("sudo cp /home/pi/rpidatv/scripts/configs/dhcpcd.conf.off /etc/dhcpcd.conf");
+      system("sudo cp /home/pi/rpidatv/scripts/configs/dnsmasq.conf.off /etc/dnsmasq.conf");
+      system("sudo reboot now");
+      printf("reboot would be called\n");
+    }
+  }
+  else  // DHCP disabled, so enable it
+  {
+    if (approved == false)  // Ask first
+    {
+      // Display warning and exit clause
+      MsgBox4("Portsdown will enable DHCP,", "to enable LibreSDR and reboot", "Continue?", " ");
+    }
+    else                   // Just do it
+    {
+      printf("Enable DHCP\n");
+      system("sudo cp /home/pi/rpidatv/scripts/configs/dhcpcd.conf.svr /etc/dhcpcd.conf");
+      system("sudo cp /home/pi/rpidatv/scripts/configs/dnsmasq.conf.svr /etc/dnsmasq.conf");
+      system("sudo reboot now");
+      printf("reboot would be called\n");
+    }
+  }
+}
+
+
+/***************************************************************************//**
+ * @brief Checks whether DHCP is enabled by checking IP address
+ *
+ * @param nil
+ *
+ * @return 0 if it is enabled, 1 if it not enabled
+*******************************************************************************/
+
+int CheckDHCP()
+{
+  FILE *fp;
+  char response[127] = "";
+  char checkcommand[127];
+
+  strcpy(checkcommand, "cat /etc/dnsmasq.conf | grep 192.168.10.");  // 192.168.10.* addresses used for fixed IP
+
+  /* Open the command for reading. */
+  fp = popen(checkcommand, "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response, 120, fp) != NULL)
+  {
+    printf("%s", response);
+  }
+  //  printf("%s", response);
+  /* close */
+  pclose(fp);
+  if (strlen(response) > 5)
+  {
+    return 0;  // enabled
+  }
+  else
+  {
+    return 1;  // disabled
+  }
+}
+
+
 void UpdateLangstone(int version_number)
 {
   if (CheckGoogle() == 0)  // First check internet conection
@@ -20073,7 +20409,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu9();
           UpdateWindow();
           break;
-        case 14:                         // Lime/Express/Pluto Level
+        case 14:                         // Lime/Express/Pluto/LibreSDR/Muntjac Level
           printf("Set Device Output Level \n");
           SetDeviceLevel();
           setBackColour(0, 0, 0);
@@ -20142,7 +20478,7 @@ void waituntil(int w,int h)
               {
                 system("/home/pi/rpidatv/scripts/lime_ptt.sh &");
               }
-              if (strcmp(CurrentModeOP, "PLUTO") == 0)
+              if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0))
               {
                 system("/home/pi/rpidatv/scripts/pluto_ptt.sh &");
               }
@@ -21875,7 +22211,7 @@ void waituntil(int w,int h)
         continue;   // Completed Menu 14 action, go and wait for touch
       }
 
-      if (CurrentMenu == 15)  // Menu 15 Pluto Config
+      if (CurrentMenu == 15)  // Menu 15 Pluto/Libre Config
       {
         printf("Button Event %d, Entering Menu 15 Case Statement\n",i);
         switch (i)
@@ -21916,33 +22252,46 @@ void waituntil(int w,int h)
           Start_Highlights_Menu15();
           UpdateWindow();
           break;
-        case 6:                               // Enable 2nd Pluto CPU
-          if (GetButtonStatus(ButtonNumber(15, 6)) == 1)
-          {
-            system("/home/pi/rpidatv/scripts/pluto_set_cpu.sh");
-            MsgBox2("Pluto 2nd CPU enabled", "You must reboot the Pluto now");
-            wait_touch();
-            SetButtonStatus(ButtonNumber(15, 6), 0);
-          }
-          UpdateWindow();
-          break;
-        case 7:                               // Check Pluto Firmware
+//        case 6:                               // Enable 2nd Pluto CPU
+//          if (GetButtonStatus(ButtonNumber(15, 6)) == 1)
+//          {
+//            system("/home/pi/rpidatv/scripts/pluto_set_cpu.sh");
+//            MsgBox2("Pluto 2nd CPU enabled", "You must reboot the Pluto now");
+//            wait_touch();
+//            SetButtonStatus(ButtonNumber(15, 6), 0);
+//          }
+//          UpdateWindow();
+//          break;
+        case 6:                               // Check Pluto Firmware
           CheckPlutoFirmware();
           Start_Highlights_Menu15();
           UpdateWindow();
           break;
-        case 8:                               // Perform Pluto Expansion
-          if (GetButtonStatus(ButtonNumber(15, 8)) == 1)
-          {
-            system("/home/pi/rpidatv/scripts/pluto_set_ad.sh");
-            MsgBox2("Pluto expanded to AD9364 status", "You must reboot the Pluto now");
-            wait_touch();
-            SetButtonStatus(ButtonNumber(15, 8), 0);
-          }
+//        case 8:                               // Perform Pluto Expansion
+//          if (GetButtonStatus(ButtonNumber(15, 8)) == 1)
+//          {
+//            system("/home/pi/rpidatv/scripts/pluto_set_ad.sh");
+//            MsgBox2("Pluto expanded to AD9364 status", "You must reboot the Pluto now");
+//            wait_touch();
+//            SetButtonStatus(ButtonNumber(15, 8), 0);
+//          }
+//          UpdateWindow();
+//          break;
+        case 7:                               // Enter Pluto IP for Langstone
+          ChangePlutoIPLangstone();
+          setBackColour(0, 0, 0);
+          clearScreen();
+          Start_Highlights_Menu15();
           UpdateWindow();
           break;
-        case 9:                               // Enter Pluto IP for Langstone
-          ChangePlutoIPLangstone();
+        case 8:                               // Enable/disable DHCP for LibreSDR
+          ToggleDHCP(false);                  // ask user first
+          CurrentMenu = 38;
+          CallingMenu = 158;
+          printf("exit toggleDHCP, back in menu 15. i = %d\n", i);
+          break;
+        case 9:                               // Enter LibreSDR IP
+          ChangeLibreIP();
           setBackColour(0, 0, 0);
           clearScreen();
           Start_Highlights_Menu15();
@@ -21953,17 +22302,21 @@ void waituntil(int w,int h)
         }
         SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 0); // Reset cancel (even if not selected)
 
-        if (i != 4) // Stay in Menu 15 unless cancel pressed
-        {
-          printf("Staying in Menu 15\n");
-          CurrentMenu=15;
-          Start_Highlights_Menu15();
-        }
-        else
+        if (i == 4) // Stay in Menu 15 unless cancel or toggle DHCP pressed
         {
           printf("Returning to MENU 1 from Menu 15\n");
           CurrentMenu=1;
           Start_Highlights_Menu1();
+        }
+        else if (i == 8)
+        {
+          // Pass on through
+        }
+        else
+        {
+          printf("Staying in Menu 15\n");
+          CurrentMenu=15;
+          Start_Highlights_Menu15();
         }
         UpdateWindow();
         continue;   // Completed Menu 15 action, go and wait for touch
@@ -23378,9 +23731,9 @@ void waituntil(int w,int h)
           //SelectOP(i);
           //printf("COMPVID\n");
           break;
-        case 1:                               // DTX-1
-          //SelectOP(i);
-          //printf("DTX-1\n");
+        case 1:                               // LibreSDR
+          SelectOP(i);
+          printf("LibreSDR\n");
           break;
         case 2:                               // IPTS
           SelectOP(i);
@@ -24925,6 +25278,10 @@ void Start_Highlights_Menu1()
   {
     snprintf(Leveltext, 20, "Pluto Pwr^%d", TabBandPlutoLevel[CurrentBand]);
   }
+  else if (strcmp(CurrentModeOP, "LIBRESDR") == 0)  // LibreSDR
+  {
+    snprintf(Leveltext, 20, "LibreSDR Pwr^%d", TabBandPlutoLevel[CurrentBand]);
+  }
   else
   {
     snprintf(Leveltext, 20, "OP Level^Fixed");
@@ -24994,6 +25351,18 @@ void Start_Highlights_Menu1()
   {
     strcpy(Outputtext, "Output to^Pluto");
     if ((CheckPlutoUSBConnect() != 0) && (CheckPlutoIPConnect() == 1))
+    {
+      AmendButtonStatus(17, 1, Outputtext, &Grey);
+    }
+    else
+    {
+      AmendButtonStatus(17, 1, Outputtext, &Green);
+    }
+  }
+  else if (strcmp(CurrentModeOPtext, "LibreSDR") == 0)
+  {
+    strcpy(Outputtext, "Output to^LibreSDR");
+    if (CheckPing(LibreIP) != 0)
     {
       AmendButtonStatus(17, 1, Outputtext, &Grey);
     }
@@ -25209,7 +25578,7 @@ void Define_Menu3()
   AddButtonStatus(button, "Langstone^Config", &Blue);
 
   button = CreateButton(3, 8);
-  AddButtonStatus(button, "Pluto^Config", &Blue);
+  AddButtonStatus(button, "Pluto and^Libre Config", &Blue);
 
   button = CreateButton(3, 9);
   AddButtonStatus(button, "Select^Test Card", &Blue);
@@ -27517,7 +27886,7 @@ void Define_Menu15()
 {
   int button;
 
-  strcpy(MenuTitle[15], "Pluto Configuration Menu (15)");
+  strcpy(MenuTitle[15], "Pluto and LibreSDR Configuration Menu (15)");
 
   // Bottom Row, Menu 15
 
@@ -27542,24 +27911,40 @@ void Define_Menu15()
   button = CreateButton(15, 5);
   AddButtonStatus(button, "Check Pluto^CPUs", &Blue);
 
-  button = CreateButton(15, 6);
-  AddButtonStatus(button, " ", &Grey);
-  AddButtonStatus(button, "Enable 2nd^Pluto CPU", &Red);
+//  button = CreateButton(15, 6);
+//  AddButtonStatus(button, " ", &Grey);
+//  AddButtonStatus(button, "Enable 2nd^Pluto CPU", &Red);
 
-  button = CreateButton(15, 7);
+  button = CreateButton(15, 6);
   AddButtonStatus(button, "Check Pluto^Firmware", &Blue);
 
+//  button = CreateButton(15, 8);
+//  AddButtonStatus(button, " ", &Grey);
+//  AddButtonStatus(button, "Update Pluto^to AD9364", &Red);
+
+  button = CreateButton(15, 7);
+  AddButtonStatus(button, "Set Pluto IP^for Langstone", &Blue);
+
   button = CreateButton(15, 8);
-  AddButtonStatus(button, " ", &Grey);
-  AddButtonStatus(button, "Update Pluto^to AD9364", &Red);
+  AddButtonStatus(button, "DHCP Disabled^for LibreSDR", &Blue);
+  AddButtonStatus(button, "DHCP Enabled^for LibreSDR", &Red);
 
   button = CreateButton(15, 9);
-  AddButtonStatus(button, "Set Pluto IP^for Langstone", &Blue);
+  AddButtonStatus(button, "Set LibreSDR^IP Address", &Blue);
 
 }
 
 void Start_Highlights_Menu15()
 {
+  if (CheckDHCP() == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 1);  // DHCP enabled
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);  // DHCP not enabled
+  }
+
 }
 
 void Define_Menu16()
@@ -29667,9 +30052,10 @@ void Define_Menu42()
   //AddButtonStatus(button, TabModeOPtext[5], &Blue);
   //AddButtonStatus(button, TabModeOPtext[5], &Green);
 
-  //button = CreateButton(42, 1);                        // Was DTX-1
-  //AddButtonStatus(button, TabModeOPtext[6], &Blue);
-  //AddButtonStatus(button, TabModeOPtext[6], &Green);
+  button = CreateButton(42, 1);                          // LibreSDR
+  AddButtonStatus(button, TabModeOPtext[6], &Blue);
+  AddButtonStatus(button, TabModeOPtext[6], &Green);
+  AddButtonStatus(button, TabModeOPtext[6], &DGrey);
 
   button = CreateButton(42, 2);                          // IPTS Out
   AddButtonStatus(button, TabModeOPtext[7], &Blue);
@@ -29731,6 +30117,11 @@ void Start_Highlights_Menu42()
 {
   GreyOutReset42();
 
+  if(strcmp(CurrentModeOP, TabModeOP[6]) == 0)  // LIBRESDR
+  {
+    SelectInGroupOnMenu(42, 5, 14, 1, 1);
+    SelectInGroupOnMenu(42, 0, 3, 1, 1);
+  }
   if(strcmp(CurrentModeOP, TabModeOP[2]) == 0)  //DATVEXPRESS
   {
     SelectInGroupOnMenu(42, 5, 14, 7, 1);
