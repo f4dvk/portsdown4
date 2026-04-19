@@ -71,6 +71,7 @@ Rewitten by Dave, G8GKQ
 #define PATH_SV_CONFIG "/home/pi/rpidatv/src/sdrplayview/sdrplayview_config.txt"
 #define PATH_TC_CONFIG "/home/pi/rpidatv/scripts/images/testcard_config.txt"
 #define PATH_HAMTV_CONFIG "/home/pi/rpidatv/scripts/merger_config.txt"
+#define PATH_TRACK_CONFIG "/home/pi/rpidatv/scripts/tracker_config.txt"
 #define PATH_SERIAL_COM "/home/pi/rpidatv/bin/serial_com"
 
 #define PI 3.14159265358979323846
@@ -431,6 +432,19 @@ char htAUport[63];                     // server port for merger region
 char htTESTport[63];                   // server port for merger region
 bool MergerConnected = false;          // true when connected
 
+// ISS Tracker variables
+int AzOffset = 0;                      // Az offset from tracker Pos
+int ElOffset = 0;                      // El offset from tracker Pos
+char TrackMode[15] = "stop";           // stop, moon, iss, sun, park
+float AzPark = 210.0;                  //
+float ElPark = 30.0;                   //
+char CtrlType[15] = "G5500pi";         // G5500pi, HamLib
+char flip[15] = "disabled";            // disabled, enabled, forced, half-flip
+char G5500piAddress[31] = "192.168.2.140:8008";
+char HamLibDevice[31] = "/dev/ttyUSB2";
+char HamLibModel[31] = "603";
+char HamLibBaud[7] = "9600";
+
 // GPIO
 char Gpio[4] = "on";
 
@@ -470,6 +484,7 @@ void GetIPAddr2(char IPAddress[256]);
 void Get_wlan0_IPAddr(char IPAddress[255]);
 void GetSWVers(char SVersion[256]);
 void GetLatestVers(char LatestVersion[256]);
+void GetMuntjacSerial(char MuntjacSerial[127]);
 int CheckPing(char *host_address);
 int CheckGoogle();
 int CheckJetson();
@@ -502,6 +517,7 @@ void ReadLangstone();
 void ReadTSConfig();
 void ReadADFRef();
 void ReadMerger();
+void ReadTracker();
 void GetSerNo(char SerNo[256]);
 int CalcTSBitrate();
 void GetDevices(char DeviceName1[256], char DeviceName2[256]);
@@ -558,6 +574,7 @@ int GetPlutoAD();
 int GetPlutoCPU();
 void CheckPlutoReady();
 void CheckLibreSDRReady();
+void CheckMuntjacReady();
 void CheckLimeReady();
 void LimeInfo();
 int LimeGWRev();
@@ -755,6 +772,7 @@ void ChangeJetsonUser();
 void ChangeJetsonPW();
 void ChangeJetsonRPW();
 void ChangeHamTV(int NoButton);
+void ChangeTracker(int NoButton);
 void waituntil(int w,int h);
 void Define_Menu1();
 void Start_Highlights_Menu1();
@@ -859,6 +877,8 @@ void Define_Menu52();
 void Start_Highlights_Menu52();
 void Define_Menu53();
 void Start_Highlights_Menu53();
+void Define_Menu54();            // BATC 51
+void Start_Highlights_Menu54();  // BATC 51
 void Define_Menu55();
 void Start_Highlights_Menu55();
 void Define_Menu57();
@@ -1485,6 +1505,49 @@ void GetLatestVers(char LatestVersion[256])
   {
     //printf("%s", LatestVersion);
   }
+
+  /* close */
+  pclose(fp);
+}
+
+
+/***************************************************************************//**
+ * @brief Looks up the Muntjac Firmware Version and Serial
+ *
+ * @param MuntjacSerial (str) Muntjac Firmware Version and Serial
+ *
+ * @return void
+*******************************************************************************/
+
+void GetMuntjacSerial(char MuntjacSerial[127])
+{
+  FILE *fp;
+  int i;
+
+  // Run the script for the serial, delete the CRs and the []
+  fp = popen("/home/pi/rpidatv/scripts/muntjac_serial.sh | tr -d \'\\n\' | tr -d \'[\'", "r");
+  if (fp == NULL) {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(MuntjacSerial, 80, fp) != NULL)
+  {
+    //printf("%s", (INTERACTIVE_MODE));
+  }
+
+  //  Terminate string at first space to delete " (INTERACTIVE_MODE)]"
+  for (i = 0; i < strlen(MuntjacSerial); i++)
+  {
+    if (MuntjacSerial[i] == ' ')
+    {
+      MuntjacSerial[i] = '\0';
+      break;
+    }
+  }
+
+  printf("Muntjac serial returned as %s\n", MuntjacSerial);
 
   /* close */
   pclose(fp);
@@ -2261,18 +2324,14 @@ void ReadModeInput(char coding[256], char vsource[256])
     strcpy(CurrentEncoding, "H264");
     strcpy(CurrentSource, TabSource[6]); // Webcam
   }
-  else if (strcmp(ModeInput, "CARDH264") == 0)
+  else if (strcmp(ModeInput, "CARDH264") == 0)  // Allow all formats except 1080p
   {
     strcpy(coding, "H264");
     strcpy(vsource, "Static Test Card F");
     strcpy(CurrentEncoding, "H264");
-    if ((strcmp(CurrentFormat, "720p") == 0) || (strcmp(CurrentFormat, "1080p") == 0))  // Go 16:9
+    if (strcmp(CurrentFormat, "1080p") == 0)  // Go to 720p
     {
-      strcpy(CurrentFormat, "16:9");
-    }
-    if(strcmp(CurrentFormat, "16:9") != 0)  // Allow 16:9
-    {
-      strcpy(CurrentFormat, "4:3");
+      //strcpy(CurrentFormat, "720p");
     }
     SetConfigParam(PATH_PCONFIG, "format", CurrentFormat);
     strcpy(CurrentSource, TabSource[3]); // TestCard
@@ -3185,6 +3244,75 @@ void ReadMerger()
 
 
 /***************************************************************************//**
+ * @brief Reads the ISS Tracker parameters from tracker_config.txt
+ *
+ * @param nil
+ *
+ * @return void
+*******************************************************************************/
+void ReadTracker()
+{
+  char Param[31];
+  char Value[255]="";
+
+  strcpy(Value, "0");
+  strcpy(Param, "azoffset");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  AzOffset = atoi(Value);
+
+  strcpy(Value, "0");
+  strcpy(Param, "eloffset");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  ElOffset = atoi(Value);
+
+  strcpy(Value, "stop");
+  strcpy(Param, "trackmode");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  strcpy(TrackMode, Value);
+
+  strcpy(Value, "180.0");
+  strcpy(Param, "azpark");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  AzPark = atof(Value);
+
+  strcpy(Value, "0.0");
+  strcpy(Param, "elpark");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  ElPark = atof(Value);
+
+  strcpy(Value, "disabled");
+  strcpy(Param, "flip");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  strcpy(flip, Value);
+
+  strcpy(Value, "G5500pi");
+  strcpy(Param, "ctrltype");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  strcpy(CtrlType, Value);
+
+  strcpy(Value, "192.168.2.140:8008");
+  strcpy(Param, "g5500piaddress");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  strcpy(G5500piAddress, Value);
+
+  strcpy(Value, "/dev/ttyUSB2");
+  strcpy(Param, "hamlibdevice");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  strcpy(HamLibDevice, Value);
+
+  strcpy(Value, "603");
+  strcpy(Param, "hamlibmodel");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  strcpy(HamLibModel, Value);
+
+  strcpy(Value, "9600");
+  strcpy(Param, "hamlibbaud");
+  GetConfigParam(PATH_TRACK_CONFIG, Param, Value);
+  strcpy(HamLibBaud, Value);
+}
+
+
+/***************************************************************************//**
  * @brief Looks up the SD Card Serial Number
  *
  * @param SerNo (str) Serial Number to be passed as a string
@@ -4071,6 +4199,7 @@ int RegisterMuntjac()
   char GrepCommand[127];
   char GrepResponse[255];
   char AppendCommand[300];
+  char CopyCommand[511];
 
   if (CheckMuntjac() == 1)
   {
@@ -4093,6 +4222,10 @@ int RegisterMuntjac()
   }
 
   pclose(fp);
+
+  // Copy Muntjac cal file from source folder to bin folder
+  snprintf(CopyCommand, 500, "cp /home/pi/rpidatv/src/muntjac/%s.mjo /home/pi/rpidatv/bin/%s.mjo >/dev/null 2>/dev/null", MuntjacSerial, MuntjacSerial);
+  system(CopyCommand);
 
   // Check if Muntjac serial is already in /etc/udev/rules.d/99-usbserial.rules
 
@@ -6272,6 +6405,78 @@ void CheckLibreSDRReady()
 
 
 /***************************************************************************//**
+ * @brief Checks whether a Muntjac is connected and registered if selected
+ *        and displays error message if not
+ * @param
+ *
+ * @return void
+*******************************************************************************/
+
+void CheckMuntjacReady()
+{
+  char MuntjacSerial[127];
+  char GrepCommand[255];
+  char GrepResponse[255];
+  bool serial_present = false;
+  FILE *fp;
+
+  if (strcmp(CurrentModeOP, TabModeOP[11]) == 0)  // Muntjac Output selected
+  {
+    if (CheckMuntjac() == 1)
+    {
+      MsgBox4("No Muntjac Detected", "Check connections", "or select another output device.", "Touch Screen to Continue");
+      wait_touch();
+    }
+    else                                          // Muntjac connected, so check that it is registered
+    {
+      // Check if Muntjac serial is already in /etc/udev/rules.d/99-usbserial.rules
+
+      // Look up Muntjac Pico Serial Number
+      fp = popen("dmesg | grep -A4 'idVendor=2e8a, idProduct=000a' | tail --lines=1 | sed -n -e 's/^.*SerialNumber: //p'", "r");
+      if (fp == NULL)
+      {
+        printf("Failed to run command\n" );
+        return;
+      }
+
+      // Read the output a line at a time - output it
+      while (fgets(MuntjacSerial, sizeof(MuntjacSerial) - 1, fp) != NULL)
+      {
+        MuntjacSerial[strlen(MuntjacSerial) - 1] = '\0';
+        //printf("\n Muntjac Serial is -%s-\n\n", MuntjacSerial );
+      }
+
+      pclose(fp);
+
+      snprintf(GrepCommand, 250, "grep %s /etc/udev/rules.d/99-usbserial.rules", MuntjacSerial);
+
+      fp = popen(GrepCommand, "r");
+      if (fp == NULL)
+      {
+        printf("Failed to run command\n" );
+        return;
+      }
+
+      // Read the output a line at a time - output it
+      while (fgets(GrepResponse, sizeof(GrepResponse) - 1, fp) != NULL)
+      {
+        if (strlen(GrepResponse) > 5)
+        {
+          // The serial is registered
+          serial_present = true;
+        }
+      }
+
+      if (serial_present != true)
+      {
+        MsgBox4("Muntjac Detected but", "not registered.", "Reselect Muntjac in \"Output to\" Menu", "Touch Screen to Continue");
+      }
+    }
+  }
+}
+
+
+/***************************************************************************//**
  * @brief Checks whether a Lime Mini or Lime USB is connected if selected
  *        and displays error message if not
  * @param
@@ -7856,10 +8061,10 @@ int IsImageToBeChanged(int x,int y)
 
   TransformTouchMap(x,y);       // Sorts out orientation and approx scaling of the touch map
 
-  if (scaledY >= hscreen/2)
-  {
-    return 0;
-  }
+  //if (scaledY >= hscreen/2)
+  //{
+  //  return 0;
+  //}
   if (scaledX <= wscreen/8)
   {
     return -1;
@@ -7892,34 +8097,39 @@ int ButtonNumber(int MenuIndex, int Button)
   // Returns the Button Number (0 - 794) from the Menu number and the button position
   int ButtonNumb = 0;
 
-  if (MenuIndex <= 10)  // 10 x 25-button main menus
+  if (MenuIndex <= 10)  // 10 x 25-button main menus (250)
   {
     ButtonNumb = (MenuIndex - 1) * 25 + Button;
   }
-  if ((MenuIndex >= 11) && (MenuIndex <= 40))  // 30 x 10-button submenus
+  if ((MenuIndex >= 11) && (MenuIndex <= 40))  // 30 x 10-button submenus (250 + 300 = 550)
   {
     ButtonNumb = 250 + (MenuIndex - 11) * 10 + Button;
   }
-  if ((MenuIndex >= 41) && (MenuIndex <= 41))  // keyboard
+  if ((MenuIndex >= 41) && (MenuIndex <= 41))  // keyboard (550 + 50 = 600)
   {
     ButtonNumb = 550 + (MenuIndex - 41) * 50 + Button;
   }
-  if (MenuIndex >= 42)  // 7 x 15-button submenus
+  if ((MenuIndex >= 42) &&  (MenuIndex != 54)) // 9 x 15-button submenus (600 + 135 = 735)
   {
     ButtonNumb = 600 + (MenuIndex - 42) * 15 + Button;
+  }
+  if (MenuIndex == 54) // 5 x 20-button submenus (735 + 100 = 835)
+  {
+    ButtonNumb = 735 + (MenuIndex - 51) * 20 + Button;
   }
   return ButtonNumb;
 }
 
 int CreateButton(int MenuIndex, int ButtonPosition)
 {
-  // Provide Menu number (int 1 - 47), Button Position (0 bottom left, 23 top right)
+  // Provide Menu number (int 1 - 45), Button Position (0 bottom left, 23 top right)
   // return button number
 
   // Menus 1 - 10 are classic 25-button menus
   // Menus 11 - 40 are 10-button menus
   // Menu 41 is a keyboard
-  // Menus 42 - 47 are 15-button menus
+  // Menus 42 - 50 are 15-button menus
+  // Menus "54 --" are 20-button menus
 
   int ButtonIndex;
   int x = 0;
@@ -8999,24 +9209,6 @@ void ApplyTXConfig()
     }
     else if (strcmp(CurrentEncoding, "H264") == 0)   // H264, so define definition by format (max 720p)
     {
-//      if (strcmp(CurrentFormat, "1080p") == 0)
-//      {
-//        strcpy(CurrentFormat, "720p");
-//      }
-//      if (strcmp(CurrentFormat, "720p") == 0)
-//      {
-//        if (CheckC920() == 1)
-//        {
-//          if (strcmp(CurrentSource, "C920") == 0)
-//          {
-//            strcpy(ModeInput, "C920HDH264");
-//          }
-//          else
-//          {
-//            strcpy(CurrentFormat, "16:9");
-//          }
-//        }
-//      }
       if (strcmp(CurrentFormat, "16:9") == 0)
       {
         if (strcmp(CurrentSource, "CompVid") == 0)
@@ -9034,10 +9226,6 @@ void ApplyTXConfig()
         else if (strcmp(CurrentSource, "Pi Cam") == 0)
         {
           strcpy(ModeInput, "CAMH264");
-        }
-        else
-        {
-//          strcpy(CurrentFormat, "4:3");
         }
       }
 //      if (strcmp(CurrentFormat, "4:3") == 0)
@@ -12729,6 +12917,8 @@ void TransmitStart()
   CheckPlutoReady();
   // and Check LibreSDR connected if selected
   CheckLibreSDRReady();
+  // and Check Muntjac connected if selected
+  CheckMuntjacReady();
 
   strcpy(Param,"modeinput");
   GetConfigParam(PATH_PCONFIG,Param,Value);
@@ -17232,24 +17422,18 @@ void InfoScreen()
   char result2[255] = " ";
   int fec = 0;
   char FECtext[127];
+  char TIMEtext[63];
 
   // Look up and format all the parameters to be displayed
 
-  char swversion[255] = "Software Version: ";
-  if (GetLinuxVer() == 8)
-  {
-    strcat(swversion, "Jessie ");
-  }
-  else if (GetLinuxVer() == 9)
-  {
-    strcat(swversion, "Stretch ");
-  }
-  else if (GetLinuxVer() == 10)
-  {
-    strcat(swversion, "Buster ");
-  }
+  char swversion[255] = "Software Version: P4 ";
   GetSWVers(result);
   strcat(swversion, result);
+
+  char dateTime[255];
+  t = time(NULL);
+  strftime(TIMEtext, sizeof(TIMEtext), "%H:%M:%S UTC %d %b %Y", gmtime(&t));
+  strcpy(dateTime, TIMEtext);
 
   char ipaddress[255] = "IP: ";
   strcpy(result, "Not connected");
@@ -17373,6 +17557,8 @@ void InfoScreen()
   linenumber = linenumber + 2;
 
   Text2(wscreen/25, hscreen - linenumber * linepitch, swversion, font_ptr);
+
+  Text2(15 * wscreen/25, hscreen - linenumber * linepitch, dateTime, font_ptr);
   linenumber = linenumber + 1;
 
   Text2(wscreen/25, hscreen - linenumber * linepitch, ipaddress, font_ptr);
@@ -17415,6 +17601,49 @@ void InfoScreen()
   draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
   wait_touch();
+
+  // Create Wait Button thread
+  pthread_create (&thbutton, NULL, &WaitButtonEvent, NULL);
+
+  // Display Muntjac serial if available (takes 200 ms, so done last)
+  char MuntjacName[127] = " ";
+  GetMuntjacSerial(MuntjacName);
+  strcat(TXParams3, "           ");
+  strcat(TXParams3, MuntjacName);
+  linenumber = 9;
+  Text2(wscreen/25, hscreen - linenumber * linepitch, TXParams3, font_ptr);
+
+  // Show changing time while waiting for touch
+  struct tm *tm;
+  int seconds;
+  tm =  gmtime(&t);
+  seconds = tm->tm_sec;
+
+  while (FinishedButton == 0)
+  {
+    //This loop is executed at about 100 Hz
+
+    usleep(10000);
+    t = time(NULL);                           // Look up current time
+    tm =  gmtime(&t);                         // Convert to UTC
+
+    if (seconds != tm->tm_sec)                // Seconds have clicked over
+    {
+
+      strftime(TIMEtext, sizeof(TIMEtext), "%H:%M:%S UTC %d %b %Y", gmtime(&t));   // so form new time string
+      strcpy(dateTime, TIMEtext);
+
+      Text2(15 * wscreen/25, hscreen - 3 * linepitch, dateTime, font_ptr);         // and display it
+
+      seconds = tm->tm_sec;                                                        // reset check time
+
+      refreshMouseBackground();
+      draw_cursor_foreground(mouse_x, mouse_y);
+      UpdateWeb();
+    }
+  }
+  FinishedButton = 0;
+  pthread_join(thbutton, NULL);
 }
 
 void RangeBearing()
@@ -17979,14 +18208,14 @@ void do_snap()
 void do_snapcheck()
 {
   FILE *fp;
-  char SnapIndex[256];
+  char SnapIndex[255];
   int SnapNumber;
   int Snap;
   int LastDisplayedSnap = -1;
   int rawX, rawY, rawPressure;
   int TCDisplay = -1;
 
-  char fbicmd[256];
+  char fbicmd[511];
 
   // Fetch the Next Snap serial number
   fp = popen("cat /home/pi/snaps/snap_index.txt", "r");
@@ -18010,10 +18239,9 @@ void do_snapcheck()
   {
     if(LastDisplayedSnap != Snap)  // only redraw if not already there
     {
-      sprintf(SnapIndex, "%d", Snap);
-      strcpy(fbicmd, "sudo fbi -T 1 -noverbose -a /home/pi/snaps/snap");
-      strcat(fbicmd, SnapIndex);
-      strcat(fbicmd, ".jpg >/dev/null 2>/dev/null");
+      sprintf(fbicmd, "convert /home/pi/snaps/snap%d.jpg -font \"FreeSans\" -size 800x480 -gravity South -pointsize 15 -fill grey80 -annotate 0,0,0,25 snap%d /home/pi/tmp/nsnap.jpg", Snap, Snap);
+      system(fbicmd);
+      strcpy(fbicmd, "sudo fbi -T 1 -noverbose -a /home/pi/tmp/nsnap.jpg >/dev/null 2>/dev/null");
       system(fbicmd);
       LastDisplayedSnap = Snap;
       refreshMouseBackground();
@@ -21457,6 +21685,325 @@ void ChangeHamTV(int NoButton)
 
     SetConfigParam(PATH_HAMTV_CONFIG, "region", htRegion);
     break;
+  }
+}
+
+
+void ChangeTracker(int NoButton)
+{
+  char StoreText[31];
+  char TrackCommand[511];
+  char DeviceString[127];
+  bool IsValid = false;
+  char RequestText[63];
+  char InitText[63];
+
+  if (strcmp(CtrlType, "G5500pi") == 0)
+  {
+    snprintf(DeviceString, 126, " --g5500pi --g55pi_ip %s", G5500piAddress);
+  }
+  else
+  {
+    snprintf(DeviceString, 126, " --device %s --model %s --baud %s", HamLibDevice, HamLibModel, HamLibBaud);
+  }
+
+  switch (NoButton)
+  {
+  case 0:                                            // cycle through flip options
+    system("pkill -9 -f iss_track.py");              // Stop it first
+    if (strcmp(flip, "disabled") == 0)
+    {
+      strcpy(flip, "enabled");
+    }
+    else if (strcmp(flip, "enabled") == 0)
+    {
+      strcpy(flip, "forced");
+    }
+    else if (strcmp(flip, "forced") == 0)
+    {
+      strcpy(flip, "half-flip");
+    }
+    else
+    {
+      strcpy(flip, "disabled");
+    }
+    SetConfigParam(PATH_TRACK_CONFIG, "flip", flip);
+    break;
+  case 2:                                            // downward el offset
+    system("pkill -9 -f iss_track.py");
+    ElOffset = ElOffset - 1;
+    snprintf(StoreText, 15, "%d", ElOffset);
+    SetConfigParam(PATH_TRACK_CONFIG, "eloffset", StoreText);
+    break;
+  case 5:                                            // change control type
+    system("pkill -9 -f iss_track.py");              // Stop it first
+    strcpy(TrackMode, "stop");
+    SetConfigParam(PATH_TRACK_CONFIG, "trackmode", TrackMode);
+
+    if (strcmp(CtrlType, "G5500pi") == 0)
+    {
+      strcpy(CtrlType, "HamLib");
+    }
+    else
+    {
+      strcpy(CtrlType, "G5500pi");
+    }
+    SetConfigParam(PATH_TRACK_CONFIG, "ctrltype", CtrlType);
+    break;
+  case 6:                                            // left az offset
+    system("pkill -9 -f iss_track.py");
+    AzOffset = AzOffset - 1;
+    snprintf(StoreText, 15, "%d", AzOffset);
+    SetConfigParam(PATH_TRACK_CONFIG, "azoffset", StoreText);
+    break;
+  case 7:                                            // Zero offset
+    system("pkill -9 -f iss_track.py");
+    ElOffset = 0;
+    AzOffset = 0;
+    snprintf(StoreText, 15, "%d", AzOffset);
+    SetConfigParam(PATH_TRACK_CONFIG, "azoffset", StoreText);
+    snprintf(StoreText, 15, "%d", ElOffset);
+    SetConfigParam(PATH_TRACK_CONFIG, "eloffset", StoreText);
+    break;
+  case 8:                                            // right az offset
+    system("pkill -9 -f iss_track.py");
+    AzOffset = AzOffset + 1;
+    snprintf(StoreText, 15, "%d", AzOffset);
+    SetConfigParam(PATH_TRACK_CONFIG, "azoffset", StoreText);
+    break;
+  case 10:                                           // Set up rotator
+    system("pkill -9 -f iss_track.py");              // Stop it first
+    strcpy(TrackMode, "stop");
+    SetConfigParam(PATH_TRACK_CONFIG, "trackmode", TrackMode);
+
+    if (strcmp(CtrlType, "G5500pi") == 0)              // G5500pi
+    {
+      IsValid = false;
+      while (IsValid == false)
+      {
+        strcpy(RequestText, "Enter the G5500Pi ip address:port");
+        snprintf(InitText, 31, "%s", G5500piAddress);
+        Keyboard(RequestText, InitText, 21);
+
+        if(strlen(KeyboardReturn) > 10)
+        {
+          IsValid = true;
+        }
+      }
+      printf("G5500pi IP address set to: %s\n", KeyboardReturn);
+      strcpy(G5500piAddress, KeyboardReturn);
+      SetConfigParam(PATH_TRACK_CONFIG, "g5500piaddress", G5500piAddress);
+    }
+    else                                              // Hamlib
+    {
+      IsValid = false;
+      while (IsValid == false)
+      {
+        strcpy(RequestText, "Enter the HamLib device address");
+        snprintf(InitText, 31, "%s", HamLibDevice);
+        Keyboard(RequestText, InitText, 31);
+
+        if(strlen(KeyboardReturn) > 10)
+        {
+          IsValid = true;
+        }
+      }
+      printf("HamLib device address set to: %s\n", KeyboardReturn);
+      strcpy(HamLibDevice, KeyboardReturn);
+      SetConfigParam(PATH_TRACK_CONFIG, "hamlibdevice", HamLibDevice);
+
+      IsValid = false;
+      while (IsValid == false)
+      {
+        strcpy(RequestText, "Enter the HamLib model number");
+        snprintf(InitText, 31, "%s", HamLibModel);
+        Keyboard(RequestText, InitText, 31);
+
+        if(strlen(KeyboardReturn) > 0)
+        {
+          IsValid = true;
+        }
+      }
+      printf("HamLib model number set to: %s\n", KeyboardReturn);
+      strcpy(HamLibModel, KeyboardReturn);
+      SetConfigParam(PATH_TRACK_CONFIG, "hamlibmodel", HamLibModel);
+
+      IsValid = false;
+      while (IsValid == false)
+      {
+        strcpy(RequestText, "Enter the HamLib baud rate");
+        snprintf(InitText, 31, "%s", HamLibBaud);
+        Keyboard(RequestText, InitText, 31);
+
+        if(strlen(KeyboardReturn) > 1)
+        {
+          IsValid = true;
+        }
+      }
+      printf("HamLib baud rate set to: %s\n", KeyboardReturn);
+      strcpy(HamLibBaud, KeyboardReturn);
+      SetConfigParam(PATH_TRACK_CONFIG, "hamlibbaud", HamLibBaud);
+    }
+
+    break;
+  case 12:                                           // upward el offset
+    system("pkill -9 -f iss_track.py");
+    ElOffset = ElOffset + 1;
+    snprintf(StoreText, 15, "%d", ElOffset);
+    SetConfigParam(PATH_TRACK_CONFIG, "eloffset", StoreText);
+    break;
+  case 14:                                           // Set Park Position
+    IsValid = false;
+    while (IsValid == false)
+    {
+      strcpy(RequestText, "Enter the Park Position Azimuth (0 - 359");
+      snprintf(InitText, 31, "%.0f", AzPark);
+      Keyboard(RequestText, InitText, 3);
+
+      if((strlen(KeyboardReturn) > 0) && (atoi(KeyboardReturn) < 360))
+      {
+        IsValid = true;
+      }
+    }
+    printf("Park azimuth set to: %s\n", KeyboardReturn);
+
+    AzPark = atof(KeyboardReturn);
+
+    SetConfigParam(PATH_TRACK_CONFIG, "azpark", KeyboardReturn);
+
+    IsValid = false;
+    while (IsValid == false)
+    {
+      strcpy(RequestText, "Enter the Park Position Elevation (0 - 90)");
+      snprintf(InitText, 31, "%.0f", ElPark);
+      Keyboard(RequestText, InitText, 2);
+
+      if((strlen(KeyboardReturn) > 0) && (atoi(KeyboardReturn) < 91))
+      {
+        IsValid = true;
+      }
+    }
+    printf("Park elevation set to: %s\n", KeyboardReturn);
+
+    ElPark = atof(KeyboardReturn);
+
+    SetConfigParam(PATH_TRACK_CONFIG, "elpark", KeyboardReturn);
+
+    break;
+  case 15:                                           // Stop
+    system("pkill -9 -f iss_track.py");
+    strcpy(TrackMode, "stop");
+    SetConfigParam(PATH_TRACK_CONFIG, "trackmode", TrackMode);
+
+    snprintf(TrackCommand, 510, "/home/pi/rpidatv/src/iss_tracker/iss_track.py %s --stop", DeviceString);
+    system(TrackCommand);
+
+    break;
+  case 16:                                           // Track Moon
+    system("pkill -9 -f iss_track.py");
+    strcpy(TrackMode, "moon");
+    SetConfigParam(PATH_TRACK_CONFIG, "trackmode", TrackMode);
+    break;
+  case 17:                                           // Track ISS
+    system("pkill -9 -f iss_track.py");
+    strcpy(TrackMode, "iss");
+    SetConfigParam(PATH_TRACK_CONFIG, "trackmode", TrackMode);
+    break;
+  case 18:                                           // Track Sun
+    system("pkill -9 -f iss_track.py");
+    strcpy(TrackMode, "sun");
+    SetConfigParam(PATH_TRACK_CONFIG, "trackmode", TrackMode);
+    break;
+  case 19:                                           // Park
+    system("pkill -9 -f iss_track.py");
+    strcpy(TrackMode, "park");
+    SetConfigParam(PATH_TRACK_CONFIG, "trackmode", TrackMode);
+
+    snprintf(TrackCommand, 510, "/home/pi/rpidatv/src/iss_tracker/iss_track.py %s --park-az %.0f --park-el %.0f --park-now", DeviceString, AzPark, ElPark);
+    system(TrackCommand);
+
+    break;
+  }
+
+  // If required, build the track command based on the selections
+  if ((strcmp(TrackMode, "moon") == 0) || (strcmp(TrackMode, "iss") == 0) || (strcmp(TrackMode, "sun") == 0))
+  {
+    switch (NoButton)
+    {
+      case 0:                                            // Flip option has changed
+      case 2:                                            // elevation offset has changed
+      case 6:                                            // azimuth offset has changed
+      case 7:                                            // offset has changed to zero
+      case 8:                                            // azimuth offset has changed
+      case 12:                                           // elevation offset has changed
+      case 16:                                           // Track Moon
+      case 17:                                           // Track ISS
+      case 18:                                           // Track Sun
+
+      //usleep(2000000);                                      // Wait for process to die
+
+      // Base command
+      strcpy (TrackCommand, "/home/pi/rpidatv/src/iss_tracker/iss_track.py");
+
+      // Add station latitude
+      char latitude[31];
+      snprintf(latitude, 30, " --lat %.3f", Locator_To_Lat(Locator));
+      strcat(TrackCommand, latitude);
+
+      // Add station longitude
+      char longitude[31];
+      snprintf(longitude, 30, " --lon %.3f", Locator_To_Lon(Locator));
+      strcat(TrackCommand, longitude);
+
+      // Add rotator controller device
+      strcat(TrackCommand, DeviceString);
+
+      // Add Park azimuth and elevation
+      char ParkPos[63];
+      snprintf(ParkPos, 62, " --park-az %.1f --park-el %.1f", AzPark, ElPark);
+      strcat(TrackCommand, ParkPos);
+
+      // Check if sun tracking
+      if (strcmp(TrackMode, "sun") == 0)
+      {
+        strcat(TrackCommand, " --sun");
+      }
+
+      // Check if moon tracking
+      if (strcmp(TrackMode, "moon") == 0)
+      {
+        strcat(TrackCommand, " --moon");
+      }
+
+      // Include Az and El offsets
+      char OffsetText[31];
+      snprintf(OffsetText, 30, " --offs-az %d --offs-el %d", AzOffset, ElOffset);
+      strcat(TrackCommand, OffsetText);
+
+      // Include flip instructions
+      if (strcmp(flip, "forced") == 0)                // Forced full flip
+      {
+        strcat(TrackCommand, " --flip");
+      }
+      if ((strcmp(flip, "enabled") == 0) && true)    // Add auto mode here
+      {
+        strcat(TrackCommand, " --flip");
+      }
+      if ((strcmp(flip, "enabled") == 0) && false)    // Add auto mode here
+      {
+        strcat(TrackCommand, " --half-flip");
+      }
+      if (strcmp(flip, "half-flip") == 0)             // Forced half-flip
+      {
+        strcat(TrackCommand, " --half-flip");
+      }
+
+      // Run as independent process
+      strcat(TrackCommand, " &");
+      printf("\n%s\n\n", TrackCommand);
+      system(TrackCommand);
+      break;
+    }
   }
 }
 
@@ -25736,7 +26283,7 @@ void waituntil(int w,int h)
         continue;   // Completed Menu 47 action, go and wait for touch
       }
 
-      if (CurrentMenu == 48)  // Menu 48 Test Card Selection Menu
+      if (CurrentMenu == 48)  // Menu 48 HamTV Merger Client RX Menu
       {
         printf("Button Event %d, Entering Menu 48 Case Statement\n",i);
         CallingMenu = 48;
@@ -25781,6 +26328,13 @@ void waituntil(int w,int h)
         case 12:                                        // Cycle Tuner volts: 0, h, v
           ChangeHamTV(i);
           Start_Highlights_Menu48();
+          UpdateWindow();
+          break;
+        case 14:
+          CurrentMenu = 54;
+          setBackColour(0, 0, 0);
+          clearScreen();
+          Start_Highlights_Menu54();
           UpdateWindow();
           break;
         default:
@@ -26093,6 +26647,61 @@ void waituntil(int w,int h)
         }
         // stay in Menu 53 if parameter changed
         continue;   // Completed Menu 53 action, go and wait for touch
+      }
+
+      if (CurrentMenu == 54)  // Menu 54 ISS Rotator Control
+      {
+        printf("Button Event %d, Entering Menu 54 Case Statement\n",i);
+        switch (i)
+        {
+        case 4:                               // Exit to Menu 1
+          SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
+          printf("Cancelling Rotator Control Menu\n");
+          UpdateWindow();
+          usleep(500000);
+          SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 0); // Reset cancel (even if not selected)
+          printf("Returning to MENU 1 from Menu 54\n");
+          CurrentMenu = 1;
+          setBackColour(255, 255, 255);
+          clearScreen();
+          Start_Highlights_Menu1();
+          UpdateWindow();
+          break;
+        case 9:                               // Exit to Menu 48
+          SelectInGroupOnMenu(CurrentMenu, 9, 9, 9, 1);
+          printf("Cancelling Rotator Control Menu\n");
+          UpdateWindow();
+          usleep(500000);
+          SelectInGroupOnMenu(CurrentMenu, 9, 9, 9, 0); // Reset cancel (even if not selected)
+          printf("Returning to MENU 48 from Menu 54\n");
+          CurrentMenu = 48;
+          setBackColour(0, 0, 0);
+          clearScreen();
+          Start_Highlights_Menu48();
+          UpdateWindow();
+          break;
+        case 0:                                         // Set flip mode
+        case 2:                                         // offset down 1
+        case 5:                                         // Set Control mode
+        case 6:                                         // offset left 1
+        case 7:                                         // cancel offset
+        case 8:                                         // offset right 1
+        case 10:                                        // Set up Rotator
+        case 12:                                        // offset up 1
+        case 14:                                        // Set park position
+        case 15:                                        // Stop
+        case 16:                                        // Track moon
+        case 17:                                        // Track ISS
+        case 18:                                        // Track Sun
+        case 19:                                        // Park
+          ChangeTracker(i);
+          Start_Highlights_Menu54();
+          UpdateWindow();
+          break;
+        default:
+          printf("Menu 54 Error\n");
+        }
+        continue;   // Completed Menu 54 action, go and wait for touch
       }
 
       if (CurrentMenu == 55)  // Menu 55 Network Config
@@ -32689,6 +33298,168 @@ void Start_Highlights_Menu53()
   }
 }
 
+void Define_Menu54()
+{
+  int button;
+
+  strcpy(MenuTitle[54], "ISS Tracker Menu (54)");
+
+  button = CreateButton(54, 0);
+  AddButtonStatus(button, "Flip Mode^Disabled", &Blue);
+  AddButtonStatus(button, "Flip Mode^Auto", &Green);
+  AddButtonStatus(button, "Flip Mode^Forced", &Green);
+  AddButtonStatus(button, "Flip Mode^Half-flip", &Green);
+
+  button = CreateButton(54, 2);
+  AddButtonStatus(button, "Offset^Down", &Blue);
+  AddButtonStatus(button, "Offset^Down", &Green);
+
+  button = CreateButton(54, 4);
+  AddButtonStatus(button, "Exit to^Main Menu", &Blue);
+
+  button = CreateButton(54, 5);
+  AddButtonStatus(button, "Controller^HamLib", &Blue);
+  AddButtonStatus(button, "Controller^G5500pi", &Blue);
+
+  button = CreateButton(54, 6);
+  AddButtonStatus(button, "Offset^Left", &Blue);
+
+  button = CreateButton(54, 7);
+  AddButtonStatus(button, "Cancel^Offset", &Blue);
+
+  button = CreateButton(54, 8);
+  AddButtonStatus(button, "Offset^Right", &Blue);
+
+  button = CreateButton(54, 9);
+  AddButtonStatus(button, "Exit to^HamTV Menu", &Blue);
+
+  button = CreateButton(54, 10);
+  AddButtonStatus(button, "Set-up^Controller", &Blue);
+
+  button = CreateButton(54, 12);
+  AddButtonStatus(button, "Offset^Up", &Blue);
+
+  button = CreateButton(54, 14);
+  AddButtonStatus(button, "Set Park^Position", &Blue);
+
+  button = CreateButton(54, 15);
+  AddButtonStatus(button, "Stop^ ", &Blue);
+  AddButtonStatus(button, "Stop^ ", &Green);
+
+  button = CreateButton(54, 16);
+  AddButtonStatus(button, "Track^Moon", &Blue);
+  AddButtonStatus(button, "Track^Moon", &Green);
+
+  button = CreateButton(54, 17);
+  AddButtonStatus(button, "Track^ISS", &Blue);
+  AddButtonStatus(button, "Track^ISS", &Green);
+
+  button = CreateButton(54, 18);
+  AddButtonStatus(button, "Track^Sun", &Blue);
+  AddButtonStatus(button, "Track^Sun", &Green);
+
+  button = CreateButton(54, 19);
+  AddButtonStatus(button, "Park^ ", &Blue);
+  AddButtonStatus(button, "Park^ ", &Green);
+}
+
+
+void Start_Highlights_Menu54()
+{
+  char ButText[63];
+
+  if (strcmp(flip, "enabled") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
+  }
+  else if (strcmp(flip, "forced") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 2);
+  }
+  else if (strcmp(flip, "half-flip") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 3);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+  }
+
+  if (strcmp(CtrlType, "HamLib") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 1);
+  }
+
+  if (ElOffset < 0)
+  {
+    snprintf(ButText, 30, "Offset Down^%d deg", ElOffset);
+    AmendButtonStatus(ButtonNumber(CurrentMenu, 2), 1, ButText, &Green);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 1);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+  }
+
+  if (AzOffset < 0)
+  {
+    snprintf(ButText, 30, "Offset Left^%d deg", AzOffset);
+    AmendButtonStatus(ButtonNumber(CurrentMenu, 6), 1, ButText, &Green);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 1);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+  }
+
+  if (AzOffset > 0)
+  {
+    snprintf(ButText, 30, "Offset Right^%d deg", AzOffset);
+    AmendButtonStatus(ButtonNumber(CurrentMenu, 8), 1, ButText, &Green);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 1);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+  }
+
+  if (ElOffset > 0)
+  {
+    snprintf(ButText, 30, "Offset Up^%d deg", ElOffset);
+    AmendButtonStatus(ButtonNumber(CurrentMenu, 12), 1, ButText, &Green);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 12), 1);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 12), 0);
+  }
+
+  if (strcmp(TrackMode, "stop") == 0)
+  {
+     SelectInGroupOnMenu(CurrentMenu, 15, 19, 15, 1);
+  }
+  else if (strcmp(TrackMode, "moon") == 0)
+  {
+     SelectInGroupOnMenu(CurrentMenu, 15, 19, 16, 1);
+  }
+  else if (strcmp(TrackMode, "iss") == 0)
+  {
+     SelectInGroupOnMenu(CurrentMenu, 15, 19, 17, 1);
+  }
+  else if (strcmp(TrackMode, "sun") == 0)
+  {
+     SelectInGroupOnMenu(CurrentMenu, 15, 19, 18, 1);
+  }
+  else if (strcmp(TrackMode, "park") == 0)
+  {
+     SelectInGroupOnMenu(CurrentMenu, 15, 19, 19, 1);
+  }
+}
+
 void Define_Menu55()
 {
   int button = 0;
@@ -32991,6 +33762,8 @@ void Define_Menu48()
   AddButtonStatus(button, "LNB Volts^18 Horiz", &Green);
   AddButtonStatus(button, "LNB Volts^13 Vert", &Green);
 
+  button = CreateButton(48, 14);
+  AddButtonStatus(button, "ISS Tracker^Set-up", &Blue);
 }
 
 
@@ -33349,6 +34122,7 @@ terminate(int dummy)
   system("sudo killall longmynd >/dev/null 2>/dev/null");
   system("sudo killall /home/pi/rpidatv/bin/CombiTunerExpress >/dev/null 2>/dev/null");
   system("/home/pi/rpidatv/scripts/vlc_stream_player_stop.sh &");
+  system("pkill -9 -f iss_track.py");
   system("/home/pi/rpidatv/scripts/stop_web_update.sh >/dev/null 2>/dev/null");
   printf("Terminate\n");
   setBackColour(0, 0, 0);
@@ -33535,6 +34309,7 @@ int main(int argc, char **argv)
   ReadVLCVolume();
   ReadWebControl();  // this starts the web listener thread if required
   ReadMerger();
+  ReadTracker();
   ReadDHCPConfig();
 
   SetAudioLevels();
@@ -33595,6 +34370,7 @@ int main(int argc, char **argv)
   Define_Menu51();
   Define_Menu52();
   Define_Menu53();
+  Define_Menu54();
   Define_Menu55();
   Define_Menu57();
 

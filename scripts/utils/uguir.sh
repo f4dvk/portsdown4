@@ -7,7 +7,8 @@
 sudo killall rpidatvgui >/dev/null 2>/dev/null
 cd /home/pi/rpidatv/src/gui
 # make clean
-make -j 4
+
+make -j 4 -0
 if [ $? != "0" ]; then
   echo
   echo "failed install"

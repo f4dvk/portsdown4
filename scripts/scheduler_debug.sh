@@ -205,7 +205,14 @@ case "$MODE_STARTUP" in
   ;;
 esac
 
-while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
+while [ "$GUI_RETURN_CODE" -gt 90 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
+
+  # Kill any process blocking port 2005
+  lsof -ti:2005
+  if [ $? == 0 ] ; then
+    lsof -ti:2005 | xargs kill -9
+  fi
+
   case "$GUI_RETURN_CODE" in
     0)
       /home/pi/rpidatv/bin/rpidatvgui
