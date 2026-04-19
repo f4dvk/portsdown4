@@ -1,3 +1,10 @@
+202603140
+Preserve network config through updates
+Enable fixed ip netmask to be set
+
+202603110
+Add Network Menu and Fixed IP Entry
+
 202603090
 Install DHCP server for standalone LibreSDR
 
@@ -36,6 +43,14 @@ PluoSDR DVB-S2 RX
 202506070
 Ajout SoapySDR, SoapyPlutoSDR et rx_tools pour prise en charge RX avec PlutoSDR
 
+202504290
+Enlarge RX mute button
+Tidy large MER Display
+Add IPTSIN264 and IPTSIN265 modes to ssh Menu
+
+202504210
+Correct Lime Mini update filepath in ssh menu
+
 202503070
 Detection RP2040, amelioration mineure
 
@@ -52,6 +67,9 @@ Ajout entree HDMI USB (a tester !!)
 202501260
 Correction webcontrol sans ecran
 
+202501090
+Update Meteor Stream Header
+
 202411200
 Gestion carte audio
 
@@ -65,6 +83,9 @@ Preparation prise en charge nouvel ecran
 
 202410290
 Correction bug Langstone Lime et Pluto
+
+202410290
+Improve handling of Meteor server outages
 
 202410271
 Langstone RTL SDR ajout DMR
@@ -96,6 +117,12 @@ Amelioration detection souris fonctionnement sans tactile
 
 202410150
 Controle Langstone avec souris sans ecran tactile (pluto)
+
+202410150
+Correct LimeSDR Mini V2 gateware download
+
+202409090
+Update receive touch overlay map
 
 202407050
 Display test card in web view

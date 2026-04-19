@@ -50,7 +50,7 @@ int TouchPressure;
 int TouchTrigger = 0;
 bool touchneedsinitialisation = true;
 char DisplayType[31];
-
+bool transport_OK = false;
 
 
 typedef struct
@@ -86,6 +86,7 @@ color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 
 #define PATH_PCONFIG "/home/pi/rpidatv/scripts/portsdown_config.txt"
 #define PATH_CONFIG "/home/pi/rpidatv/src/meteorview/meteorview_config.txt"
+#define PATH_RESTARTS "/home/pi/rpidatv/src/meteorview/restart_counter.txt"
 
 #define MAX_BUTTON 675
 int IndexButtonInArray=0;
@@ -172,6 +173,14 @@ uint8_t clientnumber = 6;
 char serverip[20] = "185.83.169.27";
 uint16_t port = 7682;
 char destination[15] = "local";
+char rxName[32] = "Not Defined";
+char rxLatLong[32] = "Not Defined";
+int16_t lat_deg = 0;
+uint16_t lat_min = 0;
+uint16_t lat_sec = 0;
+int16_t lon_deg = 0;
+uint16_t lon_min = 0;
+uint16_t lon_sec = 0;
 
 int markerx = 250;
 int markery = 15;
@@ -208,6 +217,7 @@ int xscaleden = 20;       // Denominator for X scaling fraction
 
 void GetConfigParam(char *PathConfigFile, char *Param, char *Value);
 void SetConfigParam(char *PathConfigFile, char *Param, char *Value);
+void strcpyn(char *outstring, char *instring, int n);
 int CheckWebCtlExists();
 void CheckConfigFile();
 void ReadSavedParams();
@@ -279,6 +289,9 @@ void Define_Menu41();
 void DrawEmptyScreen();
 void DrawTickMarks();
 void ShowRemoteCaption();
+void ShowConnectFail();
+void ShowStartFail();
+void ShowWaitConnect();
 void DrawYaxisLabels();
 void DrawSettings();
 void DrawTrace(int xoffset, int prev2, int prev1, int current);
@@ -386,6 +399,41 @@ void SetConfigParam(char *PathConfigFile, char *Param, char *Value)
 
 
 /***************************************************************************//**
+ * @brief safely copies n characters of instring to outstring without overflow
+ *
+ * @param *outstring
+ * @param *instring
+ * @param n int number of characters to copy.  Max value is the outstring array size -1
+ *
+ * @return void
+*******************************************************************************/
+void strcpyn(char *outstring, char *instring, int n)
+{
+  //printf("\ninstring= -%s-, instring length = %d, desired length = %d\n", instring, strlen(instring), strnlen(instring, n));
+  
+  n = strnlen(instring, n);
+  int i;
+  for (i = 0; i < n; i = i + 1)
+  {
+    //printf("i = %d input character = %c\n", i, instring[i]);
+    outstring[i] = instring[i];
+  }
+  outstring[n] = '\0'; // Terminate the outstring
+  //printf("i = %d input character = %c\n", n, instring[n]);
+  //printf("i = %d input character = %c\n\n", (n + 1), instring[n + 1]);
+
+  //for (i = 0; i < n; i = i + 1)
+  //{
+  //  printf("i = %d output character = %c\n", i, outstring[i]);
+  //}  
+  //printf("i = %d output character = %c\n", n, outstring[n]);
+  //printf("i = %d output character = %c\n", (n + 1), outstring[n + 1]);
+
+  //printf("outstring= -%s-, length = %d\n\n", outstring, strlen(outstring));
+}
+
+
+/***************************************************************************//**
  * @brief Checks to see if webcontrol exists in Portsdown Config file
  *
  * @param None
@@ -465,7 +513,45 @@ void CheckConfigFile()
     system(shell_command);
     sprintf(shell_command, "echo remoteifgain=40 >> %s", PATH_CONFIG);
     system(shell_command);
-  } 
+  }
+
+  // Check for Location details
+  sprintf(shell_command, "grep -q 'rxname' %s", PATH_CONFIG);
+  fp = popen(shell_command, "r");
+  r = pclose(fp);
+
+  if (WEXITSTATUS(r) != 0)
+  {
+    printf("rxname parameter not detected\n");
+    printf("Adding 2 parameters to config file\n");
+
+    sprintf(shell_command, "echo rxname=Not Defined >> %s", PATH_CONFIG);
+    system(shell_command);
+  }
+
+  // Check for new Location details
+  sprintf(shell_command, "grep -q 'latdeg' %s", PATH_CONFIG);
+  fp = popen(shell_command, "r");
+  r = pclose(fp);
+
+  if (WEXITSTATUS(r) != 0)
+  {
+    printf("new lat and lon parameters not detected\n");
+    printf("Adding 6 parameters to config file\n");
+
+    sprintf(shell_command, "echo latdeg=50 >> %s", PATH_CONFIG);
+    system(shell_command);
+    sprintf(shell_command, "echo latmin=0 >> %s", PATH_CONFIG);
+    system(shell_command);
+    sprintf(shell_command, "echo latsec=0 >> %s", PATH_CONFIG);
+    system(shell_command);
+    sprintf(shell_command, "echo londeg=-1 >> %s", PATH_CONFIG);
+    system(shell_command);
+    sprintf(shell_command, "echo lonmin=0 >> %s", PATH_CONFIG);
+    system(shell_command);
+    sprintf(shell_command, "echo lonsec=0 >> %s", PATH_CONFIG);
+    system(shell_command);
+  }
 }
 
 
@@ -620,6 +706,32 @@ void ReadSavedParams()
   strcpy(response, "4");
   GetConfigParam(PATH_CONFIG, "remoteifgain", response);
   remoteIFgain = atoi(response);
+
+  GetConfigParam(PATH_CONFIG, "rxname", rxName);
+
+  strcpy(response, "0");
+  GetConfigParam(PATH_CONFIG, "latdeg", response);
+  lat_deg = atoi(response);
+
+  strcpy(response, "0");
+  GetConfigParam(PATH_CONFIG, "latmin", response);
+  lat_min = atoi(response);
+
+  strcpy(response, "0");
+  GetConfigParam(PATH_CONFIG, "latsec", response);
+  lat_sec = atoi(response);
+
+  strcpy(response, "0");
+  GetConfigParam(PATH_CONFIG, "londeg", response);
+  lon_deg = atoi(response);
+
+  strcpy(response, "0");
+  GetConfigParam(PATH_CONFIG, "lonmin", response);
+  lon_min = atoi(response);
+
+  strcpy(response, "0");
+  GetConfigParam(PATH_CONFIG, "lonsec", response);
+  lon_sec = atoi(response);
 }
 
 
@@ -1174,7 +1286,7 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
         DrawButton(ButtonNumber(41, token));
         //UpdateWindow();
 
-        if (strlen(EditText) < 23) // Don't let it overflow
+        if (strlen(EditText) < 27) // Don't let it overflow (was 23)
         {
         // Copy the text to the left of the insert point
         strncpy(PreCuttext, &EditText[0], CursorPos);
@@ -1858,18 +1970,20 @@ void UpdateWindow()    // Paint each defined button
   int first;
   int last;
 
-  if (markeron == false)
-  {
-    // Draw a black rectangle where the buttons are to erase them
-    rectangle(620, 0, 160, 480, 0, 0, 0);
-  }
-  else   // But don't erase the marker text
-  {
-    rectangle(620, 0, 160, 420, 0, 0, 0);
-  }
+  // Erase the current buttons unless in the keyboard
 
-  // Don't draw buttons if the Markers are being refreshed.  Wait here
-
+  if (CurrentMenu != 41)
+  {
+    if (markeron == false)
+    {
+      // Draw a black rectangle where the buttons are to erase them
+      rectangle(620, 0, 160, 480, 0, 0, 0);
+    }
+    else   // But don't erase the marker text
+    {
+      rectangle(620, 0, 160, 420, 0, 0, 0);
+    }
+  }
 
   // Draw each button in turn
   first = ButtonNumber(CurrentMenu, 0);
@@ -2614,7 +2728,152 @@ void SetStream(int button)
       SetConfigParam(PATH_CONFIG, "destination", destination);
       printf("Destination set to %s\n", destination); 
       break;
-    case 6:
+    case 6:                                          // Enter Name and Lat Long
+      // Define request string
+      strcpy(RequestText, "Enter the Receiver Location Name");
+
+      // Define initial value
+      strcpy(InitText, rxName);
+
+      // Ask for the new value
+      do
+      {
+        Keyboard(RequestText, InitText, 21);
+      }
+      while (strlen(KeyboardReturn) == 0);
+
+      strcpyn(rxName, KeyboardReturn, 21);
+      
+      // Store the new rxName
+      SetConfigParam(PATH_CONFIG, "rxname", rxName);
+      printf("Reciver Name set to %s\n", rxName);
+
+      // Define request string                                                    For degrees
+      strcpy(RequestText, "Enter the Receiver Latitude degrees (-90 to 90)");
+
+      // Define initial value
+      snprintf(InitText, 7, "%d", lat_deg);
+
+      // Ask for the new value
+      do
+      {
+        Keyboard(RequestText, InitText, 3);
+      }
+      while ((atoi(KeyboardReturn) < -90) || (atoi(KeyboardReturn) > 90));
+
+      lat_deg = atoi(KeyboardReturn);
+      
+      // Store the new latdeg
+      snprintf(ValueToSave, 7, "%d", lat_deg);
+
+      SetConfigParam(PATH_CONFIG, "latdeg", ValueToSave);
+      printf("Receiver Lat degrees set to %s\n", ValueToSave);
+
+      // Define request string                                                    For minutes
+      strcpy(RequestText, "Enter the Receiver Latitude minutes (0 to 59)");
+
+      // Define initial value
+      snprintf(InitText, 6, "%d", lat_min);
+
+      // Ask for the new value
+      do
+      {
+        Keyboard(RequestText, InitText, 2);
+      }
+      while ((atoi(KeyboardReturn) < 0) || (atoi(KeyboardReturn) > 59));
+
+      lat_min = atoi(KeyboardReturn);
+      
+      // Store the new latmin
+      snprintf(ValueToSave, 6, "%d", lat_min);
+
+      SetConfigParam(PATH_CONFIG, "latmin", ValueToSave);
+      printf("Receiver Lat minutes set to %s\n", ValueToSave);
+
+      // Define request string                                                    For seconds
+      strcpy(RequestText, "Enter the Receiver Latitude seconds (0 to 59)");
+
+      // Define initial value
+      snprintf(InitText, 6, "%d", lat_sec);
+
+      // Ask for the new value
+      do
+      {
+        Keyboard(RequestText, InitText, 2);
+      }
+      while ((atoi(KeyboardReturn) < 0) || (atoi(KeyboardReturn) > 59));
+
+      lat_sec = atoi(KeyboardReturn);
+      
+      // Store the new latsec
+      snprintf(ValueToSave, 6, "%d", lat_sec);
+
+      SetConfigParam(PATH_CONFIG, "latsec", ValueToSave);
+      printf("Receiver Lat seconds set to %s\n", ValueToSave);
+
+      // Define request string                                                    For lon degrees
+      strcpy(RequestText, "Enter the Receiver Longitude degrees (-180 to 180)");
+
+      // Define initial value
+      snprintf(InitText, 7, "%d", lon_deg);
+
+      // Ask for the new value
+      do
+      {
+        Keyboard(RequestText, InitText, 3);
+      }
+      while ((atoi(KeyboardReturn) < -180) || (atoi(KeyboardReturn) > 180));
+
+      lon_deg = atoi(KeyboardReturn);
+      
+      // Store the new londeg
+      snprintf(ValueToSave, 7, "%d", lon_deg);
+
+      SetConfigParam(PATH_CONFIG, "londeg", ValueToSave);
+      printf("Receiver Lon degrees set to %s\n", ValueToSave);
+
+      // Define request string                                                    For lon minutes
+      strcpy(RequestText, "Enter the Receiver Longitude minutes (0 to 59)");
+
+      // Define initial value
+      snprintf(InitText, 6, "%d", lon_min);
+
+      // Ask for the new value
+      do
+      {
+        Keyboard(RequestText, InitText, 2);
+      }
+      while ((atoi(KeyboardReturn) < 0) || (atoi(KeyboardReturn) > 59));
+
+      lon_min = atoi(KeyboardReturn);
+      
+      // Store the new lonmin
+      snprintf(ValueToSave, 6, "%d", lon_min);
+
+      SetConfigParam(PATH_CONFIG, "lonmin", ValueToSave);
+      printf("Receiver Lon minutes set to %s\n", ValueToSave);
+
+      // Define request string                                                    For lon seconds
+      strcpy(RequestText, "Enter the Receiver Longitude seconds (0 to 59)");
+
+      // Define initial value
+      snprintf(InitText, 6, "%d", lon_sec);
+
+      // Ask for the new value
+      do
+      {
+        Keyboard(RequestText, InitText, 2);
+      }
+      while ((atoi(KeyboardReturn) < 0) || (atoi(KeyboardReturn) > 59));
+
+      lon_sec = atoi(KeyboardReturn);
+      
+      // Store the new lonsec
+      snprintf(ValueToSave, 6, "%d", lon_sec);
+
+      SetConfigParam(PATH_CONFIG, "lonsec", ValueToSave);
+      printf("Receiver Lon seconds set to %s\n", ValueToSave);
+
       break;
   }
 
@@ -3908,7 +4167,8 @@ void *WaitButtonEvent(void * arg)
           UpdateWeb();
           usleep (2000000);
           cleanexit(150);
-        case 6:                                            // 
+        case 6:                                            // Set Name and Lat Long
+          SetStream(i);
           UpdateWindow();
           break;
         case 7:                                            // Return to Main Menu
@@ -4782,8 +5042,8 @@ void Define_Menu15()                                          // More Waterfall 
   button = CreateButton(15, 5);
   AddButtonStatus(button, "Local^Display", &Blue);
 
-  //button = CreateButton(15, 6);
-  //AddButtonStatus(button, " ^ ", &Blue);
+  button = CreateButton(15, 6);
+  AddButtonStatus(button, "Name &^Lat Long", &Blue);
 
   button = CreateButton(15, 7);
   AddButtonStatus(button, "Return to^Main Menu", &DBlue);
@@ -5111,9 +5371,10 @@ void DrawEmptyScreen()
   // Write caption if data being sent to server
   if (strcmp(destination, "remote") == 0)
   {
-    ShowRemoteCaption();
+    ShowWaitConnect();
   }
 }
+
 
 void DrawTickMarks()
 {
@@ -5145,6 +5406,53 @@ void ShowRemoteCaption()
   TextMid2(350, 350, "No local display", &font_dejavu_sans_32);
   TextMid2(350, 275, "Streaming to Central Server", &font_dejavu_sans_32);
   TextMid2(350, 200, clientline, &font_dejavu_sans_32);
+}
+
+
+void ShowConnectFail()
+{
+  // Clear the background
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+
+  // Write the caption
+  setForeColour(255, 255, 255);                    // White text
+  setBackColour(0, 0, 0);                          // on Black
+
+  TextMid2(350, 350, "Connection to server", &font_dejavu_sans_32);
+  TextMid2(350, 275, "dropped out.", &font_dejavu_sans_32);
+  TextMid2(350, 200, "Trying to reconnect", &font_dejavu_sans_32);
+}
+
+
+void ShowStartFail()
+{
+  // Clear the background
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+
+  // Write the caption
+  setForeColour(255, 255, 255);                    // White text
+  setBackColour(0, 0, 0);                          // on Black
+
+  TextMid2(350, 350, "Unable to establish", &font_dejavu_sans_32);
+  TextMid2(350, 275, "connection to server", &font_dejavu_sans_32);
+  TextMid2(350, 200, "      Re-trying      ", &font_dejavu_sans_32);
+}
+
+
+void ShowWaitConnect()
+{
+  // Clear the background
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+  usleep(1000);
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+
+  // Write the caption
+  setForeColour(255, 255, 255);                    // White text
+  setBackColour(0, 0, 0);                          // on Black
+
+  TextMid2(350, 350, "Waiting to establish", &font_dejavu_sans_32);
+  TextMid2(350, 275, "connection to server", &font_dejavu_sans_32);
+  TextMid2(350, 200, "                    ", &font_dejavu_sans_32);
 }
 
 
@@ -5477,6 +5785,7 @@ static void terminate(int sig)
   app_exit = true;
   printf("Terminating in main\n");
   usleep(1000000);
+  clearScreen();
   char Commnd[255];
   sprintf(Commnd,"stty echo");
   system(Commnd);
@@ -5591,8 +5900,9 @@ int main(int argc, char **argv)
 
   initScreen();
 
-  // Create Touchscreen thread
-  //pthread_create (&thtouchscreen, NULL, &WaitTouchscreenEvent, NULL);
+  // Clear the background of the waterfall/caption area
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+  ShowWaitConnect();
 
   // Check that an SDRPlay is accessible
   if (CheckSDRPlay() != 0)
@@ -5627,19 +5937,19 @@ int main(int argc, char **argv)
 
   UpdateWindow();     // Draw the buttons
 
+
   while(true)
   {
-
-    while (NewData == false)
-    {
-      usleep(100);
-    }
-
     NewData = false;
     activescan = true;
-    
+
     if (strcmp(destination, "local") == 0)
     {
+      while (NewData == false)
+      {
+        usleep(100);
+      }
+
       if (spectrum == true)
       {
         for (pixel = 8; pixel <= 506; pixel++)
@@ -5801,15 +6111,18 @@ int main(int argc, char **argv)
     }
     else  // remote display
     {
+      usleep(1000);  // Reduce processor load
       NewData = true;
       activescan = false;
-              while (freeze)
-              {
-                frozen = true;
-                usleep(100000); // Pause to let things happen if CPU is busy
-              }
-              frozen = false;
-      if (RemoteCaptionDisplayed == false)
+
+      while (freeze)
+      {
+        frozen = true;
+        usleep(100000); // Pause to let things happen if CPU is busy
+      }
+      frozen = false;
+
+      if ((RemoteCaptionDisplayed == false) && (transport_OK == true))
       {
         ShowRemoteCaption();
         printf("Display Caption\n");
@@ -5819,6 +6132,12 @@ int main(int argc, char **argv)
     }
     if (monotonic_ms() >= nextwebupdate)
     {
+      if ((RemoteCaptionDisplayed == false) && (transport_OK == true))
+      {
+        ShowRemoteCaption();
+        printf("Display Caption\n");
+        RemoteCaptionDisplayed = true;
+      }
       UpdateWeb();
       usleep(10000);  // Alow time for paint
       nextwebupdate = nextwebupdate + 1000;

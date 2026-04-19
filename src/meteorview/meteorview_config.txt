@@ -21,5 +21,12 @@ port=7682
 destination=local
 remoterfgain=0
 remoteifgain=20
-
+rxname=Not Defined
+rxlatlong=Not Defined
+latdeg=50
+latmin=51
+latsec=52
+londeg=-1
+lonmin=53
+lonsec=54
 
