@@ -118,7 +118,7 @@ color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 color_t Orange = {.r = 248, .g = 185, .b = 4  };
 color_t Rose  = {.r = 255 , .g = 105 , .b = 180};
 
-#define MAX_BUTTON 990
+#define MAX_BUTTON 1100
 int IndexButtonInArray=0;
 button_t ButtonArray[MAX_BUTTON];
 #define TIME_ANTI_BOUNCE 500
@@ -8109,11 +8109,11 @@ int ButtonNumber(int MenuIndex, int Button)
   {
     ButtonNumb = 550 + (MenuIndex - 41) * 50 + Button;
   }
-  if ((MenuIndex >= 42) &&  (MenuIndex != 54)) // 9 x 15-button submenus (600 + 135 = 735)
+  if ((MenuIndex >= 42) &&  (MenuIndex <= 53)) // 9 x 15-button submenus (600 + 135 = 735)
   {
     ButtonNumb = 600 + (MenuIndex - 42) * 15 + Button;
   }
-  if (MenuIndex == 54) // 5 x 20-button submenus (735 + 100 = 835)
+  if (MenuIndex >= 54) // 5 x 20-button submenus (735 + 100 = 835)
   {
     ButtonNumb = 735 + (MenuIndex - 51) * 20 + Button;
   }
@@ -9022,7 +9022,7 @@ void UpdateWindow()
     rectangle(10, 12, wscreen - 18, hscreen * 2 / 6 + 12, 127, 127, 127);
   }
 
-  if (((CurrentMenu >= 42) && (CurrentMenu <= 48)) || ((CurrentMenu >= 50) && (CurrentMenu <= 54)))  // 15-button menus
+  if (((CurrentMenu >= 42) && (CurrentMenu <= 48)) || ((CurrentMenu >= 50) && (CurrentMenu <= 53)))  // 15-button menus
   {
     rectangle(10, 12, wscreen - 18, hscreen * 3 / 6 + 12, 127, 127, 127);
   }
@@ -26331,7 +26331,7 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 14:
-          CurrentMenu = 54;
+          CurrentMenu=54;
           setBackColour(0, 0, 0);
           clearScreen();
           Start_Highlights_Menu54();
