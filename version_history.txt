@@ -17,11 +17,28 @@ Add support for Libre SDR with DL1JM/PA2JSA firmware
 202602010
 Test source RTSP, config a modifier dans fichier portsdown_config.txt
 
+202601020
+Update Muntjac to V1.0
+
+202512231
+Correct OOK48 Test Source
+
+202512230
+Tidy Muntjac Functionality
+Add experimental OOK48 Beacon
+
 202512140
 Amend the sources.list to legacy
 
 202511230
 Decodeur Sarsat: Ajout modification de Jacky F4EHY : Ajout protocole ELT-DT
+
+202511050
+Correct Pluto Firmware Check
+Disconnect from HamTV merger if log-in parameters changed
+
+202510220
+MER Display and Pluto firmware
 
 202510310
 Suppression accents

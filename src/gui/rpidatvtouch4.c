@@ -539,6 +539,7 @@ void SaveCurrentRX();
 void SelectRTLmode(int NoButton);
 void RTLstart();
 void RTLstop();
+void run_ook48();
 void ReadStreamPresets();
 int CheckExpressConnect();
 int CheckExpressRunning();
@@ -5489,6 +5490,40 @@ void RTLstop()
   system("sudo killall -9 dsdccx >/dev/null 2>/dev/null");
   system("sudo killall -9 sox >/dev/null 2>/dev/null");
 }
+
+
+/***************************************************************************//**
+ * @brief runs the experimental OOK48 beacon using an ADF4351
+ *
+ * @param nil
+ *
+ * @return void.
+*******************************************************************************/
+
+void run_ook48()
+{
+  // Check internet connection
+  if (CheckGoogle() == 1)
+  {
+    MsgBox4("No internet connection", " ", "Time reference is probably inaccurate", " ");
+    wait_touch();
+  }
+  else
+  {
+    // update system time
+    system("sudo timedatectl set-timezone \"Europe/London\" &");
+  }
+
+  // Start OOK48 beacon
+  system ("/home/pi/rpidatv/bin/ook48 &");
+
+  MsgBox4("OOK48 Beacon running", " ", "Touch screen to exit", "and stop beacon");
+  wait_touch();
+
+  // Kill the beacon
+  system("sudo killall ook48");
+}
+
 
 /***************************************************************************//**
  * @brief Reads the Presets from stream_presets.txt and formats them for
@@ -11417,7 +11452,7 @@ void ChangeBandDetails(int NoButton)
   snprintf(Value, 30, "%d", TabBandMuntjacGain[band]);
   while ((MuntjacGain < 1) || (MuntjacGain > 20))    // Do not allow zero or blank Muntjac Gain
   {
-    snprintf(Prompt, 63, "Set the Muntjac Gain for the %s Band:", TabBandLabel[band]);
+    snprintf(Prompt, 63, "Set the Muntjac Gain (0 - 20) for the %s Band:", TabBandLabel[band]);
     Keyboard(Prompt, Value, 3);
     MuntjacGain = atoi(KeyboardReturn);
   }
@@ -12050,7 +12085,7 @@ void SetDeviceLevel()
   {
     while ((MuntjacGain < 0) || (MuntjacGain > 20) || (strlen(KeyboardReturn) < 1))
     {
-      snprintf(Prompt, 62, "Set the Muntjac Gain for the %s Band:", TabBandLabel[CurrentBand]);
+      snprintf(Prompt, 62, "Set the Muntjac Gain (0 - 20) for the %s Band:", TabBandLabel[CurrentBand]);
       snprintf(Value, 4, "%d", TabBandMuntjacGain[CurrentBand]);
       Keyboard(Prompt, Value, 3);
       MuntjacGain = atoi(KeyboardReturn);
@@ -15581,14 +15616,14 @@ void LMRX(int NoButton)
             chopN(MERtext, 3);
             MER = atof(MERtext)/10;
 
-            if (MER > 51)  // Trap spurious MER readings
+            if (MER > 20)  // Trap spurious MER readings
             {
-              MER = 0;
-              strcpy(MERNtext, " ");
+              MER = 19.9;
+              strcpy(MERtext, ">20");
             }
-            else if (MER >= 10)
+            else if (MER < 0.0)
             {
-              snprintf(MERNtext, 10, "%.1f", MER);
+              strcpy(MERtext, "0.0");
             }
             else
             {
@@ -15748,7 +15783,7 @@ void LMRX(int NoButton)
             rectangle(wscreen * 1 / 40, hscreen - 1 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
             Text2(wscreen * 1 / 40, hscreen - 1 * linepitch, STATEtext, font_ptr);
             rectangle(wscreen * 1 / 40, hscreen - 9 * linepitch - txtdesc, 470, 8, 0, 0, 0);  // line at base of text
-            rectangle(490, hscreen - 9 * linepitch - txtdesc, 160, 230, 0, 0, 0);             // poss 3rd digit
+            rectangle(490, hscreen - 9 * linepitch - txtdesc, 265, 230, 0, 0, 0);             // mask previous 3rd digit
             LargeText2(wscreen * 1 / 40, hscreen - 9 * linepitch, 4, MERtext, &font_dejavu_sans_72);
             Text2(wscreen * 1 / 40, hscreen - 12 * linepitch, "Touch Centre to Exit", font_ptr);
 
@@ -15776,7 +15811,7 @@ void LMRX(int NoButton)
                 }
                 rectangle(ls, bar_centre + bar_height, wdth, 0 - bar_height, 255, 0, 0); // Red bar
                 rectangle(ls, 1, wdth, bar_centre + bar_height, 0, 0, 0);  // Black below red
-                rectangle(ls, bar_centre, wdth, hscreen - bar_centre, 0, 0, 0); // Black above centre
+                rectangle(ls, bar_centre, wdth, hscreen - bar_centre, 0, 0, 0); // Black above centrer
               }
             }
             refreshMouseBackground();
@@ -19960,6 +19995,7 @@ void CheckPlutoFirmware()
   FILE *fp;
   char firmware_response_line[127]=" ";
   char firmware_version[127];
+  char firmware_version2[127];
 
   MsgBox4("Checking Pluto", "", "Please wait", "");
 
@@ -19984,17 +20020,22 @@ void CheckPlutoFirmware()
     if (firmware_response_line[0] == 'P')
     {
       strcpyn(firmware_version, firmware_response_line, 45);
+      strcpyn(firmware_version2, firmware_response_line, 37);
     }
   }
   pclose(fp);
 
   if (strcmp(firmware_version, "Pluto Firmware Version is v0.31-4-g9ceb-dirty") == 0)
   {
-    MsgBox4(firmware_version, "This is correct for Portsdown operation", " ", "Touch Screen to Continue");
+    MsgBox4(firmware_version, "This is correct for Portsdown operation", "up to 4.2 GHz", "Touch Screen to Continue");
+  }
+  else if (strcmp(firmware_version2, "Pluto Firmware Version is v0.32-dirty") == 0)
+  {
+    MsgBox4(firmware_version, "This is correct for Portsdown operation", "up to 6.0 GHz", "Touch Screen to Continue");
   }
   else
   {
-    MsgBox4(firmware_version, "This may not work with Portsdown", "Please update to v0.31-4-g9ceb-dirty", "Touch Screen to Continue");
+    MsgBox4(firmware_version, "This may not work with Portsdown", "Please update to v0.31-4-g9ceb-dirty", "or v0.32-dirty. Touch to Continue");
   }
   wait_touch();
 }
@@ -21351,6 +21392,14 @@ void ChangeHamTV(int NoButton)
       }
     }
     printf("HamTV Merger Call set to: %s\n", KeyboardReturn);
+
+    // Stop the merger if the call has been changed
+    if (strcmp(htCall, KeyboardReturn) != 0)
+    {
+      system ("sudo killall tsmerge-client-linuxcli");
+      MergerConnected = false;
+    }
+
     strcpy(htCall, KeyboardReturn);
     SetConfigParam(PATH_HAMTV_CONFIG, "call", htCall);
     break;
@@ -21367,10 +21416,23 @@ void ChangeHamTV(int NoButton)
       }
     }
     printf("HamTV Merger Passkey set to: %s\n", KeyboardReturn);
+
+    // Stop the merger if the key has been changed
+    if (strcmp(htPasskey, KeyboardReturn) != 0)
+    {
+      system ("sudo killall tsmerge-client-linuxcli");
+      MergerConnected = false;
+    }
+
     strcpy(htPasskey, KeyboardReturn);
     SetConfigParam(PATH_HAMTV_CONFIG, "passkey", htPasskey);
     break;
   case 7:                                             // Cycle through Regions
+
+    // Stop the merger before changing region
+    system ("sudo killall tsmerge-client-linuxcli");
+    MergerConnected = false;
+
     if (strcmp(htRegion, "eu") == 0)
     {
       strcpy(tempRegion, "us");
@@ -22953,6 +23015,11 @@ void waituntil(int w,int h)
         case 14:                                                 // XY Display
           DisplayLogo();
           cleanexit(134);
+          break;
+        case 15:
+          run_ook48();
+          Start_Highlights_Menu7();
+          UpdateWindow();
           break;
         case 21:                              // Menu 1
           printf("MENU 1 \n");
@@ -25045,8 +25112,8 @@ void waituntil(int w,int h)
           printf("Jetson Lime\n");
           break;
         case 12:                              // Muntjac
-          RegisterMuntjac();
           SelectOP(i);
+          RegisterMuntjac();
           printf("Muntjac\n");
           break;
         case 13:                              // Lime Mini FPGA
@@ -27826,8 +27893,8 @@ void Define_Menu7()
 
   // 4th line up Menu 7:
 
-  //button = CreateButton(7, 18);
-  //AddButtonStatus(button, "Noise Figure^Meter (Pluto)", &Blue);
+  button = CreateButton(7, 15);
+  AddButtonStatus(button, "OOK48^Beacon", &Blue);
 
   // Top of Menu 7
 

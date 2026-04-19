@@ -776,6 +776,16 @@ mv tsmerge-client-linuxcli-master tsmerge
 cd /home/pi/tsmerge
 make cppcheck && make
 
+# Compile OOK48 Test Source
+echo
+echo "---------------------------------------"
+echo "----- Compiling OOK48 Test Source -----"
+echo "---------------------------------------"
+cd /home/pi/rpidatv/src/ook48
+make
+cp ook48 ../../bin/
+cd /home/pi
+
 #echo
 #echo "-----------------------------------------"
 #echo "----- Compiling Ancilliary programs -----"
