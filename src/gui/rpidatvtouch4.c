@@ -176,6 +176,7 @@ char TabBandLabel[16][15] = {"71_MHz", "146_MHz", "70_cm", "23_cm", "13_cm", "9_
 float TabBandAttenLevel[16] = {-10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10};
 int TabBandExpLevel[16] = {30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30};
 int TabBandLimeGain[16]  = {90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90};
+int TabBandMuntjacGain[16]  = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
 int TabBandPlutoLevel[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int TabBandExpPorts[16] = {0, 1, 2, 3, 11, 4, 5, 6, 7, 12, 15, 9, 10, 14, 8, 13};
 float TabBandLO[16] = {0, 0, 0, 0, 0, 2970, 5330, 9930, 23610, -94.8, 2248.5, 469440, 758320, 0, 0, 0};
@@ -194,10 +195,10 @@ char TabPresetLabel[4][15]={"-", "-", "-", "-"};
 char TabModeAudio[6][15]={"auto", "mic", "video", "bleeps", "no_audio", "webcam"};
 char TabModeSTD[2][7]={"6","0"};
 char TabModeVidIP[2][7]={"0","1"};
-char TabModeOP[14][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
-  "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "EXPRESS2", "LIMEDVB", "PLUTO"};
-char TabModeOPtext[14][31]={"Portsdown", " Ugly ", "Express", "Lime USB", "BATC^Stream", "Comp Vid", \
-  "LIBRESDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Express S2", "Lime DVB", "Pluto"};
+char TabModeOP[15][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
+  "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "EXPRESS2", "MUNTJAC", "LIMEDVB", "PLUTO"};
+char TabModeOPtext[15][31]={"Portsdown", " Ugly ", "Express", "Lime USB", "BATC^Stream", "Comp Vid", \
+  "LIBRESDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Express S2", "Muntjac", "Lime DVB", "Pluto"};
 char TabAtten[4][15] = {"NONE", "PE4312", "PE43713", "HMC1119"};
 char CurrentModeOP[31] = "QPSKRF";
 char CurrentModeOPtext[31] = " UGLY ";
@@ -492,6 +493,8 @@ int CheckLangstonePlutoIP();
 void InitialiseGPIO();
 void ReadPresets();
 int CheckRTL();
+int CheckMuntjac();
+int RegisterMuntjac();
 int CheckTuner();
 void ChangeMicGain();
 void SaveRTLPreset(int PresetButton);
@@ -2536,6 +2539,11 @@ void ReadModeOutput(char Moutput[256])
     strcpy(Moutput, "Jetson with DATV Express");
     strcpy(CurrentModeOPtext, TabModeOPtext[10]);
   }
+  else if (strcmp(ModeOutput, "MUNTJAC") == 0)
+  {
+    strcpy(Moutput, "Muntjac");
+    strcpy(CurrentModeOPtext, TabModeOPtext[11]);
+  }
   else if (strcmp(ModeOutput, "LIMEDVB") == 0)
   {
     strcpy(Moutput, "LimeSDR Mini with custom DVB FW");
@@ -2894,6 +2902,11 @@ void ReadBandDetails()
     strcat(Param, "limegain");
     GetConfigParam(PATH_PPRESETS, Param, Value);
     TabBandLimeGain[i] = atoi(Value);
+
+    strcpy(Param, TabBand[i]);
+    strcat(Param, "muntjacgain");
+    GetConfigParam(PATH_PPRESETS, Param, Value);
+    TabBandMuntjacGain[i] = atoi(Value);
 
     strcpy(Param, TabBand[i]);
     strcat(Param, "expports");
@@ -3878,6 +3891,120 @@ int CheckRTL()
   pclose(fp);
   return(rtlstat);
 }
+
+
+/***************************************************************************//**
+ * @brief Checks for the presence of a Muntjac
+ *
+ * @param None
+ *
+ * @return 0 if present, 1 if not present
+*******************************************************************************/
+
+int CheckMuntjac()
+{
+  char MuntjacStatus[255];
+  FILE *fp;
+  int muntjac_stat = 1;
+
+  /* Open the command for reading. */
+  fp = popen("/home/pi/rpidatv/scripts/check_muntjac.sh", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Read the output a line at a time - output it
+  while (fgets(MuntjacStatus, sizeof(MuntjacStatus)-1, fp) != NULL)
+  {
+    if (MuntjacStatus[0] == '0')
+    {
+      //printf("Muntjac Detected\n" );
+      muntjac_stat = 0;
+    }
+    else
+    {
+      //printf("No Muntjac Detected\n" );
+    }
+  }
+  pclose(fp);
+  return(muntjac_stat);
+}
+
+
+/***************************************************************************//**
+ * @brief Creates Muntjac entry in /etc/udev/rules.d/99-usbserial.rules
+ *
+ * @param None
+ *
+ * @return 0 if no error, 1 on error
+*******************************************************************************/
+
+int RegisterMuntjac()
+{
+  char MuntjacSerial[127];
+  FILE *fp;
+  char GrepCommand[127];
+  char GrepResponse[255];
+  char AppendCommand[300];
+
+  if (CheckMuntjac() == 1)
+  {
+    return 1;
+  }
+
+  // Look up Muntjac Pico Serial Number
+  fp = popen("dmesg | grep -A4 'idVendor=2e8a, idProduct=000a' | tail --lines=1 | sed -n -e 's/^.*SerialNumber: //p'", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    return 1;
+  }
+
+  // Read the output a line at a time - output it
+  while (fgets(MuntjacSerial, sizeof(MuntjacSerial) - 1, fp) != NULL)
+  {
+    MuntjacSerial[strlen(MuntjacSerial) - 1] = '\0';
+    //printf("\n Muntjac Serial is -%s-\n\n", MuntjacSerial );
+  }
+
+  pclose(fp);
+
+  // Check if Muntjac serial is already in /etc/udev/rules.d/99-usbserial.rules
+
+  snprintf(GrepCommand, 250, "grep %s /etc/udev/rules.d/99-usbserial.rules", MuntjacSerial);
+
+  fp = popen(GrepCommand, "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    return 1;
+  }
+
+  // Read the output a line at a time - output it
+  while (fgets(GrepResponse, sizeof(GrepResponse) - 1, fp) != NULL)
+  {
+    if (strlen(GrepResponse) > 5)
+    {
+      // File does not need amending
+      //printf("Grep response %s, Serial %s found in 99-usbserial.rules file\n", GrepResponse, MuntjacSerial);
+      return 0;
+    }
+  }
+
+  // file needs new line appending and a reboot
+
+  snprintf(AppendCommand, 300, "sudo sh -c \"echo ACTION==\\\\\\\"add\\\\\\\",ENV{ID_BUS}==\\\\\\\"usb\\\\\\\",ENV{ID_SERIAL_SHORT}==\\\\\\\"%s\\\\\\\",SYMLINK+=\\\\\\\"ttyMJ0\\\\\\\" >> /etc/udev/rules.d/99-usbserial.rules\"",  MuntjacSerial);
+  //printf("\n%s\n\n", AppendCommand);
+  system(AppendCommand);
+  MsgBox4("System will reboot now", "to register new Muntjac", " ", "Touch screen to continue");
+  wait_touch();
+  system("sudo reboot now");
+
+  return 0;
+}
+
 
 /***************************************************************************//**
  * @brief Checks for the presence of an FTDI Device
@@ -8981,6 +9108,7 @@ void EnforceValidTXMode()
   if ((strcmp(CurrentModeOP, "LIMEUSB") != 0)
        && (strcmp(CurrentModeOP, "LIMEMINI") != 0)
        && (strcmp(CurrentModeOP, "LIMEDVB") != 0)
+       && (strcmp(CurrentModeOP, "MUNTJAC") != 0)
        && (strcmp(CurrentModeOP, "STREAMER") != 0)
        && (strcmp(CurrentModeOP, "COMPVID") != 0)
        && (strcmp(CurrentModeOP, "IP") != 0)
@@ -10117,6 +10245,7 @@ void GreyOut1()
         && (strcmp(CurrentModeOP, TabModeOP[3]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[8]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[9]) != 0)
+        && (strcmp(CurrentModeOP, TabModeOP[11]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[12]) != 0))
       {
         SetButtonStatus(ButtonNumber(CurrentMenu, 14), 2); // Device Level Grey
@@ -10144,6 +10273,7 @@ void GreyOut11()
   if ((strcmp(CurrentModeOP, "LIMEUSB") != 0)
    && (strcmp(CurrentModeOP, "LIMEMINI") != 0)
    && (strcmp(CurrentModeOP, "LIMEDVB") != 0)
+   && (strcmp(CurrentModeOP, "MUNTJAC") != 0)
    && (strcmp(CurrentModeOP, "PLUTO") != 0)
    && (strcmp(CurrentModeOP, "LIBRESDR") != 0)
    && (strcmp(CurrentModeOP, "STREAMER") != 0)
@@ -10183,6 +10313,18 @@ void GreyOut11()
     SetButtonStatus(ButtonNumber(CurrentMenu, 8), 2); // grey-out Pilots on/off
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // grey-out Frames long/short
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0); // Show DVB-T
+  }
+
+  // For Muntjac
+  if (strcmp(CurrentModeOP, "MUNTJAC") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 2); // grey-out 16APSK
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 2); // grey-out 32APSK
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2); // grey-out DVB-S
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2); // grey-out Carrier
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 2); // grey-out DVB-T
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0); // Show Pilots on/off
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0); // Show Frames long/short
   }
 
   if (strcmp(CurrentModeOP, "EXPRESS") == 0
@@ -10282,6 +10424,10 @@ void GreyOut42()
   if (CheckLimeUSBConnect() == 1)  // Lime USB not connected so GreyOut
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 8), 2); // Lime USB
+  }
+  if (CheckMuntjac() == 1)  // Muntjac not connected so GreyOut
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 12), 2); // Muntjac
   }
   if (CheckJetson() == 1)  // Jetson not connected so GreyOut
   {
@@ -11007,6 +11153,7 @@ void ChangeBandDetails(int NoButton)
   int ExpLevel = -1;
   int ExpPorts = -1;
   int LimeGain = -1;
+  int MuntjacGain = -1;
   int RFEState = -1;
   int RFEAtt = 1;
   int RFEPort = -1;
@@ -11138,6 +11285,18 @@ void ChangeBandDetails(int NoButton)
   strcat(Param, "limegain");
   SetConfigParam(PATH_PPRESETS ,Param, KeyboardReturn);
 
+  // Muntjac Gain
+  snprintf(Value, 30, "%d", TabBandMuntjacGain[band]);
+  while ((MuntjacGain < 1) || (MuntjacGain > 20))    // Do not allow zero or blank Muntjac Gain
+  {
+    snprintf(Prompt, 63, "Set the Muntjac Gain for the %s Band:", TabBandLabel[band]);
+    Keyboard(Prompt, Value, 3);
+    MuntjacGain = atoi(KeyboardReturn);
+  }
+  TabBandMuntjacGain[band] = MuntjacGain;
+  strcpy(Param, TabBand[band]);
+  strcat(Param, "muntjacgain");
+  SetConfigParam(PATH_PPRESETS ,Param, KeyboardReturn);
 
   // Lime RFE Enable
   strcpy(Param, TabBand[band]);
@@ -11395,6 +11554,16 @@ void DoFreqChange()
   TabBandLimeGain[CurrentBand] = atoi(Value);
 
   strcpy(Param, "limegain");
+  SetConfigParam(PATH_PCONFIG ,Param, Value);
+
+  // Muntjac Gain
+  strcpy(Param, TabBand[CurrentBand]);
+  strcat(Param, "muntjacgain");
+  GetConfigParam(PATH_PPRESETS, Param, Value);
+
+  TabBandMuntjacGain[CurrentBand] = atoi(Value);
+
+  strcpy(Param, "muntjacgain");
   SetConfigParam(PATH_PCONFIG ,Param, Value);
 
   // Pluto Level
@@ -11712,6 +11881,7 @@ void SetDeviceLevel()
   char Param[15];
   int ExpLevel = -1;
   int LimeGain = -1;
+  int MuntjacGain = -1;
   int PlutoLevel = 1; // valid range -71 to 0, bit stored as 71 to 0 in config file
 
   if (strcmp(CurrentModeOP, TabModeOP[2]) == 0)  // DATV Express
@@ -11746,6 +11916,22 @@ void SetDeviceLevel()
     strcat(Param, "limegain");
     SetConfigParam(PATH_PPRESETS, Param, KeyboardReturn);
     strcpy(Param, "limegain");
+    SetConfigParam(PATH_PCONFIG, Param, KeyboardReturn);
+  }
+  else if (strcmp(CurrentModeOP, TabModeOP[11]) == 0) // Muntjac
+  {
+    while ((MuntjacGain < 0) || (MuntjacGain > 20) || (strlen(KeyboardReturn) < 1))
+    {
+      snprintf(Prompt, 62, "Set the Muntjac Gain for the %s Band:", TabBandLabel[CurrentBand]);
+      snprintf(Value, 4, "%d", TabBandMuntjacGain[CurrentBand]);
+      Keyboard(Prompt, Value, 3);
+      MuntjacGain = atoi(KeyboardReturn);
+    }
+    TabBandMuntjacGain[CurrentBand] = MuntjacGain;
+    strcpy(Param, TabBand[CurrentBand]);
+    strcat(Param, "muntjacgain");
+    SetConfigParam(PATH_PPRESETS, Param, KeyboardReturn);
+    strcpy(Param, "muntjacgain");
     SetConfigParam(PATH_PCONFIG, Param, KeyboardReturn);
   }
   else if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0))  // Pluto
@@ -12528,6 +12714,14 @@ void TransmitStop()
     system("sudo killall limesdr_send >/dev/null 2>/dev/null");
     system("sudo killall limesdr_dvb >/dev/null 2>/dev/null");
     system("(sleep 0.5; /home/pi/rpidatv/bin/limesdr_stopchannel) &");
+  }
+
+  // Stop Muntjac transmitting
+  if (strcmp(ModeOutput, "MUNTJAC") == 0)
+  {
+    system("sudo killall dvb2iq >/dev/null 2>/dev/null");
+    system("sudo killall dvb2iq2 >/dev/null 2>/dev/null");
+    system("sudo killall muntjacsdr_dvb >/dev/null 2>/dev/null");
   }
 
   // Kill the key processes as nicely as possible
@@ -20825,6 +21019,10 @@ void waituntil(int w,int h)
                 system("/home/pi/rpidatv/scripts/pluto_ptt.sh &");
               }
             }
+            if (strcmp(CurrentModeOP, "MUNTJAC") == 0)
+            {
+              system("/home/pi/rpidatv/scripts/muntjac_ptt.sh &");
+            }
             SelectPTT(i, 1);
             UpdateWindow();
             TransmitStart();
@@ -24089,6 +24287,11 @@ void waituntil(int w,int h)
           SelectOP(i);
           printf("Jetson Lime\n");
           break;
+        case 12:                              // Muntjac
+          RegisterMuntjac();
+          SelectOP(i);
+          printf("Muntjac\n");
+          break;
         case 13:                              // Lime Mini FPGA
           SelectOP(i);
           printf("Lime FPGA\n");
@@ -25715,6 +25918,10 @@ void Start_Highlights_Menu1()
         || (strcmp(CurrentModeOP, TabModeOP[12]) == 0))  // Lime
   {
     snprintf(Leveltext, 20, "Lime Gain^%d", TabBandLimeGain[CurrentBand]);
+  }
+  else if (strcmp(CurrentModeOP, TabModeOP[11]) == 0)  // Muntjac
+  {
+    snprintf(Leveltext, 20, "Muntjac Gain^%d", TabBandMuntjacGain[CurrentBand]);
   }
   else if (strcmp(CurrentModeOP, "PLUTO") == 0)  // Pluto
   {
@@ -27969,6 +28176,7 @@ void Define_Menu11()
   button = CreateButton(11, 5);
   AddButtonStatus(button, "DVB-S^QPSK", &Blue);
   AddButtonStatus(button, "DVB-S^QPSK", &Green);
+  AddButtonStatus(button, "DVB-S^QPSK", &Grey);
 
   button = CreateButton(11, 6);
   AddButtonStatus(button, "Carrier", &Blue);
@@ -30543,6 +30751,11 @@ void Define_Menu42()
   AddButtonStatus(button, TabModeOPtext[10], &Green);
   AddButtonStatus(button, TabModeOPtext[10], &Grey);
 
+  button = CreateButton(42, 12);                          // Muntjac
+  AddButtonStatus(button, TabModeOPtext[11], &Blue);
+  AddButtonStatus(button, TabModeOPtext[11], &Green);
+  AddButtonStatus(button, TabModeOPtext[11], &Grey);
+
   button = CreateButton(42, 13);                          // Lime DVB
   AddButtonStatus(button, TabModeOPtext[12], &Blue);
   AddButtonStatus(button, TabModeOPtext[12], &Green);
@@ -30597,6 +30810,11 @@ void Start_Highlights_Menu42()
   {
     SelectInGroupOnMenu(42, 5, 14, 11, 1);
     SelectInGroupOnMenu(42, 0, 3, 11, 1);
+  }
+  if(strcmp(CurrentModeOP, TabModeOP[11]) == 0)  //MUNTJAC
+  {
+    SelectInGroupOnMenu(42, 5, 14, 12, 1);
+    SelectInGroupOnMenu(42, 0, 3, 12, 1);
   }
   if(strcmp(CurrentModeOP, TabModeOP[12]) == 0)  //LIME DVB
   {

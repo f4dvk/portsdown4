@@ -51,6 +51,12 @@ Add IPTSIN264 and IPTSIN265 modes to ssh Menu
 202504210
 Correct Lime Mini update filepath in ssh menu
 
+02504080
+Increase limit on Muntjac gain to 20
+
+202503310
+Add Muntjac SDR capability
+
 202503070
 Detection RP2040, amelioration mineure
 
