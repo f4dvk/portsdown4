@@ -318,6 +318,7 @@ sudo apt-get -y install python3-pip                                     # For IS
 sudo apt-get -y install libhamlib-dev                                   # For ISS tracker
 sudo apt-get -y install libhamlib++-dev                                 # For ISS tracker
 sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
+pip3 install ephem requests                                             # For ISS tracker
 
 sudo apt-get -y install pi-bluetooth
 sudo apt-get -y install bluealsa
@@ -331,6 +332,19 @@ fi
 # Install libwebsockets if required
 if [ ! -d  /home/pi/libwebsockets ]; then
   cd /home/pi
+  git clone https://github.com/warmcat/libwebsockets.git
+  cd libwebsockets
+  cmake ./
+  make all
+  sudo make install
+  sudo ldconfig
+  cd /home/pi
+fi
+
+# Re-install libwebsockets if failed on April 2026
+if grep -q 'ts.tv_sec = target_us / 1000000' /home/pi/libwebsockets/lib/core-net/txpacer.c; then
+  cd /home/pi
+  sudo rm -rf libwebsockets
   git clone https://github.com/warmcat/libwebsockets.git
   cd libwebsockets
   cmake ./
@@ -479,7 +493,7 @@ wget https://github.com/${GIT_SRC}/portsdown4/archive/master.zip -O master.zip
 unzip -o master.zip
 cp -f -r portsdown4-master/bin rpidatv
 cp -f -r portsdown4-master/scripts rpidatv
-cp -f -r portsdown4-master/src rpidatv
+cp -f -r -p portsdown4-master/src rpidatv
 cp -f -r portsdown4-master/406 rpidatv
 cp -f -r portsdown4-master/server rpidatv
 rm -f rpidatv/video/*.jpg
@@ -794,8 +808,8 @@ else            # api is intalled, so try to compile SDRplay apps
     echo "-----------------------------------------"
     cd /home/pi/rpidatv/src/sdrplayview
     make
-    if [[ "$?" == "0" ]]; then     # Successful compile
-      cp sdrplayview ../../bin
+    if [[ "$?" == "0" ]]; then     # Successful compile so copy with permissions
+      cp -p sdrplayview ../../bin
       cd /home/pi
     else
       # Create file to trigger install on next reboot

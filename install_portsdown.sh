@@ -113,6 +113,8 @@ sudo apt-get -y install libhamlib-dev                                   # For IS
 sudo apt-get -y install libhamlib++-dev                                 # For ISS tracker
 sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
 
+pip3 install ephem requests                                             # For ISS tracker
+
 sudo apt-get install -y nodejs npm                                      # streaming audio
 sudo apt-get install -y ffmpeg
 sudo cp /usr/bin/ffmpeg /usr/bin/ffmpeg2
@@ -181,6 +183,12 @@ sudo rm -r csdr
 # Install Websockets for Meteor Beacon RX server
 git clone https://github.com/warmcat/libwebsockets.git
 cd libwebsockets
+
+
+# Correct for 32 bit (temporary fix, no longer required)
+#sed -i "s/ts.tv_sec = target_us \/ 1000000;/ts.tv_sec = (time_t)(target_us \/ 1000000);/" lib/core-net/txpacer.c
+#sed -i -E "s/ts.tv_nsec = \(target_us \% 1000000\) \* 1000;/ts.tv_nsec = (long)((target_us % 1000000) * 1000);/" lib/core-net/txpacer.c
+
 cmake ./
 make all
 sudo make install

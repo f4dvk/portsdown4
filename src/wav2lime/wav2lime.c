@@ -11,9 +11,9 @@
 #include <lime/LimeSuite.h>
 
 typedef enum
-{ 
-    WAVFORMAT_I8 = 0, 
-    WAVFORMAT_I16 = 1, 
+{
+    WAVFORMAT_I8 = 0,
+    WAVFORMAT_I16 = 1,
     WAVFORMAT_F32 = 2
 } wav_format_t;
 
@@ -26,7 +26,7 @@ static void sighandler(int sig, siginfo_t *siginfo, void *context)
 
     exit_requested = 1;
 }
- 
+
 static void print_usage(const char *progname){
     printf("Usage: %s [option]" "\n"
             "\t" "-i <filename> or --input <filename> Filename of input WAV" "\n"
@@ -42,7 +42,7 @@ typedef struct {
     char riff_header[4]; // Contains "RIFF"
     uint32_t wav_size; // Size of the wav portion of the file, which follows the first 8 bytes. File size - 8
     char wave_header[4]; // Contains "WAVE"
-    
+
     // Format Header
     char fmt_header[4]; // Contains "fmt " (includes trailing space)
     uint32_t fmt_chunk_size; // Should be 16 for PCM
@@ -52,7 +52,7 @@ typedef struct {
     uint32_t byte_rate; // Number of bytes per second. sample_rate * num_channels * Bytes Per Sample
     uint16_t sample_alignment; // num_channels * Bytes Per Sample
     uint16_t bit_depth; // Number of bits per sample
-    
+
     // Data
     char data_header[4]; // Contains "data"
     uint32_t data_bytes; // Number of bytes in data. Number of samples * num_channels * sample byte size
@@ -218,7 +218,7 @@ int main(int argc, char *const argv[])
     int channel_count = LMS_GetNumChannels(device, LMS_CH_TX);
     printf("Tx channel count %d" "\n", channel_count);
     printf("Using channel %d" "\n", channel);
-    
+
     LMS_SetNormalizedGain(device, LMS_CH_TX, channel, gain);
 
     // Disable all other channels
@@ -350,10 +350,10 @@ int main(int argc, char *const argv[])
             // Copy samples
             for(int i = 0; i < nSamples; i++)
             {
-                //sdrSamples[i].i = (((struct s16iq_sample_s*)fileSamples)[i].i);
-                //sdrSamples[i].q = (((struct s16iq_sample_s*)fileSamples)[i].q);
-                sdrSamples[i].i = (((struct s16iq_sample_s*)fileSamples)[i].i << 2);
-                sdrSamples[i].q = (((struct s16iq_sample_s*)fileSamples)[i].q << 2);
+                sdrSamples[i].i = (((struct s16iq_sample_s*)fileSamples)[i].i);
+                sdrSamples[i].q = (((struct s16iq_sample_s*)fileSamples)[i].q);
+                //sdrSamples[i].i = (((struct s16iq_sample_s*)fileSamples)[i].i << 2);
+                //sdrSamples[i].q = (((struct s16iq_sample_s*)fileSamples)[i].q << 2);
             }
         }
         else if(input_format == WAVFORMAT_F32)
