@@ -19948,7 +19948,7 @@ void ChangePlutoIPLangstone()  // For Langstone
     Keyboard(RequestText, InitText, 17);
 
     strcpy(PlutoIPCopy, KeyboardReturn);
-    if((is_valid_ip(PlutoIPCopy) == 1) || (strcmp(KeyboardReturn, "pluto.local") == 0))
+    if((is_valid_ip(PlutoIPCopy) == 1) || (strcmp(KeyboardReturn, "pluto.local") == 0) || (strcmp(KeyboardReturn, "libre.local") == 0))
     {
       IsValid = TRUE;
     }

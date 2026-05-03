@@ -1,7 +1,8 @@
 #
 #!/bin/bash
 
-Card=$1
+Audio_Card=$1
+Mic_Card=$2
 
 # Do not Change this line directly.
 # Please use the command ./set_pluto to configure the Pluto IP address if required.
@@ -46,7 +47,7 @@ if !(ps -ax |grep -v grep| grep -q Lang_TRX_Pluto.py) then
    fi
 
    #start up the GNU Radio flowgraph
-   python /home/pi/Langstone/Lang_TRX_Pluto.py $Card > /tmp/LangstoneTRX_Pluto.log 2>&1 &
+   python /home/pi/Langstone/Lang_TRX_Pluto.py $Audio_Card $Mic_Card > /tmp/LangstoneTRX_Pluto.log 2>&1 &
    sleep 10
 
    #check that the GNU module started corretly

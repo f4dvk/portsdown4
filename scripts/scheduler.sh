@@ -376,9 +376,11 @@ while true; do
         AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
       fi
 
+      MIC_DEV="$(arecord -l | grep -E 'USB Audio Device|USB AUDIO|Head|Sound Device|wm8960' | head -1 | cut -c6-6)"
+
       /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
-      /home/pi/Langstone/run_lime $AUDIO_DEV
+      /home/pi/Langstone/run_lime $AUDIO_DEV $MIC_DEV
       /home/pi/Langstone/stop_lime
       /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
@@ -400,9 +402,11 @@ while true; do
         AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
       fi
 
+      MIC_DEV="$(arecord -l | grep -E 'USB Audio Device|USB AUDIO|Head|Sound Device|wm8960' | head -1 | cut -c6-6)"
+
       /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
-      /home/pi/Langstone/run_pluto $AUDIO_DEV
+      /home/pi/Langstone/run_pluto $AUDIO_DEV $MIC_DEV
       /home/pi/Langstone/stop_pluto
       /home/pi/rpidatv/scripts/stop_web_update.sh
       PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)

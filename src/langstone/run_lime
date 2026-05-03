@@ -1,7 +1,8 @@
 #
 #!/bin/bash
 
-Card=$1
+Audio_Card=$1
+Mic_Card=$2
 
 #Create command pipe
 if test -e /tmp/langstoneTRx ;then
@@ -17,7 +18,7 @@ if !(ps -ax |grep -v grep| grep -q Lang_TRX_Lime.py) then
    sudo raspi-gpio set 17,18 pu
 
    #start up the GNU Radio flowgraph
-   python /home/pi/Langstone/Lang_TRX_Lime.py $Card > /tmp/LangstoneTRX_Lime.log 2>&1 &
+   python /home/pi/Langstone/Lang_TRX_Lime.py $Audio_Card $Mic_Card > /tmp/LangstoneTRX_Lime.log 2>&1 &
    sleep 10
 
    #check that the GNU module started corretly
