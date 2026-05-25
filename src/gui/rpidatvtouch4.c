@@ -849,8 +849,8 @@ void Define_Menu34();
 void Start_Highlights_Menu34();
 void Define_Menu35();
 void Start_Highlights_Menu35();
-void Define_Menu36();
-void Start_Highlights_Menu36();
+//void Define_Menu36();
+//void Start_Highlights_Menu36();
 void Define_Menu37();
 void Start_Highlights_Menu37();
 void Define_Menu38();
@@ -10495,10 +10495,6 @@ void WiFiConfig(int NoButton)
       }
       break;
 
-    case 1:                               // hotspot
-      printf("Hotspot Config\n");
-      HotspotConfig();
-      break;
   }
 }
 
@@ -22979,12 +22975,12 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 2:                               // Wifi Config
-          printf("MENU 36 \n");
-          CurrentMenu=36;
-          setBackColour(0, 0, 0);
-          clearScreen();
-          Start_Highlights_Menu36();
-          UpdateWindow();
+//          printf("MENU 36 \n");
+//          CurrentMenu=36;
+//          setBackColour(0, 0, 0);
+//          clearScreen();
+//          Start_Highlights_Menu36();
+//          UpdateWindow();
           break;
         case 3:                               // TS IP Config
           printf("MENU 40 \n");
@@ -25474,7 +25470,7 @@ void waituntil(int w,int h)
         continue;   // Completed Menu 35 action, go and wait for touch
       }
 
-      if (CurrentMenu == 36)  // Menu 36  Configuration
+/*      if (CurrentMenu == 36)  // Menu 36  Configuration
       {
         printf("Button Event %d, Entering Menu 36 Case Statement\n",i);
         switch (i)
@@ -25515,7 +25511,7 @@ void waituntil(int w,int h)
         }
         // stay in Menu 36 if parameter changed
         continue;   // Completed Menu 36 action, go and wait for touch
-      }
+      }*/
 
       if (CurrentMenu == 37)  // Menu 37 Lime Menu for Buster
       {
@@ -26956,7 +26952,11 @@ void waituntil(int w,int h)
           ToggleDHCP(true);                  //
           system("sudo reboot now");
           break;
-        case 3:
+        case 3:                             // Hotspot
+          printf("Hotspot Config\n");
+					HotspotConfig();
+          Start_Highlights_Menu55();
+          UpdateWindow();
           break;
         case 4:
           ClearMenuMessage();
@@ -32015,7 +32015,7 @@ void Start_Highlights_Menu35()
   }
 }
 
-void Define_Menu36()
+/*void Define_Menu36()
 {
   int button;
 
@@ -32130,7 +32130,7 @@ void Start_Highlights_Menu36()
       SetButtonStatus(ButtonNumber(36, 6), 0);  // Set to Blue
     }
   }
-}
+}*/
 
 void Define_Menu37()
 {
@@ -33707,6 +33707,11 @@ void Define_Menu55()
   AddButtonStatus(button, "DHCP Server^Disabled", &Blue);
   AddButtonStatus(button, "DHCP Server ^Enabled", &Red);
 
+  button = CreateButton(55, 3);
+  AddButtonStatus(button, "Hotspot^Config", &Blue);
+  AddButtonStatus(button, "Hotspot^Config", &Green);
+  AddButtonStatus(button, "Hotspot^Config", &Grey);
+
   button = CreateButton(55, 4);
   AddButtonStatus(button, "Exit", &DBlue);
   AddButtonStatus(button, "Exit", &LBlue);
@@ -34581,7 +34586,7 @@ int main(int argc, char **argv)
   Define_Menu33();
   Define_Menu34();
   Define_Menu35();
-  Define_Menu36();
+  //Define_Menu36();
   Define_Menu37();
   Define_Menu38();
   Define_Menu39();
