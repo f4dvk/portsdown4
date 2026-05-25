@@ -392,7 +392,7 @@ if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
   mkdir dirbuild
   cd dirbuild/
   cmake ../
-  make
+  make -j$(nproc)
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -436,7 +436,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd mbelib
   mkdir build && cd build
   cmake ..
-  make -j4
+  make -j$(nproc)
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -447,7 +447,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd itpp-4.3.1
   mkdir build && cd build
   cmake ..
-  make -j4
+  make -j$(nproc)
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -457,7 +457,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd dsdcc
   mkdir build && cd build
   cmake -DUSE_MBELIB=ON ..
-  make -j4
+  make -j$(nproc)
   sudo make install
   cd /home/pi
   sudo rm -r dsdcc
@@ -466,7 +466,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd dsd
   mkdir build && cd build
   cmake ..
-  make -j4
+  make -j$(nproc)
   sudo make install
   cd /home/pi
   sudo rm -r dsd
@@ -519,7 +519,7 @@ DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\n\nXXXXXX----"
 sudo killall -9 rpidatvgui
 echo "Installing rpidatvgui"
 cd /home/pi/rpidatv/src/gui
-make
+make -j$(nproc)
 sudo make install
 
 echo
@@ -533,7 +533,7 @@ git clone https://github.com/osmocom/rtl-sdr.git
 # Compile and install rtl-sdr
 cd rtl-sdr/ && mkdir build && cd build
 cmake ../ -DINSTALL_UDEV_RULES=ON
-make && sudo make install && sudo ldconfig
+make -j$(nproc) && sudo make install && sudo ldconfig
 
 if [ ! -f  /usr/local/lib/libSoapySDR.so ]; then
   # Install SoapySDR
@@ -541,7 +541,7 @@ if [ ! -f  /usr/local/lib/libSoapySDR.so ]; then
   cd SoapySDR
   mkdir build && cd build
   cmake ..
-  make -j4
+  make -j$(nproc)
   sudo make install
   cd /home/pi
 
@@ -550,7 +550,7 @@ if [ ! -f  /usr/local/lib/libSoapySDR.so ]; then
   cd SoapyPlutoSDR
   mkdir build && cd build
   cmake ..
-  make -j4
+  make -j$(nproc)
   sudo make install
   cd /home/pi
 
@@ -565,7 +565,7 @@ if [ ! -f /usr/bin/csdr ]; then
   # Install csdr
   git clone https://github.com/ha7ilm/csdr.git
   cd csdr
-  make -j4
+  make -j$(nproc)
   sudo make install
   cd /home/pi
 
@@ -582,7 +582,7 @@ echo "-----------------------------------------------"
 # Install rx_tools
 cd /home/pi/rpidatv/src/rx_tools
 cmake .
-make
+make -j$(nproc)
 sudo make install
 cd /home/pi
 
@@ -602,14 +602,14 @@ rm -rf libdvbmod-master
 
 # Make libdvbmod
 cd libdvbmod/libdvbmod
-make
+make -j$(nproc)
 cd ../DvbTsToIQ/
-make
+make -j$(nproc)
 cp dvb2iq /home/pi/rpidatv/bin/
 
 #Make limesdr_toolbox
 cd /home/pi/rpidatv/src/limesdr_toolbox/
-make
+make -j$(nproc)
 cp limesdr_send /home/pi/rpidatv/bin/
 cp limesdr_dump /home/pi/rpidatv/bin/
 cp limesdr_stopchannel /home/pi/rpidatv/bin/
@@ -641,7 +641,7 @@ echo "----- Updating dvb_t_stack -----"
 echo "--------------------------------"
 cd /home/pi/rpidatv/src/dvb_t_stack/Release
 make clean
-make
+make -j$(nproc)
 cp dvb_t_stack /home/pi/rpidatv/bin/dvb_t_stack
 
 # Install the DATV Express firmware files
@@ -661,7 +661,7 @@ rm avc2ts.cpp
 wget https://github.com/BritishAmateurTelevisionClub/avc2ts/raw/portsdown4/avc2ts.cpp
 
 # Make avc2ts with new source
-make
+make -j$(nproc)
 cp avc2ts ../rpidatv/bin/
 cd /home/pi
 
@@ -675,7 +675,7 @@ cd /home/pi
 rm -rf longmynd
 cp -r /home/pi/rpidatv/src/longmynd/ /home/pi/
 cd longmynd
-make
+make -j$(nproc)
 
 # Check the minitiouner.rules file and update if required
 grep -q "ba2c" /etc/udev/rules.d/minitiouner.rules
@@ -697,11 +697,11 @@ unzip master.zip
 mv leansdr-master leansdr
 rm master.zip
 cd leansdr/src/apps
-make -j4
+make -j$(nproc)
 cp leandvb ../../../../bin/
 
 cd /home/pi/rpidatv/src/fake_read
-make
+make -j$(nproc)
 cp fake_read ../../bin/
 cd /home/pi
 
@@ -713,7 +713,7 @@ echo "----- Compiling the Signal Generator -----"
 echo "------------------------------------------"
 cd /home/pi/rpidatv/src/siggen
 touch siggentouch4.c            # Force recompilation for LimeSuite update
-make
+make -j$(nproc)
 sudo make install
 cd /home/pi
 
@@ -722,7 +722,7 @@ echo "----------------------------------------"
 echo "----- Compiling the ADF4351 driver -----"
 echo "----------------------------------------"
 cd /home/pi/rpidatv/src/adf4351
-make
+make -j$(nproc)
 cp adf4351 ../../bin/
 cd /home/pi
 
@@ -734,7 +734,7 @@ echo "-----------------------------------------"
 echo "----- Compiling LimeSDR Band Viewer -----"
 echo "-----------------------------------------"
 cd /home/pi/rpidatv/src/bandview
-make
+make -j$(nproc)
 cp bandview ../../bin/
 # Copy the fftw wisdom file to home so that there is no start-up delay
 # This file works for both BandViewer and NF Meter
@@ -747,7 +747,7 @@ echo "----------------------------------------"
 echo "----- Compiling Airspy Band Viewer -----"
 echo "----------------------------------------"
 cd /home/pi/rpidatv/src/airspyview
-make
+make -j$(nproc)
 cp airspyview ../../bin/
 cd /home/pi
 
@@ -757,7 +757,7 @@ echo "----------------------------------------"
 echo "----- Compiling RTL-SDR Band Viewer -----"
 echo "----------------------------------------"
 cd /home/pi/rpidatv/src/rtlsdrview
-make
+make -j$(nproc)
 cp rtlsdrview ../../bin/
 cd /home/pi
 
@@ -767,7 +767,7 @@ echo "---------------------------------------"
 echo "----- Compiling Pluto Band Viewer -----"
 echo "---------------------------------------"
 cd /home/pi/rpidatv/src/plutoview
-make
+make -j$(nproc)
 cp plutoview ../../bin/
 cd /home/pi
 
@@ -798,7 +798,7 @@ else            # api is intalled, so try to compile SDRplay apps
   echo "----------------------------------"
   cd /home/pi/rpidatv/src/meteorview
   # Compile meteorview.  Do it on next boot if it fails
-  make
+  make -j$(nproc)
   if [[ "$?" == "0" ]]; then     # Successful compile
     cp meteorview ../../bin/
     echo
@@ -806,7 +806,7 @@ else            # api is intalled, so try to compile SDRplay apps
     echo "----- Compiling SDRplay Band Viewer -----"
     echo "-----------------------------------------"
     cd /home/pi/rpidatv/src/sdrplayview
-    make
+    make -j$(nproc)
     if [[ "$?" == "0" ]]; then     # Successful compile so copy with permissions
       cp -p sdrplayview ../../bin
       cd /home/pi
@@ -830,7 +830,7 @@ echo "---------------------------------"
 echo "----- Compiling Power Meter -----"
 echo "---------------------------------"
 cd /home/pi/rpidatv/src/power_meter
-make
+make -j$(nproc)
 cp power_meter ../../bin/
 cd /home/pi
 
@@ -840,7 +840,7 @@ echo "---------------------------------------------"
 echo "----- Compiling Lime Noise Figure Meter -----"
 echo "---------------------------------------------"
 cd /home/pi/rpidatv/src/nf_meter
-make
+make -j$(nproc)
 cp nf_meter ../../bin/
 cd /home/pi
 
@@ -850,7 +850,7 @@ echo "----------------------------------------------"
 echo "----- Compiling Pluto Noise Figure Meter -----"
 echo "----------------------------------------------"
 cd /home/pi/rpidatv/src/pluto_nf_meter
-make
+make -j$(nproc)
 cp pluto_nf_meter ../../bin/
 cd /home/pi
 
@@ -861,7 +861,7 @@ echo "----- Compiling Frequency Sweeper -----"
 echo "---------------------------------------"
 cd /home/pi/rpidatv/src/sweeper
 touch sweeper.c                  # Force recompilation for LimeSuite update
-make
+make -j$(nproc)
 cp sweeper ../../bin/
 cd /home/pi
 
@@ -871,7 +871,7 @@ echo "---------------------------------------"
 echo "-------- Compiling DMM Display --------"
 echo "---------------------------------------"
 cd /home/pi/rpidatv/src/dmm
-make
+make -j$(nproc)
 cp dmm ../../bin/
 cd /home/pi
 
@@ -881,7 +881,7 @@ echo "--------------------------------------"
 echo "----- Compiling Lime Noise Meter -----"
 echo "--------------------------------------"
 cd /home/pi/rpidatv/src/noise_meter
-make
+make -j$(nproc)
 cp noise_meter ../../bin/
 cd /home/pi
 
@@ -891,7 +891,7 @@ echo "---------------------------------------"
 echo "----- Compiling Pluto Noise Meter -----"
 echo "---------------------------------------"
 cd /home/pi/rpidatv/src/pluto_noise_meter
-make
+make -j$(nproc)
 cp pluto_noise_meter ../../bin/
 cd /home/pi
 
@@ -901,7 +901,7 @@ echo "------------------------------------------"
 echo "----- Compiling Touchscreen Listener -----"
 echo "------------------------------------------"
 cd /home/pi/rpidatv/src/rydemon
-make
+make -j$(nproc)
 cp rydemon ../../bin/
 cd /home/pi
 
@@ -920,7 +920,7 @@ rm master.zip
 rm -r /home/pi/tsmerge >/dev/null 2>/dev/null
 mv tsmerge-client-linuxcli-master tsmerge
 cd /home/pi/tsmerge
-make cppcheck && make
+make cppcheck && make -j$(nproc)
 
 # Compile OOK48 Test Source
 echo
@@ -928,27 +928,27 @@ echo "---------------------------------------"
 echo "----- Compiling OOK48 Test Source -----"
 echo "---------------------------------------"
 cd /home/pi/rpidatv/src/ook48
-make
+make -j$(nproc)
 cp ook48 ../../bin/
 cd /home/pi
 
 # Compile and install the executable for GPIO-switched transmission (201710080)
 echo "Installing keyedtx"
 cd /home/pi/rpidatv/src/keyedtx
-make
+make -j$(nproc)
 mv keyedtx /home/pi/rpidatv/bin/
 cd /home/pi
 
 # Compile and install the executable for GPIO-switched transmission with touch (202003020)
 cd /home/pi/rpidatv/src/keyedtxtouch
-make
+make -j$(nproc)
 mv keyedtxtouch /home/pi/rpidatv/bin/
 cd /home/pi
 
 # Compile the Attenuator Driver (201801060)
 echo "Installing atten"
 cd /home/pi/rpidatv/src/atten
-make
+make -j$(nproc)
 cp /home/pi/rpidatv/src/atten/set_attenuator /home/pi/rpidatv/bin/set_attenuator
 cd /home/pi
 
