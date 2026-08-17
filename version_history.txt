@@ -1,3 +1,6 @@
+202608170
+Correction erreur latitude sarsat ELT_DT
+
 202605250
 Reactivation Hotspot Config
 

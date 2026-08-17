@@ -161,7 +161,7 @@ return 0;
 void  GeogToUTM(double llatd, double llngd){
 		//Merci à Daniel-Bryant
         //https://github.com/daniel-bryant/CoordinateConversion/blob/master/conversion.cpp
-          char ch[200];
+          //char ch[200];
           float lat,lng;
           lat=(float)llatd;lng=(float)llngd;
 		    if ((llatd>127)||(llngd>255)||(llatd<0)||(llngd<0))
@@ -169,7 +169,7 @@ void  GeogToUTM(double llatd, double llngd){
                 }
             else{
                 if (opt_osm)  afficher_carte_osm(llatd,llngd);
-                sprintf(ch,"https://www.openstreetmap.org/?mlat=%f&mlon=%f#map=6/%f/%f ",lat,lng,lat,lng);
+                //sprintf(ch,"https://www.openstreetmap.org/?mlat=%f&mlon=%f#map=6/%f/%f ",lat,lng,lat,lng);
                 double DatumEqRad[] = {6378137.0,6378137.0,6378137.0,6378135.0,6378160.0,6378245.0,6378206.4,
                 6378388.0,6378388.0,6378249.1,6378206.4,6377563.4,6377397.2,6377276.3};
                 double DatumFlat[] = {298.2572236, 298.2572236, 298.2572215,	298.2597208, 298.2497323, 298.2997381, 294.9786982,
@@ -249,9 +249,9 @@ void  GeogToUTM(double llatd, double llngd){
                 fprintf(stderr,"\n\rUTM Zone: %1.0f%c",utmz,C0);
                 fprintf(stderr,"%c%c",C1,C2);
                 fprintf(stderr," x: %1.0fm  y: %1.0fm ",x,y);
-                fprintf(stderr,"\n\rCliquez sur le lien pour afficher la carte dans le navigateur;");
+                //fprintf(stderr,"\n\rCliquez sur le lien pour afficher la carte dans le navigateur;");
 
-                fprintf(stderr,"\n\r%s",ch);
+                //fprintf(stderr,"\n\r%s",ch);
                 //contenu.append("UTM: Zone:").append(decform.format(utmz)).append(//Charact.to//String(C0));
                 //contenu.append(" ").append(//Charact.to//String(C1)).append(//Charact.to//String(C2));
                 //contenu.append(" x: ").append(decform.format(x)).append("m");
@@ -448,13 +448,13 @@ void identification_ELT_DT()
              a*=2;
             }
 	xx=(int)x;
-	fprintf(stderr,"\n\rIdentifiant_ELT  en décimal:");
+	fprintf(stderr,"\n\rIdentifiant_ELT en decimal:");
     //contenu.append("Identifiant AIRCRAFT 24 BIT ADRESSE: ");
     //Integer xxx=xx;
     fprintf(stderr,"%d",xx);
     //contenu.append(xxx.to//String()).append("\r\n");
-    fprintf(stderr,"     en Hexa:");
-    //contenu.append("   en Hexa:");
+    fprintf(stderr,"    en Hexa:");
+    //contenu.append("  en Hexa:");
     for(j=0;j<3;j++)
         {i=42+j*8;
          aa=calcul(i,i+7);
@@ -469,37 +469,37 @@ void altitude_ELT_DT()
     i=108;
      x=calcul(i,i+3);
       switch(x)
-					{case 0 :fprintf(stderr,"\n\rAltitude inférieure à 400 m  ");
+					{case 0 :fprintf(stderr,"\n\rAltitude inferieure a 400 m");
                                      break;
-					case 1:fprintf(stderr,"\n\rAltitude entre  400m et 800m  ");
+					case 1:fprintf(stderr,"\n\rAltitude entre 400m et 800m");
                                      break;
-					case 2 :fprintf(stderr,"\n\rAltitude entre     800m et  1200m  ");
+					case 2 :fprintf(stderr,"\n\rAltitude entre 800m et 1200m");
                                      break;
- 					case 3 :fprintf(stderr,"\n\rAltitude entre     1200m et  1600m  ");
+ 					case 3 :fprintf(stderr,"\n\rAltitude entre 1200m et 1600m");
                                      break;
- 					case 4 :fprintf(stderr,"\n\rAltitude entre     1600m et  2200m  ");
+ 					case 4 :fprintf(stderr,"\n\rAltitude entre 1600m et 2200m");
                                      break;
- 					case 5 :fprintf(stderr,"\n\rAltitude entre     2200m et  2800m  ");
+ 					case 5 :fprintf(stderr,"\n\rAltitude entre 2200m et 2800m");
                                      break;
- 					case 6 :fprintf(stderr,"\n\rAltitude entre     2800m et  3400m  ");
+ 					case 6 :fprintf(stderr,"\n\rAltitude entre 2800m et 3400m");
                                      break;
- 					case 7 :fprintf(stderr,"\n\rAltitude entre     3400m et  4000 m  ");
+ 					case 7 :fprintf(stderr,"\n\rAltitude entre 3400m et 4000m");
                                      break;
- 					case 8 :fprintf(stderr,"\n\rAltitude entre     4000m et  4800m  ");
+ 					case 8 :fprintf(stderr,"\n\rAltitude entre 4000m et 4800m");
                                      break;
- 					case 9 :fprintf(stderr,"\n\rAltitude entre     4800m et  5600m  ");
+ 					case 9 :fprintf(stderr,"\n\rAltitude entre 4800m et 5600m");
                                      break;
- 					case 10 :fprintf(stderr,"\n\rAltitude entre     5600m et  6600m  ");
+ 					case 10 :fprintf(stderr,"\n\rAltitude entre 5600m et 6600m");
                                      break;
- 					case 11 :fprintf(stderr,"\n\rAltitude entre    6600 m et  7600m  ");
+ 					case 11 :fprintf(stderr,"\n\rAltitude entre 6600 m et 7600m");
                                      break;
- 					case 12 :fprintf(stderr,"\n\rAltitude entre     7600m et  8800m  ");
+ 					case 12 :fprintf(stderr,"\n\rAltitude entre 7600m et 8800m");
                                      break;
- 					case 13 :fprintf(stderr,"\n\rAltitude entre     8800m et  10000m  ");
+ 					case 13 :fprintf(stderr,"\n\rAltitude entre 8800m et 10000m");
                                      break;
- 					case 14 :fprintf(stderr,"\n\rAltitude supérieure à 10000m  ");
+ 					case 14 :fprintf(stderr,"\n\rAltitude superieure a 10000m");
                                      break;
-					case 15 :fprintf(stderr,"\n\rAltitude inconnue  ");
+					case 15 :fprintf(stderr,"\n\rAltitude inconnue");
                                      break;
 
 					 }
@@ -512,7 +512,7 @@ void localisation_ELT_DT() //à vérifier....modif .2025
 	i=67;
 	//latD=64*(s[i]=='1')+32*(s[i+1]=='1')+16*(s[i+2]=='1')+8*(s[i+3]=='1')+4*(s[i+4]=='1')+2*(s[i+5]=='1')+(s[i+6]=='1');
     latD=calcul(i,i+6);
-	latM=30*s[i+7]=='1';
+	latM=30*(s[i+7]=='1');
     //ofsset minutes et secondes
 	i=115;
 	//x=8*(s[i]=='1')+4*(s[i+1]=='1')+2*(s[i+2]=='1')+(s[i+3]=='1');
