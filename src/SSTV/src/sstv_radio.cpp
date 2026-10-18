@@ -139,6 +139,13 @@ namespace
   std::string g_mode = "FM";
   std::string g_sdr_name;
   std::string g_sstv_mode = "-"; // mode SSTV detecte (PD120, Robot36, ...), affiche des la synchro
+  // Diagnostic (voir c_sstv_decoder_radio::update_sync_diag()) : activite
+  // de synchro de la tentative EN COURS, affichee a la place de g_sstv_mode
+  // (qui montre sinon le dernier mode reellement verrouille, meme perime)
+  // tant qu'aucune image n'est verrouillee pour cette tentative -- permet
+  // de voir si un signal est present (meme bruite, jamais verrouille) ou
+  // s'il n'y a vraiment rien a l'antenne.
+  std::string g_sync_diag = "-";
   // Certains SDR (Pluto en particulier, connexion IIO reseau) mettent
   // plusieurs secondes -- jusqu'a 15-20 s observees -- avant la toute
   // premiere trame de spectre, sans aucun retour visuel entre-temps : un
@@ -331,7 +338,11 @@ namespace
     displayStr(buf);
 
     char sstv_buf[64];
-    snprintf(sstv_buf, sizeof(sstv_buf), "SSTV: %s", g_sstv_mode.c_str());
+    // g_sstv_mode (dernier mode reellement verrouille, persiste entre deux
+    // tentatives) tant qu'il y en a un ; sinon g_sync_diag (activite de la
+    // tentative en cours, voir update_sync_diag()) -- "-" si vraiment rien.
+    snprintf(sstv_buf, sizeof(sstv_buf), "SSTV: %s",
+             (g_sstv_mode != "-") ? g_sstv_mode.c_str() : g_sync_diag.c_str());
     // Centre (pas aligne a droite) : en mode kiosque, le petit bouton
     // "Exit" occupe le coin superieur droit du bandeau et masquait ce
     // texte. Le centrage pur peut retomber trop pres du texte de gauche
@@ -832,6 +843,31 @@ namespace
 
     bool replay_requested() const { return m_replay_requested; }
 
+    // Diagnostic (voir get_sync_state()/get_sync_counter()/
+    // get_candidate_mode() dans sstv_decoder.h) : donne une activite
+    // visible meme quand la synchro ne va jamais jusqu'au verrouillage
+    // complet d'une image -- utile pour distinguer "rien a l'antenne" de
+    // "signal present mais trop faible/bruite pour verrouiller".
+    void update_sync_diag()
+    {
+      std::string diag;
+      const char* candidate = get_candidate_mode();
+      if (candidate) {
+        diag = std::string("verif. ") + candidate + "...";
+      } else if (get_sync_counter() > 0) {
+        diag = "signal detecte...";
+      } else {
+        diag = "-";
+      }
+      if (diag != g_sync_diag) {
+        g_sync_diag = diag;
+        draw_header();
+        // Trace aussi dans /tmp/SSTVReceiver.log (stderr), pour revoir apres
+        // coup l'activite de synchro sans avoir du regarder l'ecran en direct.
+        fprintf(stderr, "sync: %s\n", diag.c_str());
+      }
+    }
+
     bool decode_one_image(const std::string& bmp_path, uint8_t timeout_s, std::string& mode_out)
     {
       c_bmp_writer_stdio bmp;
@@ -841,13 +877,14 @@ namespace
       m_mode_name.clear();
       m_origin_set = false;
       g_image_in_progress = false; // nouvelle tentative : l'AFC peut de nouveau corriger tant que rien n'est accroche
+      g_sync_diag = "-";
 
       bool image_in_progress = false;
       bool done = false;
       uint32_t n = 0;
       while (!done && !g_quit && !m_replay_requested) {
         done = decode_image_non_blocking(timeout_s, true, image_in_progress);
-        if ((++n & 0x3FF) == 0) poll_ui();
+        if ((++n & 0x3FF) == 0) { poll_ui(); update_sync_diag(); }
       }
 
       bmp.update_header();

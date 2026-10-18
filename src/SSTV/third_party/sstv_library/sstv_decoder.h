@@ -124,6 +124,19 @@ public:
   c_sstv_decoder(float Fs);
   void decode_image(uint8_t timeout_s, bool slant_correction);
   bool decode_image_non_blocking(uint8_t timeout_s, bool slant_correction, bool& image_in_progress);
+
+  // Diagnostic : etat courant de la machine a synchro (voir decode_sample()),
+  // en lecture seule -- ne modifie rien a l'algorithme. Permet de distinguer
+  // "aucun signal" de "un signal est present mais trop faible/bruite pour
+  // verrouiller une image complete" (sync_counter progresse sans jamais
+  // atteindre le seuil de confirmation, ou un mode candidat est trouve en
+  // confirm_sync sans etre confirme deux fois de suite).
+  e_sstv_state get_sync_state() const { return state; }
+  uint32_t get_sync_counter() const { return sync_counter; }
+  const char* get_candidate_mode() const
+  {
+    return (state != detect_sync) ? modes[decode_mode].mode_string : nullptr;
+  }
 };
 
 #endif
