@@ -613,6 +613,7 @@ namespace
     std::string m_mode_name;
     bool m_origin_set = false;
     int m_origin_x = 0, m_origin_y = 0;
+    double m_scale = 1.0;
     bool m_allow_replay;
     bool m_replay_requested = false;
 
@@ -635,13 +636,26 @@ namespace
 
       if (!m_origin_set) {
         fill_rect(0, IMAGE_TOP, screenXsize, screenYsize - IMAGE_TOP, COL_BG[0], COL_BG[1], COL_BG[2]);
-        // m_origin_x n'est pas borne a 0 : une image plus large que l'ecran
-        // (ex: PD120, 640 px) doit rester centree, le debordement gauche et
-        // droit etant alors coupe a parts egales (setPixel ignore les x hors
-        // ecran) plutot que de caler l'image a gauche et ne perdre que le
-        // bord droit.
-        m_origin_x = (screenXsize - width) / 2;
-        m_origin_y = IMAGE_TOP + (screenYsize - IMAGE_TOP - height) / 2;
+        // Si l'image ne tient pas dans la zone disponible (ex: PD120, 640 x
+        // 496, plus haute que la hauteur dispo sur un ecran 800x480 une fois
+        // bandeau+spectre retires), on la reduit (plus proche voisin, sans
+        // interpolation) au lieu de la laisser deborder hors ecran -- le
+        // debordement en hauteur ne peut pas etre recadre comme en largeur
+        // (setPixel ignore les x/y hors ecran) car la zone au-dessus de
+        // IMAGE_TOP est reservee (bandeau/spectre) et ne doit pas etre
+        // ecrasee par l'image.
+        int avail_h = screenYsize - IMAGE_TOP;
+        m_scale = 1.0;
+        if (width > screenXsize) m_scale = std::min(m_scale, (double)screenXsize / width);
+        if (height > avail_h) m_scale = std::min(m_scale, (double)avail_h / height);
+        int scaled_w = (int)(width * m_scale);
+        int scaled_h = (int)(height * m_scale);
+        // m_origin_x n'est pas borne a 0 : a l'echelle 1:1, une image plus
+        // large que l'ecran doit rester centree, le debordement gauche et
+        // droit etant alors coupe a parts egales plutot que de caler
+        // l'image a gauche et ne perdre que le bord droit.
+        m_origin_x = (screenXsize - scaled_w) / 2;
+        m_origin_y = IMAGE_TOP + (avail_h - scaled_h) / 2;
         if (m_origin_y < IMAGE_TOP) m_origin_y = IMAGE_TOP;
         m_origin_set = true;
         g_sstv_mode = mode_name;
@@ -656,10 +670,16 @@ namespace
         send_control("MUTE 1");
       }
 
+      // A l'echelle 1:1 (cas normal, la grande majorite des modes), ceci
+      // reste un simple m_origin_x + x / m_origin_y + y : (int)(x*1.0)==x.
+      // A echelle reduite, plusieurs lignes/colonnes source retombent sur le
+      // meme pixel ecran (plus proche voisin) -- rendu moins fin, mais
+      // l'image entiere reste visible au lieu d'etre tronquee.
+      int py = m_origin_y + (int)(y * m_scale);
       for (uint16_t x = 0; x < width; ++x) {
         uint8_t r, g, b;
         rgb565_to_rgb(line_rgb565[x], r, g, b);
-        setPixel(m_origin_x + x, m_origin_y + y, r, g, b);
+        setPixel(m_origin_x + (int)(x * m_scale), py, r, g, b);
       }
 
       m_lines_written++;
