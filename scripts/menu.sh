@@ -1731,6 +1731,7 @@ do_autostart_setup()
   Radio5=OFF
   Radio6=OFF
   Radio7=OFF
+  Radio8=OFF
 
   case "$MODE_STARTUP" in
     Display_boot)
@@ -1754,6 +1755,9 @@ do_autostart_setup()
     Keyed_TX_boot)
       Radio7=ON
     ;;
+    SSTV_boot)
+      Radio8=ON
+    ;;
     *)
       Radio1=ON
     ;;
@@ -1768,6 +1772,7 @@ do_autostart_setup()
    "Meteorbeacon_boot" "Boot-up to the Meteor Beacon RX Server " $Radio5 \
    "TX_boot" "$AutostartSetupTX_boot" $Radio6 \
    "Keyed_TX_boot" "Boot up to GPIO Keyed Repeater TX" $Radio7 \
+   "SSTV_boot" "Boot-up to the SSTV Receiver" $Radio8 \
    3>&2 2>&1 1>&3)
 
   if [ $? -eq 0 ]; then

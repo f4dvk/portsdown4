@@ -118,7 +118,7 @@ color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 color_t Orange = {.r = 248, .g = 185, .b = 4  };
 color_t Rose  = {.r = 255 , .g = 105 , .b = 180};
 
-#define MAX_BUTTON 990
+#define MAX_BUTTON 999
 int IndexButtonInArray=0;
 button_t ButtonArray[MAX_BUTTON];
 #define TIME_ANTI_BOUNCE 500
@@ -730,6 +730,7 @@ void do_snap();
 void do_snapcheck();
 static void cleanexit(int exit_code);
 void do_Langstone();
+void do_SSTVReceive();
 void do_video_monitor(int button);
 void MonitorStop();
 void IPTSConfig(int NoButton);
@@ -887,6 +888,8 @@ void Define_Menu55();
 void Start_Highlights_Menu55();
 void Define_Menu57();
 void Start_Highlights_Menu57();
+void Define_Menu58();
+void Start_Highlights_Menu58();
 void Define_Menu41();
 
 // **************************************************************************** //
@@ -8117,9 +8120,9 @@ int ButtonNumber(int MenuIndex, int Button)
   {
     ButtonNumb = 600 + (MenuIndex - 42) * 15 + Button;
   }
-  if (MenuIndex >= 54) // 5 x 20-button submenus (735 + 100 = 835)
+  if (MenuIndex >= 54) // 5 x 24-button submenus (735 + 120 = 855) - 24 to allow top-row buttons (20,22,23) as used by Menu58
   {
-    ButtonNumb = 735 + (MenuIndex - 51) * 20 + Button;
+    ButtonNumb = 735 + (MenuIndex - 51) * 24 + Button;
   }
   return ButtonNumb;
 }
@@ -8361,7 +8364,7 @@ void DrawButton(int ButtonIndex)
   }
   else                                              // One line only
   {
-    if ((CurrentMenu <= 9) && (CurrentMenu != 4))
+    if (((CurrentMenu <= 9) && (CurrentMenu != 4)) || (CurrentMenu == 58))
     {
       TextMid2(Button->x+Button->w/2, Button->y+Button->h/2, label, &font_dejavu_sans_28);
     }
@@ -11140,6 +11143,13 @@ void SelectFreq(int NoButton)  //Frequency
     SetConfigParam(PATH_PCONFIG, Param, freqtxt);
 
     DoFreqChange();
+  }
+  else if (CallingMenu == 58)  // SSTV Receive frequency
+  {
+    // Stocke a part (sstv_frequency) : commune par defaut avec rx0frequency
+    // (Lean DVB) tant qu'elle n'a pas ete modifiee ici, voir
+    // Start_Highlights_Menu58(). N'ecrase jamais rx0frequency.
+    SetConfigParam(PATH_RXPRESETS, "sstv_frequency", freqtxt);
   }
   else                    // Lean DVB Receive frequency
   {
@@ -18375,6 +18385,26 @@ void do_Langstone()
 }
 
 
+// RECEIVE button of Menu 58 (SSTV). Only RTL-SDR is supported for now
+// (button 17 "SDR^RTL-SDR" is not yet selectable). GUI_RETURN_CODE 151 is
+// read by scheduler.sh, which launches the SSTV receiver and, once it
+// exits, brings this menu back (same mechanism as Langstone's 135/145/146/
+// 155/156 above -- see cleanexit()).
+void do_SSTVReceive()
+{
+  if (CheckRTL() == 0)
+  {
+    cleanexit(151);  // Start the SSTV Receiver
+  }
+  else
+  {
+    MsgBox4("No RtlSdr connected", "",
+            "Please correct and try again", "Touch Screen to Continue");
+    wait_touch();
+  }
+}
+
+
 void do_video_monitor(int button)
 {
   char startCommand[255];
@@ -23319,7 +23349,7 @@ void waituntil(int w,int h)
           Start_Highlights_Menu5();    // Refresh button labels
           UpdateWindow();
 */          break;
-        case 7:                                            // Audio on/off
+        case 7:
           break;
         case 8:
           break;
@@ -23411,16 +23441,12 @@ void waituntil(int w,int h)
           UpdateWindow();
           SetConfigParam(PATH_RXPRESETS, "rx0parameters", RXparams[0]);
 */          break;
-        case 20:                                            // Forward Leandvb
-          if (((strcmp(ModeOutput, "LIMEMINI") == 0) || (strcmp(ModeOutput, "LIMEUSB") == 0) || (strcmp(ModeOutput, "LIMEDVB") == 0)) && (((strcmp(RXKEY, "RTLSDR") == 0) && (CheckRTL()==0))) && (((FREQTX2 - FREQRX2) > 50) || ((- FREQTX2 - - FREQRX2) > 50)))
-          {
-            setBackColour(0, 0, 0);
-            ForwardLeandvbStart();
-            setBackColour(0, 0, 0);
-            Start_Highlights_Menu5();
-            UpdateWindow();
-            break;
-          }
+        case 20:                                            // SSTV
+          printf("MENU 58 \n");        // SSTV
+          CurrentMenu=58;
+          setBackColour(0, 0, 0);
+          Start_Highlights_Menu58();
+          UpdateWindow();
           break;
         case 21:
           break;
@@ -26719,10 +26745,20 @@ void waituntil(int w,int h)
           usleep(500000);
         }
         SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 0); // Reset cancel (even if not selected)
-        printf("Returning to MENU 5 from Menu 52\n");
-        CurrentMenu=5;
-        setBackColour(0, 0, 0);
-        Start_Highlights_Menu5();
+        if (CallingMenu == 58)
+        {
+          printf("Returning to MENU 58 from Menu 52\n");
+          CurrentMenu=58;
+          setBackColour(0, 0, 0);
+          Start_Highlights_Menu58();
+        }
+        else
+        {
+          printf("Returning to MENU 5 from Menu 52\n");
+          CurrentMenu=5;
+          setBackColour(0, 0, 0);
+          Start_Highlights_Menu5();
+        }
         UpdateWindow();
         continue;   // Completed Menu 52 action, go and wait for touch
       }
@@ -27212,6 +27248,101 @@ void waituntil(int w,int h)
         }
         // stay in Menu 57 if parameter changed
         continue;   // Completed Menu 57 action, go and wait for touch
+      }
+
+      if (CurrentMenu == 58)  // Menu 58 SSTV
+      {
+        printf("Button Event %d, Entering Menu 58 Case Statement\n",i);
+        CallingMenu = 58;
+        //GetConfigParam(PATH_RXPRESETS, "rx0sdr", RXKEY);
+        //GetConfigParam(PATH_RXPRESETS, "rx0modulation", RXMOD);
+        switch (i)
+        {
+        case 0:                                             // RECEIVE
+          do_SSTVReceive();
+          break;
+        case 1:
+        //case 2:
+        /*case 3:
+          setBackColour(0, 0, 0);
+          clearScreen();
+          ProcessLeandvb2(i);
+          setBackColour(0, 0, 0);
+          clearScreen();
+          Start_Highlights_Menu5();    // Refresh button labels
+          UpdateWindow();*/
+          break;
+        case 4:
+          break;
+        case 5:
+          break;
+        case 6:
+          break;
+        case 7:
+          break;
+        case 8:
+          break;
+        case 9:
+          break;
+        case 10:                       // Frequency
+          printf("MENU 52 \n");
+          CurrentMenu=52;
+          setBackColour(0, 0, 0);
+          Start_Highlights_Menu52();
+          UpdateWindow();
+          break;
+        case 11:
+          break;
+        case 12:
+          break;
+        case 13:
+          break;
+        case 14:
+          break;
+        case 15:
+          break;
+        case 16:
+          break;
+        case 17:                       // SDR Selection
+          //printf("MENU 51 \n");
+          //CurrentMenu=51;
+          //setBackColour(0, 0, 0);
+          //Start_Highlights_Menu51();
+          //UpdateWindow();
+          break;
+        case 18:
+          break;
+        case 19:
+          break;
+        case 20:                                            // DATV
+          printf("MENU 5 \n");        // DATV
+          CurrentMenu=5;
+          setBackColour(0, 0, 0);
+          Start_Highlights_Menu5();
+          UpdateWindow();
+          break;
+        case 21:
+          break;
+        case 22:                                          // Back to Menu 1
+          printf("MENU 1 \n");
+          CurrentMenu=1;
+          setBackColour(255, 255, 255);
+          Start_Highlights_Menu1();
+          UpdateWindow();
+          break;
+        case 23:                                          // Config
+          //printf("MENU 53\n");
+          //CurrentMenu=53;
+          //setBackColour(0, 0, 0);
+          //ReadLMRXPresets();
+          //clearScreen();
+          //Start_Highlights_Menu53();
+          //UpdateWindow();
+          break;
+        default:
+          printf("Menu 58 Error\n");
+        }
+        continue;   // Completed Menu 58 action, go and wait for touch
       }
 
       if (CurrentMenu == 41)  // Menu 41 Keyboard (should not get here)
@@ -28200,23 +28331,23 @@ void Define_Menu5()
 
   // Freq, SR, FEC, Samp Rate, Gain - 3rd line up Menu 5
 
-  button = CreateButton(5, 10);                        // AM
+  button = CreateButton(5, 10);
   AddButtonStatus(button, "Freq^not set", &Blue);
   AddButtonStatus(button, "Freq^not set", &Green);
 
-  button = CreateButton(5, 11);                        // FM
+  button = CreateButton(5, 11);
   AddButtonStatus(button, "Sym Rate^not set", &Blue);
   AddButtonStatus(button, "Sym Rate^not set", &Green);
 
-  button = CreateButton(5, 12);                        // WBFM
+  button = CreateButton(5, 12);
   AddButtonStatus(button, "FEC^not set", &Blue);
   AddButtonStatus(button, "FEC^not set", &Green);
 
-  button = CreateButton(5, 13);                        // USB
+  button = CreateButton(5, 13);
   AddButtonStatus(button,"Samp Rate^not set",&Blue);
   AddButtonStatus(button,"Samp Rate^not set",&Green);
 
-  button = CreateButton(5, 14);                        // LSB
+  button = CreateButton(5, 14);
   AddButtonStatus(button,"Gain^not set",&Blue);
   AddButtonStatus(button,"Gain^not set",&Green);
 
@@ -28248,9 +28379,9 @@ void Define_Menu5()
   //RECEIVE and Exit - Top of Menu 5
 
   button = CreateButton(5, 20);
-  //AddButtonStatus(button, "RX => TX^", &Blue);
-  //AddButtonStatus(button, "RX => TX^", &Red);
-  AddButtonStatus(button, "RX => TX^Indisponible", &Grey);
+  AddButtonStatus(button, "SSTV", &Blue);
+  //AddButtonStatus(button, "SSTV", &Red);
+  //AddButtonStatus(button, "SSTV", &Grey);
 
   //button = CreateButton(5, 21);
   //AddButtonStatus(button," ",&Blue);
@@ -33958,6 +34089,229 @@ void Start_Highlights_Menu57()
   }
 }
 
+void Define_Menu58()
+{
+  int button = 0;
+
+  strcpy(MenuTitle[58], "SSTV Receiver Menu (58)");
+
+  // Presets - Bottom Row, Menu 58
+
+  button = CreateButton(58, 0);
+  AddButtonStatus(button, "RECEIVE", &Blue);
+  AddButtonStatus(button, "RECEIVE", &Grey);
+
+  //button = CreateButton(58, 1);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Grey);
+
+  //button = CreateButton(58, 2);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 3);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Grey);
+
+  //button = CreateButton(58, 4);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Grey);
+
+  // 2nd Row, Menu 58.
+
+  //button = CreateButton(58, 5);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 6);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 7);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 8);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 9);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  // 3rd line up Menu 58
+
+  button = CreateButton(58, 10);
+  AddButtonStatus(button, "Freq^not set", &Blue);
+  AddButtonStatus(button, "Freq^not set", &Green);
+
+  //button = CreateButton(58, 11);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 12);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 13);
+  //AddButtonStatus(button," ",&Blue);
+  //AddButtonStatus(button," ",&Green);
+
+  //button = CreateButton(58, 14);
+  //AddButtonStatus(button," ",&Blue);
+  //AddButtonStatus(button," ",&Green);
+
+  // 4th line up Menu 58
+
+  //button = CreateButton(58, 15);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+
+  //button = CreateButton(58, 16);
+  //AddButtonStatus(button, " ", &Blue);
+  //AddButtonStatus(button, " ", &Green);
+  //AddButtonStatus(button, " ", &Grey);
+
+  button = CreateButton(58, 17);
+  AddButtonStatus(button, "SDR^RTL-SDR", &Blue);
+  AddButtonStatus(button, "SDR^RTL-SDR", &Blue);
+
+  //button = CreateButton(58, 18);
+  //AddButtonStatus(button, "Constel'n^ON", &Blue);
+  //AddButtonStatus(button, "Constel'n^ON", &Green);
+  //AddButtonStatus(button, "Constel'n^OFF", &Grey);
+
+  //button = CreateButton(58, 19);
+  //AddButtonStatus(button, "Params^ON", &Blue);
+  //AddButtonStatus(button, "Params^ON", &Green);
+  //AddButtonStatus(button, "Params^OFF", &Grey);
+
+  //RECEIVE and Exit - Top of Menu 58
+
+  button = CreateButton(58, 20);
+  AddButtonStatus(button, "DATV", &Blue);
+  //AddButtonStatus(button, "DATV", &Red);
+  //AddButtonStatus(button, "DATV", &Grey);
+
+  //button = CreateButton(5, 21);
+  //AddButtonStatus(button," ",&Blue);
+  //AddButtonStatus(button," ",&Red);
+  //AddButtonStatus(button," ",&Grey);
+
+  button = CreateButton(58, 22);
+  AddButtonStatus(button,"EXIT",&Blue);
+  AddButtonStatus(button,"EXIT",&Green);
+
+  button = CreateButton(58, 23);
+  AddButtonStatus(button,"Config",&Blue);
+  AddButtonStatus(button,"Config",&Green);
+}
+
+void Start_Highlights_Menu58()
+{
+  //GetConfigParam(PATH_RXPRESETS, "rx0sdr", RXKEY);
+  //GetConfigParam(PATH_RXPRESETS, "rx0vlc", RX_VLC);
+  //GetConfigParam(PATH_RXPRESETS, "rx0fec", RXFEC);
+  //strcpy(RXfec[0], RXFEC);
+
+  //int index;
+  char RXBtext[31];
+  //int NoButton;
+
+  // Frequency button 10 : commune avec le recepteur Lean DVB
+  // (rx0frequency) tant qu'elle n'a pas ete modifiee ici (sstv_frequency,
+  // voir SelectFreq()) -- meme logique de lecture que scheduler.sh (cas
+  // 151) pour que le menu et le binaire lance affichent la meme valeur.
+  char SSTVfreq[31] = "";
+  GetConfigParam(PATH_RXPRESETS, "sstv_frequency", SSTVfreq);
+  if (strlen(SSTVfreq) == 0)
+  {
+    GetConfigParam(PATH_RXPRESETS, "rx0frequency", SSTVfreq);
+  }
+  strcpy(RXBtext, "Freq^");
+  strcat(RXBtext, SSTVfreq);
+  AmendButtonStatus(ButtonNumber(58, 10), 0, RXBtext, &Blue);
+  AmendButtonStatus(ButtonNumber(58, 10), 1, RXBtext, &Green);
+
+  // Fastlock Button 58
+  //strcpy(RXBtext, "FastLock^");
+  //strcat(RXBtext, RXfastlock[0]);
+  //AmendButtonStatus(ButtonNumber(58, 5), 0, RXBtext, &Blue);
+  //AmendButtonStatus(ButtonNumber(58, 5), 1, RXBtext, &Green);
+
+  // Sample Rate button 13
+
+  // Gain button 14
+  /*if((RXgain[0] == 0) && (strcmp(RXKEY, "RTLSDR") == 0))
+  {
+    strcpy(RXBtext, "Gain^Auto");
+  }
+  else
+  {
+    snprintf(RXBtext, 20, "Gain^%d", RXgain[0]);
+  }
+  AmendButtonStatus(ButtonNumber(58, 14), 0, RXBtext, &Blue);
+  AmendButtonStatus(ButtonNumber(58, 14), 1, RXBtext, &Green);
+*/
+
+  // Encoding button 16
+  //strcpy(RXBtext, "Encoding^");
+  //strcat(RXBtext, RXencoding[0]);
+  //AmendButtonStatus(ButtonNumber(58, 16), 0, RXBtext, &Blue);
+  //AmendButtonStatus(ButtonNumber(58, 16), 1, RXBtext, &Green);
+
+  // SDR Type button 17
+/*  if (strcmp(RXKEY, "RTLSDR") == 0)
+  {
+    strcpy(RXsdr[0], "RTL-SDR");
+  }
+
+  if (strcmp(RXKEY, "LIMEMINI") == 0)
+  {
+    strcpy(RXsdr[0], "Lime Mini");
+  }
+
+  if (strcmp(RXKEY, "PLUTOSDR") == 0)
+  {
+    strcpy(RXsdr[0], "Pluto SDR");
+  }
+
+  strcpy(RXBtext, "SDR^");
+  strcat(RXBtext, RXsdr[0]);
+  AmendButtonStatus(ButtonNumber(58, 17), 0, RXBtext, &Blue);
+  AmendButtonStatus(ButtonNumber(58, 17), 1, RXBtext, &Green);
+*/
+  // Constellation on/off button 18
+//  strcpy(RXBtext, "Constel'n^");
+//  strcat(RXBtext, RXgraphics[0]);
+//  AmendButtonStatus(ButtonNumber(5, 18), 0, RXBtext, &Blue);
+//  AmendButtonStatus(ButtonNumber(5, 18), 1, RXBtext, &Green);
+
+  // Parameters on/off button 19
+//  strcpy(RXBtext, "Params^");
+//  strcat(RXBtext, RXparams[0]);
+//  AmendButtonStatus(ButtonNumber(58, 19), 0, RXBtext, &Blue);
+//  AmendButtonStatus(ButtonNumber(58, 19), 1, RXBtext, &Green);
+
+/*  GetConfigParam(PATH_RXPRESETS, "rx0frequency", FREQRX);
+  GetConfigParam(PATH_PCONFIG, "freqoutput", FREQTX);
+  FREQTX2 = atoi(FREQTX);
+  FREQRX2 = atoi(FREQRX);
+  if (((strcmp(ModeOutput, "LIMEMINI") == 0) || (strcmp(ModeOutput, "LIMEUSB") == 0) || (strcmp(ModeOutput, "LIMEDVB") == 0)) && ((strcmp(RXKEY, "RTLSDR") == 0) && (CheckRTL()==0)) && (((FREQTX2 - FREQRX2) > 50) || ((- FREQTX2 - - FREQRX2) > 50)))
+  {
+    strcpy(RXBtext, "Forward^RX => TX^");
+    strcat(RXBtext, CurrentTXMode);
+    strcat(RXBtext, FECtext);
+    AmendButtonStatus(ButtonNumber(58, 20), 0, RXBtext, &Blue);
+    AmendButtonStatus(ButtonNumber(58, 20), 1, RXBtext, &Red);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 20), RTLactive);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 20), 2);
+  }*/
+}
+
 void Define_Menu48()
 {
   int button;
@@ -34606,6 +34960,7 @@ int main(int argc, char **argv)
   Define_Menu54();
   Define_Menu55();
   Define_Menu57();
+  Define_Menu58();
 
   // Check if DATV Express Server required and, if so, start it
   CheckExpress();

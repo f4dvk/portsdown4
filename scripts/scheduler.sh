@@ -16,6 +16,7 @@ PATHRPI=/home/pi/rpidatv/bin
 PATHCONFIGS="/home/pi/rpidatv/scripts/configs"  ## Path to config files
 PCONFIGFILE="/home/pi/rpidatv/scripts/portsdown_config.txt"
 RCONFIGFILE="/home/pi/rpidatv/scripts/longmynd_config.txt"
+RXPRESETSFILE="/home/pi/rpidatv/scripts/rx_presets.txt"
 
 ############ Function to Read from Config File ###############
 
@@ -133,6 +134,7 @@ ChooseBandViewerSDR()
 # 148  Exit from rpidatvgui requesting start of Pluto NF Meter
 # 149  Exit from rpidatvgui requesting start of Pluto Noise Meter
 # 150  Run the Meteor Viewer
+# 151  Run the SSTV Receiver
 # 155  Run the Langstone RX V2 RtlSdr
 # 156  Run the Langstone RX V2 Rtl HF
 # 160  Shutdown from GUI
@@ -199,6 +201,10 @@ case "$MODE_STARTUP" in
         GUI_RETURN_CODE=129
       ;;
     esac
+  ;;
+  SSTV_boot)
+    # Start the SSTV Receiver
+    GUI_RETURN_CODE=151
   ;;
   Bandview_boot)
     # Start the Band Viewer
@@ -527,6 +533,35 @@ while true; do
       if [ $GUI_RETURN_CODE != 129 ] && [ $GUI_RETURN_CODE != 160 ]; then     # Not Portsdown and not shutdown
         GUI_RETURN_CODE=150                         # So restart meteorview
       fi
+    ;;
+    151)                              # SSTV Receiver
+      # Frequence : sstv_frequency si elle a ete modifiee dans le menu SSTV
+      # (bouton Freq, Menu 58), sinon commune avec le recepteur Lean DVB
+      # (rx0frequency) -- meme logique de repli que Start_Highlights_Menu58()
+      # dans rpidatvtouch4.c, pour que le menu et la reception affichent la
+      # meme valeur. rx_presets.txt stocke les frequences en MHz (ex:
+      # "144.5"), d'ou la conversion en Hz (meme idiome que leandvb_omx.sh).
+      SSTV_FREQ_MHZ=$(get_config_var sstv_frequency $RXPRESETSFILE)
+      if [ -z "$SSTV_FREQ_MHZ" ]; then
+        SSTV_FREQ_MHZ=$(get_config_var rx0frequency $RXPRESETSFILE)
+      fi
+      SSTV_FREQ_HZ=$(echo "($SSTV_FREQ_MHZ*1000000)/1" | bc)
+
+      # Lance le binaire depuis le bin/ commun (comme leandvb), pas depuis
+      # src/SSTV : --sdr-dir et --out restent necessaires en absolu, le
+      # sous-processus Python (sdr/rx_rtlsdr.py) et les images decodees
+      # vivant dans src/SSTV, pas dans bin/.
+      # Sortie journalisee dans /tmp/SSTVReceiver.log (meme principe que
+      # /tmp/PortsdownGUI.log pour rpidatvgui) : utile pour diagnostiquer un
+      # retour immediat au menu principal (code 129 force juste en dessous
+      # des que sstv_radio se termine, quelle que soit la cause).
+      #/home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+      /home/pi/rpidatv/bin/sstv_radio --sdr rtlsdr --freq "$SSTV_FREQ_HZ" --mode FM \
+        --sdr-dir /home/pi/rpidatv/src/SSTV/sdr --out /home/pi/rpidatv/src/SSTV/images \
+        --kiosk --web > /tmp/SSTVReceiver.log 2>&1
+      #/home/pi/rpidatv/scripts/stop_web_update.sh
+      sleep 2
+      GUI_RETURN_CODE="129"
     ;;
     160)
       sleep 1

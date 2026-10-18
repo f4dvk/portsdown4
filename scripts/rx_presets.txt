@@ -82,3 +82,4 @@ t7lo=0
 t8lo=0
 etat=OFF
 upsample=2
+sstv_frequency=145.9

@@ -905,6 +905,16 @@ make -j$(nproc)
 cp rydemon ../../bin/
 cd /home/pi
 
+# Compile SSTV Receiver
+echo
+echo "----------------------------------"
+echo "----- Compiling SSTV Receiver -----"
+echo "----------------------------------"
+cd /home/pi/rpidatv/src/SSTV
+./scripts/build.sh
+cp bin/sstv_decode bin/sstv_gui bin/sstv_radio ../../bin/
+cd /home/pi
+
 # Compile client for HamTV Merger
 echo
 echo "---------------------------------------------"
@@ -1231,6 +1241,15 @@ if ! grep -q t8lo= "$PATHSCRIPT"/rx_presets.txt; then
   sed -i -e '/^$/d' "$PATHSCRIPT"/rx_presets.txt
   # Add the new entries to the end
   cat "$PATHSCRIPT"/configs/add_rx_presets.txt >> "$PATHSCRIPT"/rx_presets.txt
+fi
+
+# Add SSTV frequency to RX presets file if not included  202610180
+if ! grep -q sstv_frequency= "$PATHSCRIPT"/rx_presets.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/rx_presets.txt
+  # Add the new entry and a new line
+  echo "sstv_frequency=145.9" >> "$PATHSCRIPT"/rx_presets.txt
 fi
 
 # Write new factory Contest Numbers File if required  202107010

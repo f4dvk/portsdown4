@@ -775,6 +775,16 @@ make -j$(nproc)
 cp rydemon ../../bin/
 cd /home/pi
 
+# Compile SSTV Receiver
+echo
+echo "----------------------------------"
+echo "----- Compiling SSTV Receiver -----"
+echo "----------------------------------"
+cd /home/pi/rpidatv/src/SSTV
+./scripts/build.sh
+cp bin/sstv_decode bin/sstv_gui bin/sstv_radio ../../bin/
+cd /home/pi
+
 # Compile Langstone
 echo
 echo "------------------------------------------"
