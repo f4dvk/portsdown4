@@ -646,6 +646,11 @@ namespace
         m_origin_set = true;
         g_sstv_mode = mode_name;
         draw_header();
+        // draw_header() redessine tout le bandeau d'info (0..HEADER_H), y
+        // compris la zone du petit bouton "Exit" en mode kiosque (voir
+        // layout_buttons()) : sans ce redessin, il disparaissait des
+        // qu'une image se synchronisait.
+        draw_controls();
         // Synchro confirmee : on coupe l'ecoute (le "bruit" SSTV n'a pas
         // besoin d'etre entendu), sans affecter le decodage qui continue.
         send_control("MUTE 1");
