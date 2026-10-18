@@ -68,6 +68,19 @@ namespace
   int IMAGE_TOP = SPECTRUM_Y + SPECTRUM_H + 4;
   const int FFT_SIZE = 512;
   const float SPECTRUM_MIN_DB = -90.0f, SPECTRUM_MAX_DB = -20.0f;
+  // Reglages AFC (voir afc_update()) : fenetre de recherche du pic
+  // (+/- AFC_SEARCH_HZ autour de la frequence accordee -- assez large pour
+  // du Doppler satellite ou une derive LO, assez etroit pour ne pas
+  // accrocher un signal voisin hors sujet), marge au-dessus du bruit
+  // ambiant pour faire confiance au pic (AFC_THRESHOLD_DB), zone morte en
+  // bins pour ne pas corriger un signal deja a peu pres centre
+  // (AFC_DEADBAND_BINS), et fraction de l'ecart mesure appliquee a chaque
+  // correction pour converger en douceur (AFC_DAMPING).
+  const double AFC_SEARCH_HZ = 3000.0;
+  const float AFC_THRESHOLD_DB = 8.0f;
+  const int AFC_DEADBAND_BINS = 2;
+  const double AFC_DAMPING = 0.5;
+  const int AFC_PERIOD_FRAMES = 8; // ~1 correction/s a SPECTRUM_FPS=8 (common_rx.py)
 
   volatile sig_atomic_t g_quit = 0;
   bool g_touch_present = false;
@@ -97,6 +110,11 @@ namespace
   int g_control_fd = -1;
   int g_spectrum_fd = -1;
   long long g_freq = 144500000;
+  // AFC (--afc) : recentre g_freq sur le pic du spectre local pour
+  // compenser une derive (Doppler satellite, derive LO...) qui ferait
+  // sortir le signal du filtre de demodulation. Desactivee par defaut (le
+  // reglage manuel reste identique a avant). Voir afc_update().
+  bool g_afc = false;
   std::string g_mode = "FM";
   std::string g_sdr_name;
   std::string g_sstv_mode = "-"; // mode SSTV detecte (PD120, Robot36, ...), affiche des la synchro
@@ -272,8 +290,9 @@ namespace
     textSize = 1;
     gotoXY(4, 4);
     char buf[128];
-    snprintf(buf, sizeof(buf), "SDR: %s   Freq: %s Hz   Mode: %s",
-             g_sdr_name.c_str(), format_freq(g_freq).c_str(), g_mode.c_str());
+    snprintf(buf, sizeof(buf), "SDR: %s   Freq: %s Hz   Mode: %s%s",
+             g_sdr_name.c_str(), format_freq(g_freq).c_str(), g_mode.c_str(),
+             g_afc ? "   AFC" : "");
     displayStr(buf);
 
     char sstv_buf[64];
@@ -449,6 +468,49 @@ namespace
     for (auto& b : g_mode_buttons) draw_button(b, b.label == g_mode, COL_BTN_BG);
   }
 
+  // AFC : cherche le pic du spectre local (g_waterfall[0], derniere trame)
+  // dans une fenetre autour de la frequence accordee, et corrige g_freq si
+  // ce pic s'en est suffisamment ecarte. Appelee a chaque trame recue
+  // (drain_spectrum()) mais n'agit qu'une fois toutes les AFC_PERIOD_FRAMES
+  // trames (~1 fois/s a 8 trames/s, cote common_rx.py) et seulement d'une
+  // fraction (AFC_DAMPING) de l'ecart mesure, pour converger en douceur
+  // plutot que de sur-corriger sur un pic bruite.
+  void afc_update()
+  {
+    static int counter = 0;
+    if (++counter < AFC_PERIOD_FRAMES) return;
+    counter = 0;
+
+    // IF_RATE/FFT_SIZE cote common_rx.py (32000/512) : doit rester
+    // coherent si l'un des deux change.
+    const double HZ_PER_BIN = 32000.0 / FFT_SIZE;
+    const int SEARCH_BINS = (int)(AFC_SEARCH_HZ / HZ_PER_BIN);
+    const int CENTER = FFT_SIZE / 2;
+
+    float peak_db = -1e9f;
+    int peak_s = CENTER;
+    float sum_db = 0.0f;
+    int count = 0;
+    for (int s = CENTER - SEARCH_BINS; s <= CENTER + SEARCH_BINS; ++s) {
+      float v = g_waterfall[0][shifted_bin(s, FFT_SIZE)];
+      sum_db += v;
+      ++count;
+      if (v > peak_db) { peak_db = v; peak_s = s; }
+    }
+    float floor_db = (sum_db - peak_db) / (count - 1); // moyenne hors pic, estime le bruit ambiant
+
+    int offset_bins = peak_s - CENTER;
+    if (peak_db - floor_db < AFC_THRESHOLD_DB) return;  // rien d'assez net pour s'y fier
+    if (abs(offset_bins) <= AFC_DEADBAND_BINS) return;   // deja raisonnablement centre
+
+    long long correction = (long long)(offset_bins * HZ_PER_BIN * AFC_DAMPING);
+    if (correction == 0) return;
+    g_freq += correction;
+    if (g_freq < 0) g_freq = 0;
+    send_control("FREQ %lld", g_freq);
+    draw_header();
+  }
+
   void drain_spectrum()
   {
     if (g_spectrum_fd < 0) return;
@@ -472,6 +534,7 @@ namespace
         g_sdr_connecting = false;
         fill_rect(0, IMAGE_TOP, screenXsize, screenYsize - IMAGE_TOP, COL_BG[0], COL_BG[1], COL_BG[2]);
       }
+      if (g_afc) afc_update();
     }
   }
 
@@ -880,12 +943,14 @@ namespace
       "          [--wav fichier.wav]\n"
       "          [--sdr-dir dossier] [--out dossier] [--timeout s] [--max-images N]\n"
       "          [--python interprete] [--control-port N] [--spectrum-port N]\n"
-      "          [--fb peripherique] [--touch peripherique] [--geom LxHxBPP] [--kiosk] [--web]\n"
+      "          [--fb peripherique] [--touch peripherique] [--geom LxHxBPP] [--kiosk] [--web] [--afc]\n"
       "Sans --sdr : un menu de selection tactile s'affiche (necessite --touch).\n"
       "--kiosk : masque les boutons d'accord/mode (reglages figes par la ligne de\n"
       "          commande), ne garde qu'un petit bouton \"Exit\".\n"
       "--web : force l'activation de la commande web Portsdown4 (port 2005),\n"
-      "        meme sans portsdown_config.txt (webcontrol=enabled).\n",
+      "        meme sans portsdown_config.txt (webcontrol=enabled).\n"
+      "--afc : recentre automatiquement la frequence sur le pic du spectre\n"
+      "        local (compense une derive Doppler/LO), desactive par defaut.\n",
       argv0);
   }
 }
@@ -962,6 +1027,7 @@ int main(int argc, char** argv)
     else if (a == "--geom") sscanf(next().c_str(), "%dx%dx%d", &geom_w, &geom_h, &geom_bpp);
     else if (a == "--kiosk") g_kiosk = true;
     else if (a == "--web") force_web = true;
+    else if (a == "--afc") g_afc = true;
     else { usage(argv[0]); return 1; }
   }
 
