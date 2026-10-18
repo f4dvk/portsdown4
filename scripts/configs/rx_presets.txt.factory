@@ -80,4 +80,5 @@ t6lo=0
 t7lo=0
 t8lo=0
 sstv_frequency=146.5
+sstv_sdr=RTLSDR
 

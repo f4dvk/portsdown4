@@ -83,3 +83,4 @@ t8lo=0
 etat=OFF
 upsample=2
 sstv_frequency=145.9
+sstv_sdr=RTLSDR

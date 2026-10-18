@@ -18385,22 +18385,55 @@ void do_Langstone()
 }
 
 
-// RECEIVE button of Menu 58 (SSTV). Only RTL-SDR is supported for now
-// (button 17 "SDR^RTL-SDR" is not yet selectable). GUI_RETURN_CODE 151 is
-// read by scheduler.sh, which launches the SSTV receiver and, once it
-// exits, brings this menu back (same mechanism as Langstone's 135/145/146/
-// 155/156 above -- see cleanexit()).
+// RECEIVE button of Menu 58 (SSTV). Checks the SDR selected via Menu 51
+// (button 17 "SDR^...", sstv_sdr in rx_presets.txt -- same menu and same
+// connectivity checks as Lean DVB's do_Langstone()/Menu 51). GUI_RETURN_CODE
+// 151 is read by scheduler.sh, which launches the SSTV receiver with the
+// matching --sdr and, once it exits, brings this menu back (same mechanism
+// as Langstone's 135/145/146/155/156 above -- see cleanexit()).
 void do_SSTVReceive()
 {
-  if (CheckRTL() == 0)
+  char SSTVsdr[31] = "";
+  GetConfigParam(PATH_RXPRESETS, "sstv_sdr", SSTVsdr);
+
+  if (strcmp(SSTVsdr, "LIMEMINI") == 0)
   {
-    cleanexit(151);  // Start the SSTV Receiver
+    if (CheckLimeMiniConnect() == 0)
+    {
+      cleanexit(151);  // Start the SSTV Receiver
+    }
+    else
+    {
+      MsgBox4("No LimeSDR connected", " ",
+              "Please correct and try again", "Touch Screen to Continue");
+      wait_touch();
+    }
   }
-  else
+  else if (strcmp(SSTVsdr, "PLUTOSDR") == 0)
   {
-    MsgBox4("No RtlSdr connected", "",
-            "Please correct and try again", "Touch Screen to Continue");
-    wait_touch();
+    if (CheckPlutoIPConnect() == 0)
+    {
+      cleanexit(151);  // Start the SSTV Receiver
+    }
+    else
+    {
+      MsgBox4("Pluto IP not set in Pluto Config", "or Pluto not connected",
+              "Please correct and try again", "Touch Screen to Continue");
+      wait_touch();
+    }
+  }
+  else  // RTLSDR (defaut)
+  {
+    if (CheckRTL() == 0)
+    {
+      cleanexit(151);  // Start the SSTV Receiver
+    }
+    else
+    {
+      MsgBox4("No RtlSdr connected", "",
+              "Please correct and try again", "Touch Screen to Continue");
+      wait_touch();
+    }
   }
 }
 
@@ -26665,43 +26698,83 @@ void waituntil(int w,int h)
         {
         case 4:                               // Cancel
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
-          printf("Cancelling LeanDVB SDR Selection Menu\n");
+          printf("Cancelling SDR Selection Menu\n");
           UpdateWindow();
           usleep(500000);
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 0); // Reset cancel (even if not selected)
-          printf("Returning to MENU 5 from Menu 51\n");
-          CurrentMenu=5;
-          setBackColour(0, 0, 0);
-          Start_Highlights_Menu5();
+          if (CallingMenu == 58)
+          {
+            printf("Returning to MENU 58 from Menu 51\n");
+            CurrentMenu=58;
+            setBackColour(0, 0, 0);
+            Start_Highlights_Menu58();
+          }
+          else
+          {
+            printf("Returning to MENU 5 from Menu 51\n");
+            CurrentMenu=5;
+            setBackColour(0, 0, 0);
+            Start_Highlights_Menu5();
+          }
           UpdateWindow();
           break;
       	case 5:                               // RTLSDR
 	        if (CheckRTL()==0)
 	        {
-           SetConfigParam(PATH_RXPRESETS, "rx0sdr", "RTLSDR");
-	         CurrentMenu=5;
-	         setBackColour(0, 0, 0);
-	         Start_Highlights_Menu5();
+	         if (CallingMenu == 58)
+	         {
+	          SetConfigParam(PATH_RXPRESETS, "sstv_sdr", "RTLSDR");
+	          CurrentMenu=58;
+	          setBackColour(0, 0, 0);
+	          Start_Highlights_Menu58();
+	         }
+	         else
+	         {
+            SetConfigParam(PATH_RXPRESETS, "rx0sdr", "RTLSDR");
+	          CurrentMenu=5;
+	          setBackColour(0, 0, 0);
+	          Start_Highlights_Menu5();
+	         }
 	         UpdateWindow();
 	        }
         break;
         case 6:                               // LIMEMINI
 	        if (CheckLimeMiniConnect() == 0)
 	        {
-           SetConfigParam(PATH_RXPRESETS, "rx0sdr", "LIMEMINI");
-	         CurrentMenu=5;
-	         setBackColour(0, 0, 0);
-           Start_Highlights_Menu5();
+	         if (CallingMenu == 58)
+	         {
+	          SetConfigParam(PATH_RXPRESETS, "sstv_sdr", "LIMEMINI");
+	          CurrentMenu=58;
+	          setBackColour(0, 0, 0);
+	          Start_Highlights_Menu58();
+	         }
+	         else
+	         {
+            SetConfigParam(PATH_RXPRESETS, "rx0sdr", "LIMEMINI");
+	          CurrentMenu=5;
+	          setBackColour(0, 0, 0);
+            Start_Highlights_Menu5();
+	         }
 	         UpdateWindow();
 	        }
         break;
         case 8:                               // PlutoSDR
 				 if (CheckPlutoIPConnect() == 0)
 				 {
+				  if (CallingMenu == 58)
+				  {
+				   SetConfigParam(PATH_RXPRESETS, "sstv_sdr", "PLUTOSDR");
+				   CurrentMenu=58;
+				   setBackColour(0, 0, 0);
+				   Start_Highlights_Menu58();
+				  }
+				  else
+				  {
 					SetConfigParam(PATH_RXPRESETS, "rx0sdr", "PLUTOSDR");
 					CurrentMenu=5;
 					setBackColour(0, 0, 0);
 					Start_Highlights_Menu5();
+				  }
 					UpdateWindow();
 				 }
         break;
@@ -27304,11 +27377,16 @@ void waituntil(int w,int h)
         case 16:
           break;
         case 17:                       // SDR Selection
-          //printf("MENU 51 \n");
-          //CurrentMenu=51;
-          //setBackColour(0, 0, 0);
-          //Start_Highlights_Menu51();
-          //UpdateWindow();
+          printf("MENU 51 \n");
+          // RXKEY pilote le surlignage dans Start_Highlights_Menu51() (code
+          // partage avec Menu 5/Lean DVB, inchange) : on le charge ici avec
+          // la selection SSTV (sstv_sdr) plutot que celle de Lean DVB
+          // (rx0sdr), pour que le bon bouton apparaisse deja selectionne.
+          GetConfigParam(PATH_RXPRESETS, "sstv_sdr", RXKEY);
+          CurrentMenu=51;
+          setBackColour(0, 0, 0);
+          Start_Highlights_Menu51();
+          UpdateWindow();
           break;
         case 18:
           break;
@@ -34260,27 +34338,25 @@ void Start_Highlights_Menu58()
   //AmendButtonStatus(ButtonNumber(58, 16), 0, RXBtext, &Blue);
   //AmendButtonStatus(ButtonNumber(58, 16), 1, RXBtext, &Green);
 
-  // SDR Type button 17
-/*  if (strcmp(RXKEY, "RTLSDR") == 0)
-  {
-    strcpy(RXsdr[0], "RTL-SDR");
-  }
+  // SDR Type button 17 -- variable locale (pas RXKEY/RXsdr[0], utilisees
+  // par Lean DVB) pour ne pas interferer avec l'affichage de Menu 5.
+  char SSTVsdr[31] = "";
+  char SSTVsdrLabel[16] = "RTL-SDR";
+  GetConfigParam(PATH_RXPRESETS, "sstv_sdr", SSTVsdr);
 
-  if (strcmp(RXKEY, "LIMEMINI") == 0)
+  if (strcmp(SSTVsdr, "LIMEMINI") == 0)
   {
-    strcpy(RXsdr[0], "Lime Mini");
+    strcpy(SSTVsdrLabel, "Lime Mini");
   }
-
-  if (strcmp(RXKEY, "PLUTOSDR") == 0)
+  else if (strcmp(SSTVsdr, "PLUTOSDR") == 0)
   {
-    strcpy(RXsdr[0], "Pluto SDR");
+    strcpy(SSTVsdrLabel, "Pluto SDR");
   }
 
   strcpy(RXBtext, "SDR^");
-  strcat(RXBtext, RXsdr[0]);
+  strcat(RXBtext, SSTVsdrLabel);
   AmendButtonStatus(ButtonNumber(58, 17), 0, RXBtext, &Blue);
   AmendButtonStatus(ButtonNumber(58, 17), 1, RXBtext, &Green);
-*/
   // Constellation on/off button 18
 //  strcpy(RXBtext, "Constel'n^");
 //  strcat(RXBtext, RXgraphics[0]);

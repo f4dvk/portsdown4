@@ -1252,6 +1252,15 @@ if ! grep -q sstv_frequency= "$PATHSCRIPT"/rx_presets.txt; then
   echo "sstv_frequency=145.9" >> "$PATHSCRIPT"/rx_presets.txt
 fi
 
+# Add SSTV SDR selection to RX presets file if not included  202610181
+if ! grep -q sstv_sdr= "$PATHSCRIPT"/rx_presets.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/rx_presets.txt
+  # Add the new entry and a new line
+  echo "sstv_sdr=RTLSDR" >> "$PATHSCRIPT"/rx_presets.txt
+fi
+
 # Write new factory Contest Numbers File if required  202107010
 if ! grep -q site1d0numbers= "$PATHSCRIPT"/portsdown_C_codes.txt; then
   # File needs updating

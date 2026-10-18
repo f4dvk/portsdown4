@@ -547,6 +547,26 @@ while true; do
       fi
       SSTV_FREQ_HZ=$(echo "($SSTV_FREQ_MHZ*1000000)/1" | bc)
 
+      # SDR : choisi dans Menu 51 depuis le menu SSTV (bouton "SDR", Menu
+      # 58), stocke dans sstv_sdr avec les memes valeurs que rx0sdr
+      # (RTLSDR/LIMEMINI/PLUTOSDR -- voir Start_Highlights_Menu51() dans
+      # rpidatvtouch4.c, inchangee, reutilisee pour les deux menus).
+      SSTV_SDR=$(get_config_var sstv_sdr $RXPRESETSFILE)
+      SSTV_DEVICE_ARGS=""
+      case "$SSTV_SDR" in
+        LIMEMINI)
+          SSTV_SDR_FLAG="lime"
+        ;;
+        PLUTOSDR)
+          SSTV_SDR_FLAG="pluto"
+          PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
+          SSTV_DEVICE_ARGS="--device-args ip:$PLUTOIP"
+        ;;
+        *)
+          SSTV_SDR_FLAG="rtlsdr"
+        ;;
+      esac
+
       # Lance le binaire depuis le bin/ commun (comme leandvb), pas depuis
       # src/SSTV : --sdr-dir et --out restent necessaires en absolu, le
       # sous-processus Python (sdr/rx_rtlsdr.py) et les images decodees
@@ -556,7 +576,8 @@ while true; do
       # retour immediat au menu principal (code 129 force juste en dessous
       # des que sstv_radio se termine, quelle que soit la cause).
       #/home/pi/rpidatv/scripts/screen_grab_for_web.sh &
-      /home/pi/rpidatv/bin/sstv_radio --sdr rtlsdr --freq "$SSTV_FREQ_HZ" --mode FM \
+      /home/pi/rpidatv/bin/sstv_radio --sdr "$SSTV_SDR_FLAG" --freq "$SSTV_FREQ_HZ" --mode FM \
+        $SSTV_DEVICE_ARGS \
         --sdr-dir /home/pi/rpidatv/src/SSTV/sdr --out /home/pi/rpidatv/src/SSTV/images \
         --kiosk --web > /tmp/SSTVReceiver.log 2>&1
       #/home/pi/rpidatv/scripts/stop_web_update.sh
