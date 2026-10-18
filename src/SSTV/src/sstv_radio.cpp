@@ -31,6 +31,7 @@
 #include "../third_party/portsdown_web/ffunc.h"
 
 #include <algorithm>
+#include <cmath>
 #include <arpa/inet.h>
 #include <cstdarg>
 #include <cstdio>
@@ -68,15 +69,17 @@ namespace
   int IMAGE_TOP = SPECTRUM_Y + SPECTRUM_H + 4;
   const int FFT_SIZE = 512;
   const float SPECTRUM_MIN_DB = -90.0f, SPECTRUM_MAX_DB = -20.0f;
-  // Reglages AFC (voir afc_update()) : fenetre de recherche du pic
-  // (+/- AFC_SEARCH_HZ autour de la frequence accordee -- assez large pour
-  // du Doppler satellite ou une derive LO, assez etroit pour ne pas
-  // accrocher un signal voisin hors sujet), marge au-dessus du bruit
-  // ambiant pour faire confiance au pic (AFC_THRESHOLD_DB), zone morte en
+  // Reglages AFC (voir afc_update()) : fenetre de calcul du centroide
+  // (+/- AFC_SEARCH_HZ autour de la frequence accordee) -- doit couvrir la
+  // largeur occupee reelle du signal FM (deviation +/-5 kHz + modulation
+  // jusqu'a 2.3 kHz, soit ~14.6 kHz par la regle de Carson), pas juste une
+  // bande etroite autour de la porteuse, sinon le centroide est biaise par
+  // le bord de la fenetre. Le reste : marge au-dessus du bruit ambiant
+  // pour faire confiance a la mesure (AFC_THRESHOLD_DB), zone morte en
   // bins pour ne pas corriger un signal deja a peu pres centre
   // (AFC_DEADBAND_BINS), et fraction de l'ecart mesure appliquee a chaque
   // correction pour converger en douceur (AFC_DAMPING).
-  const double AFC_SEARCH_HZ = 3000.0;
+  const double AFC_SEARCH_HZ = 8000.0;
   const float AFC_THRESHOLD_DB = 8.0f;
   const int AFC_DEADBAND_BINS = 2;
   const double AFC_DAMPING = 0.5;
@@ -280,6 +283,16 @@ namespace
     displayStr((char*)b.label.c_str());
   }
 
+  void draw_controls(); // voir plus bas -- redessine aussi depuis draw_header()
+
+  // Redessine tout le bandeau d'info (0..HEADER_H), PUIS les boutons
+  // (draw_controls()) : en mode kiosque, le petit bouton "Exit" vit dans
+  // cette meme bande (voir layout_buttons()), donc tout redessin du
+  // bandeau sans ce deuxieme appel l'effacait durablement -- rencontre une
+  // premiere fois avec la synchro d'image (image_write_line()), puis a
+  // nouveau avec les corrections AFC (afc_update()) : les deux appellent
+  // draw_header(), les fusionner ici evite que ce bug ne revienne a chaque
+  // nouveau point d'appel futur.
   void draw_header()
   {
     fill_rect(0, 0, screenXsize, HEADER_H, COL_HEADER_BG[0], COL_HEADER_BG[1], COL_HEADER_BG[2]);
@@ -314,6 +327,7 @@ namespace
       gotoXY(sstv_x, 4);
       displayStr(sstv_buf);
     }
+    draw_controls();
   }
 
   void draw_controls()
@@ -408,8 +422,7 @@ namespace
     setForeColour(COL_TEXT[0], COL_TEXT[1], COL_TEXT[2]);
     clearScreen();
     layout_buttons();
-    draw_header();
-    draw_controls();
+    draw_header(); // redessine aussi les boutons (voir son commentaire)
     for (int r = 0; r < WATERFALL_ROWS; ++r)
       for (int i = 0; i < FFT_SIZE; ++i) g_waterfall[r][i] = SPECTRUM_MIN_DB;
     draw_spectrum();
@@ -468,13 +481,22 @@ namespace
     for (auto& b : g_mode_buttons) draw_button(b, b.label == g_mode, COL_BTN_BG);
   }
 
-  // AFC : cherche le pic du spectre local (g_waterfall[0], derniere trame)
-  // dans une fenetre autour de la frequence accordee, et corrige g_freq si
-  // ce pic s'en est suffisamment ecarte. Appelee a chaque trame recue
-  // (drain_spectrum()) mais n'agit qu'une fois toutes les AFC_PERIOD_FRAMES
-  // trames (~1 fois/s a 8 trames/s, cote common_rx.py) et seulement d'une
-  // fraction (AFC_DAMPING) de l'ecart mesure, pour converger en douceur
-  // plutot que de sur-corriger sur un pic bruite.
+  // AFC : recentre g_freq sur le centroide (centre d'energie) du spectre
+  // local (g_waterfall[0], derniere trame) dans une fenetre autour de la
+  // frequence accordee. Un simple pic ne convient pas ici : en FM, le
+  // signal occupe toute la largeur de deviation (+/-5 kHz, voir
+  // common_rx.py) et l'energie instantanee se deplace avec le contenu de
+  // l'image (zones claires/sombres) plutot que de rester concentree sur la
+  // porteuse -- un "pic" observe suit alors le contenu de l'image, pas le
+  // centre reel du signal. Le centroide pondere par l'energie (lineaire,
+  // pas en dB) reste lui centre sur le signal independamment de cette
+  // derive instantanee, tant que le spectre FM reste a peu pres
+  // symetrique autour de la porteuse. Appelee a chaque trame recue
+  // (drain_spectrum()) mais n'agit qu'une fois toutes les
+  // AFC_PERIOD_FRAMES trames (~1 fois/s a 8 trames/s, cote common_rx.py)
+  // et seulement d'une fraction (AFC_DAMPING) de l'ecart mesure, pour
+  // converger en douceur plutot que de sur-corriger sur une mesure
+  // bruitee.
   void afc_update()
   {
     static int counter = 0;
@@ -487,23 +509,37 @@ namespace
     const int SEARCH_BINS = (int)(AFC_SEARCH_HZ / HZ_PER_BIN);
     const int CENTER = FFT_SIZE / 2;
 
-    float peak_db = -1e9f;
-    int peak_s = CENTER;
-    float sum_db = 0.0f;
-    int count = 0;
+    // Plancher de bruit estime (minimum de la fenetre) : seule l'energie
+    // qui le depasse compte dans le centroide, pour ne pas laisser un
+    // bruit de fond a peu pres uniforme (qui contribue alors a peu pres
+    // symetriquement, donc sans biais) diluer le poids du signal reel.
+    float floor_db = 1e9f;
     for (int s = CENTER - SEARCH_BINS; s <= CENTER + SEARCH_BINS; ++s) {
       float v = g_waterfall[0][shifted_bin(s, FFT_SIZE)];
-      sum_db += v;
-      ++count;
-      if (v > peak_db) { peak_db = v; peak_s = s; }
+      if (v < floor_db) floor_db = v;
     }
-    float floor_db = (sum_db - peak_db) / (count - 1); // moyenne hors pic, estime le bruit ambiant
 
-    int offset_bins = peak_s - CENTER;
-    if (peak_db - floor_db < AFC_THRESHOLD_DB) return;  // rien d'assez net pour s'y fier
-    if (abs(offset_bins) <= AFC_DEADBAND_BINS) return;   // deja raisonnablement centre
+    double weight_sum = 0.0, weighted_offset_sum = 0.0;
+    float peak_above_floor_db = 0.0f;
+    for (int s = CENTER - SEARCH_BINS; s <= CENTER + SEARCH_BINS; ++s) {
+      float v = g_waterfall[0][shifted_bin(s, FFT_SIZE)] - floor_db; // >= 0
+      if (v > peak_above_floor_db) peak_above_floor_db = v;
+      // dB -> lineaire : poids proportionnel a l'energie, pas a sa version
+      // compressee en dB (sinon un signal fort et un bruit faible pesent
+      // presque pareil dans le centroide).
+      double p = pow(10.0, v / 10.0) - 1.0; // -1.0 : v=0 (plancher) pese 0
+      if (p < 0.0) p = 0.0;
+      weight_sum += p;
+      weighted_offset_sum += p * (s - CENTER);
+    }
 
-    long long correction = (long long)(offset_bins * HZ_PER_BIN * AFC_DAMPING);
+    if (peak_above_floor_db < AFC_THRESHOLD_DB) return; // rien d'assez net pour s'y fier
+    if (weight_sum <= 0.0) return;
+
+    double centroid_offset_bins = weighted_offset_sum / weight_sum;
+    if (fabs(centroid_offset_bins) <= AFC_DEADBAND_BINS) return; // deja raisonnablement centre
+
+    long long correction = (long long)(centroid_offset_bins * HZ_PER_BIN * AFC_DAMPING);
     if (correction == 0) return;
     g_freq += correction;
     if (g_freq < 0) g_freq = 0;
@@ -737,12 +773,7 @@ namespace
         if (m_origin_y < IMAGE_TOP) m_origin_y = IMAGE_TOP;
         m_origin_set = true;
         g_sstv_mode = mode_name;
-        draw_header();
-        // draw_header() redessine tout le bandeau d'info (0..HEADER_H), y
-        // compris la zone du petit bouton "Exit" en mode kiosque (voir
-        // layout_buttons()) : sans ce redessin, il disparaissait des
-        // qu'une image se synchronisait.
-        draw_controls();
+        draw_header(); // redessine aussi les boutons (voir son commentaire)
         // Synchro confirmee : on coupe l'ecoute (le "bruit" SSTV n'a pas
         // besoin d'etre entendu), sans affecter le decodage qui continue.
         send_control("MUTE 1");
