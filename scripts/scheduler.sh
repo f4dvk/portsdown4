@@ -153,6 +153,13 @@ MODE_STARTUP=$(get_config_var startup $PCONFIGFILE)
 # It will get over-written if web is enabled
 cp /home/pi/rpidatv/scripts/images/web_not_enabled.png /home/pi/tmp/screen.png
 
+# Capture d'ecran continue pour la page web (screen.png), lancee une seule
+# fois ici plutot que demarree/arretee a chaque application (Langstone,
+# SSTV...) : avant, le menu principal (rpidatvgui, cas 0/129) n'avait jamais
+# d'image a jour cote web puisque rien ne la relancait en dehors d'une
+# reception active.
+/home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+
 case "$MODE_STARTUP" in
   Testmenu_boot)
     # Start the Portsdown in the test equipment menu
@@ -384,11 +391,9 @@ while true; do
 
       MIC_DEV="$(arecord -l | grep -E 'USB Audio Device|USB AUDIO|Head|Sound Device|wm8960' | head -1 | cut -c6-6)"
 
-      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run_lime $AUDIO_DEV $MIC_DEV
       /home/pi/Langstone/stop_lime
-      /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
@@ -410,11 +415,9 @@ while true; do
 
       MIC_DEV="$(arecord -l | grep -E 'USB Audio Device|USB AUDIO|Head|Sound Device|wm8960' | head -1 | cut -c6-6)"
 
-      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run_pluto $AUDIO_DEV $MIC_DEV
       /home/pi/Langstone/stop_pluto
-      /home/pi/rpidatv/scripts/stop_web_update.sh
       PLUTOIP=$(get_config_var plutoip $PCONFIGFILE)
       ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "$PLUTOIP" >/dev/null 2>/dev/null
       # ssh-keygen -f "/home/pi/.ssh/known_hosts" -R "pluto.local" >/dev/null 2>/dev/null
@@ -438,11 +441,9 @@ while true; do
         AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
       fi
 
-      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run_RtlSdr $AUDIO_DEV
       /home/pi/Langstone/stop_RtlSdr
-      /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
@@ -462,11 +463,9 @@ while true; do
         AUDIO_DEV="$(aplay -l | grep Headphones | head -1 | cut -c6-6)"
       fi
 
-      /home/pi/rpidatv/scripts/screen_grab_for_web.sh &
       cd /home/pi
       /home/pi/Langstone/run_Rtlhf $AUDIO_DEV
       /home/pi/Langstone/stop_Rtlhf
-      /home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
@@ -574,13 +573,13 @@ while true; do
       # Sortie journalisee dans /tmp/SSTVReceiver.log (meme principe que
       # /tmp/PortsdownGUI.log pour rpidatvgui) : utile pour diagnostiquer un
       # retour immediat au menu principal (code 129 force juste en dessous
-      # des que sstv_radio se termine, quelle que soit la cause).
-      #/home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+      # des que sstv_radio se termine, quelle que soit la cause). La
+      # capture d'ecran pour la page web tourne en continu depuis le debut
+      # de ce script (voir plus haut), plus besoin de la lancer/arreter ici.
       /home/pi/rpidatv/bin/sstv_radio --sdr "$SSTV_SDR_FLAG" --freq "$SSTV_FREQ_HZ" --mode FM \
         $SSTV_DEVICE_ARGS \
         --sdr-dir /home/pi/rpidatv/src/SSTV/sdr --out /home/pi/rpidatv/src/SSTV/images \
         --kiosk --web > /tmp/SSTVReceiver.log 2>&1
-      #/home/pi/rpidatv/scripts/stop_web_update.sh
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
