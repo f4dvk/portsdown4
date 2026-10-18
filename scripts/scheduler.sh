@@ -157,8 +157,11 @@ cp /home/pi/rpidatv/scripts/images/web_not_enabled.png /home/pi/tmp/screen.png
 # fois ici plutot que demarree/arretee a chaque application (Langstone,
 # SSTV...) : avant, le menu principal (rpidatvgui, cas 0/129) n'avait jamais
 # d'image a jour cote web puisque rien ne la relancait en dehors d'une
-# reception active.
-/home/pi/rpidatv/scripts/screen_grab_for_web.sh &
+# reception active. setsid la detache dans sa propre session (stdio
+# redirige) : sans ca, elle mourait a chaque redemarrage de rpidatvgui
+# (cas 0/129/defaut, tty1 partage), probablement un signal lie au terminal
+# qui se propageait au job d'arriere-plan.
+setsid /home/pi/rpidatv/scripts/screen_grab_for_web.sh < /dev/null > /dev/null 2>&1 &
 
 case "$MODE_STARTUP" in
   Testmenu_boot)

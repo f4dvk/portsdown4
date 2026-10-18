@@ -13975,7 +13975,9 @@ void ProcessLeandvb2(int NoButton)
   system("sudo killall omxplayer.bin >/dev/null 2>/dev/null");
   system("sudo killall longmynd >/dev/null 2>/dev/null");
   system("sudo rm /home/pi/fifo.iq >/dev/null 2>/dev/null");  // Clean up before receive
-  system("/home/pi/rpidatv/scripts/screen_grab_for_web.sh &");
+  // screen_grab_for_web.sh tourne en continu depuis le lancement de
+  // scheduler.sh (plus de demarrage/arret par application) -- voir le
+  // commentaire sur ReceiveStop() plus bas pour stop_web_update.sh.
 
   // Display the correct background
   if ((NoButton == 1) || (NoButton == 5))   // OMX and LNB autoset modes
@@ -14425,7 +14427,11 @@ void ReceiveStop()
      system("sudo killall -9 limesdr_dump >/dev/null 2>/dev/null");
      system("/home/pi/rpidatv/bin/limesdr_stopchannel");
   }
-  system("/home/pi/rpidatv/scripts/stop_web_update.sh >/dev/null 2>/dev/null");
+  // stop_web_update.sh tuait screen_grab_for_web.sh (capture d'ecran pour
+  // la page web), lance en continu depuis scheduler.sh et non plus par
+  // application : l'appeler ici le tuait des la fin de toute reception
+  // (Lean DVB, Sarsat, SSTV...), rendant la page web figee pour le reste de
+  // la session.
   printf("Receive Stop\n");
 }
 
@@ -16844,8 +16850,6 @@ void SARSAT_READER()
 
   setBackColour(0, 0, 0);
 
-  system("/home/pi/rpidatv/scripts/screen_grab_for_web.sh &"); // web access auto-refresh
-
   printf("STARTING SARSAT READER\n");
 
   clearScreen();
@@ -16884,7 +16888,7 @@ void SARSAT_READER()
   touch_response = 0;
 
   pthread_join(thbutton, NULL);
-  system("/home/pi/rpidatv/scripts/stop_web_update.sh >/dev/null 2>/dev/null");
+  // stop_web_update.sh retire (voir ReceiveStop() plus haut).
 }
 
 void SARSAT_DECODER()
@@ -16958,8 +16962,6 @@ void SARSAT_DECODER()
   setBackColour(0, 0, 0);
   fp=popen(PATH_SCRIPT_DECODER, "r");
   if(fp==NULL) printf("Process error\n");
-
-  system("/home/pi/rpidatv/scripts/screen_grab_for_web.sh &"); // web access auto-refresh
 
   printf("STARTING SARSAT DECODER\n");
 
@@ -17149,8 +17151,7 @@ void SARSAT_DECODER()
   touch_response = 0;
   system("pkill -9 rtl_power && pkill perl && pkill -9 perl && pkill aplay >/dev/null 2>/dev/null");
   pthread_join(thbutton, NULL);
-
-  system("/home/pi/rpidatv/scripts/stop_web_update.sh >/dev/null 2>/dev/null");
+  // stop_web_update.sh retire (voir ReceiveStop() plus haut).
 }
 
 void wait_touch()
@@ -34786,7 +34787,7 @@ terminate(int dummy)
   system("sudo killall /home/pi/rpidatv/bin/CombiTunerExpress >/dev/null 2>/dev/null");
   system("/home/pi/rpidatv/scripts/vlc_stream_player_stop.sh &");
   system("pkill -9 -f iss_track.py");
-  system("/home/pi/rpidatv/scripts/stop_web_update.sh >/dev/null 2>/dev/null");
+  // stop_web_update.sh retire (voir ReceiveStop() plus haut).
   printf("Terminate\n");
   setBackColour(0, 0, 0);
   clearScreen();
