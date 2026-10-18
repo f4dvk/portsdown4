@@ -272,10 +272,19 @@ namespace
     char sstv_buf[64];
     snprintf(sstv_buf, sizeof(sstv_buf), "SSTV: %s", g_sstv_mode.c_str());
     // Centre (pas aligne a droite) : en mode kiosque, le petit bouton
-    // "Exit" occupe justement le coin superieur droit du bandeau et
-    // masquait ce texte.
-    int sstv_x = (screenXsize - (int)strlen(sstv_buf) * 8) / 2;
-    if (sstv_x > (int)strlen(buf) * 8 + 20) { // n'affiche que s'il y a la place, sans chevaucher
+    // "Exit" occupe le coin superieur droit du bandeau et masquait ce
+    // texte. Le centrage pur peut retomber trop pres du texte de gauche
+    // (SDR/Freq/Mode, de longueur variable) : on decale alors vers la
+    // droite plutot que de simplement masquer le texte -- l'ancienne
+    // version exigeait 20 px de marge par rapport au centrage calcule et
+    // finissait par ne plus jamais afficher "SSTV: ..." des que le texte
+    // de gauche depassait environ la moitie de l'ecran (cas courant,
+    // ex: "SDR: rtlsdr   Freq: 437.000.000 Hz   Mode: FM" sur 800 px).
+    int sstv_w = (int)strlen(sstv_buf) * 8;
+    int left_w = (int)strlen(buf) * 8;
+    int sstv_x = (screenXsize - sstv_w) / 2;
+    if (sstv_x < left_w + 20) sstv_x = left_w + 20; // ne pas chevaucher le texte de gauche
+    if (sstv_x + sstv_w <= screenXsize - 10) { // n'affiche que s'il reste la place avant le bord droit
       gotoXY(sstv_x, 4);
       displayStr(sstv_buf);
     }
