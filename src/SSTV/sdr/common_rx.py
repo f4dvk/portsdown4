@@ -29,7 +29,13 @@ qu'une synchro SSTV est confirmee (le "bruit" SSTV n'a pas besoin d'etre
 ecoute), et le retablit entre deux images.
 
 Controle a distance (thread UDP local, voir ControlThread) :
-  FREQ <hz>       change la frequence accordee
+  FREQ <hz>       change la frequence accordee (re-accord materiel, src.set_center_freq)
+  AFC <hz>        decale l'oscillateur local numerique du filtre de
+                   decimation (xlate.set_center_freq) -- PAS de re-accord
+                   materiel, donc pas de coupure/glitch le temps du relock
+                   PLL. Utilise par l'AFC de sstv_radio (correction fine et
+                   frequente, contrairement a FREQ qui reste pour les
+                   changements de frequence manuels, plus rares)
   MODE USB|LSB|FM change le mode de demodulation actif (via le selector)
   MUTE 0|1        coupe/retablit l'ecoute (n'affecte pas le decodage)
 """
@@ -88,6 +94,8 @@ class ControlThread(threading.Thread):
             try:
                 if cmd == "FREQ" and len(parts) >= 2:
                     self.top_block.set_freq(float(parts[1]))
+                elif cmd == "AFC" and len(parts) >= 2:
+                    self.top_block.set_afc_offset(float(parts[1]))
                 elif cmd == "MODE" and len(parts) >= 2:
                     self.top_block.set_mode(parts[1].upper())
                 elif cmd == "MUTE" and len(parts) >= 2:
@@ -104,6 +112,7 @@ class RxTopBlock(gr.top_block):
         gr.top_block.__init__(self, "rpi_sstv_rx")
 
         self.freq = freq
+        self.afc_offset_hz = 0.0
         self.source, self._retune = make_source(self)
 
         xlate_taps = firdes.low_pass(1, SAMP_RATE, IF_RATE / 2.2, IF_RATE / 6,
@@ -201,7 +210,18 @@ class RxTopBlock(gr.top_block):
 
     def set_freq(self, freq):
         self.freq = freq
+        self.afc_offset_hz = 0.0  # re-accord materiel : l'ancien decalage AFC n'a plus de sens
+        self.xlate.set_center_freq(0.0)
         self._retune(freq)
+
+    def set_afc_offset(self, offset_hz):
+        # Decale l'oscillateur local NUMERIQUE du filtre de decimation
+        # (freq_xlating_fir_filter_ccc), pas la frequence materielle : pas
+        # de relock PLL, donc pas de coupure dans le flux audio -- a la
+        # difference de set_freq()/FREQ, pilote beaucoup plus souvent par
+        # l'AFC (plusieurs fois par minute) que par un reglage manuel.
+        self.afc_offset_hz = offset_hz
+        self.xlate.set_center_freq(offset_hz)
 
     def set_mode(self, mode):
         if mode in MODES:

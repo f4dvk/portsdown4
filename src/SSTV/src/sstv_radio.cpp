@@ -113,11 +113,18 @@ namespace
   int g_control_fd = -1;
   int g_spectrum_fd = -1;
   long long g_freq = 144500000;
-  // AFC (--afc) : recentre g_freq sur le pic du spectre local pour
-  // compenser une derive (Doppler satellite, derive LO...) qui ferait
-  // sortir le signal du filtre de demodulation. Desactivee par defaut (le
-  // reglage manuel reste identique a avant). Voir afc_update().
+  // AFC (--afc) : compense une derive (Doppler satellite, derive LO...) qui
+  // ferait sortir le signal du filtre de demodulation. Desactivee par
+  // defaut (le reglage manuel reste identique a avant). Voir afc_update().
+  // g_afc_offset_hz est un decalage NUMERIQUE cumulatif (commande "AFC",
+  // cote common_rx.py : xlate.set_center_freq(), PAS src.set_center_freq())
+  // distinct de g_freq (la frequence materielle reellement accordee, elle
+  // ne change jamais sous l'effet de l'AFC) -- un re-accord materiel a
+  // chaque correction (comme les boutons manuels, "FREQ") provoquait un
+  // glitch (relock PLL) a chaque fois, empechant toute synchro SSTV des
+  // que l'AFC etait active.
   bool g_afc = false;
+  double g_afc_offset_hz = 0.0;
   std::string g_mode = "FM";
   std::string g_sdr_name;
   std::string g_sstv_mode = "-"; // mode SSTV detecte (PD120, Robot36, ...), affiche des la synchro
@@ -303,8 +310,12 @@ namespace
     textSize = 1;
     gotoXY(4, 4);
     char buf[128];
+    // Freq affichee = frequence materielle accordee + decalage AFC en
+    // cours (purement numerique, voir g_afc_offset_hz) : la valeur
+    // effectivement ecoutee, pas juste celle du dernier reglage manuel.
+    long long effective_freq = g_freq + (long long)g_afc_offset_hz;
     snprintf(buf, sizeof(buf), "SDR: %s   Freq: %s Hz   Mode: %s%s",
-             g_sdr_name.c_str(), format_freq(g_freq).c_str(), g_mode.c_str(),
+             g_sdr_name.c_str(), format_freq(effective_freq).c_str(), g_mode.c_str(),
              g_afc ? "   AFC" : "");
     displayStr(buf);
 
@@ -469,6 +480,7 @@ namespace
   {
     g_freq += delta;
     if (g_freq < 0) g_freq = 0;
+    g_afc_offset_hz = 0.0; // re-accord materiel : l'ancien decalage AFC n'a plus de sens (voir set_freq() cote common_rx.py)
     send_control("FREQ %lld", g_freq);
     draw_header();
   }
@@ -539,11 +551,12 @@ namespace
     double centroid_offset_bins = weighted_offset_sum / weight_sum;
     if (fabs(centroid_offset_bins) <= AFC_DEADBAND_BINS) return; // deja raisonnablement centre
 
-    long long correction = (long long)(centroid_offset_bins * HZ_PER_BIN * AFC_DAMPING);
-    if (correction == 0) return;
-    g_freq += correction;
-    if (g_freq < 0) g_freq = 0;
-    send_control("FREQ %lld", g_freq);
+    double correction = centroid_offset_bins * HZ_PER_BIN * AFC_DAMPING;
+    if (correction == 0.0) return;
+    // Decalage NUMERIQUE (xlate, cote common_rx.py), pas un re-accord
+    // materiel : g_freq (la frequence reellement accordee) ne change pas.
+    g_afc_offset_hz += correction;
+    send_control("AFC %f", g_afc_offset_hz);
     draw_header();
   }
 
