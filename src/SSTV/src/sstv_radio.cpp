@@ -83,7 +83,13 @@ namespace
   const float AFC_THRESHOLD_DB = 8.0f;
   const int AFC_DEADBAND_BINS = 2;
   const double AFC_DAMPING = 0.5;
-  const int AFC_PERIOD_FRAMES = 8; // ~1 correction/s a SPECTRUM_FPS=8 (common_rx.py)
+  // ~1 evaluation toutes les 5 s (SPECTRUM_FPS=8 cote common_rx.py) : une
+  // derive Doppler/LO reste lente a l'echelle de quelques secondes, pas
+  // besoin de corriger chaque seconde -- et chaque correction (meme un
+  // decalage NCO logiciel, sans relock PLL materiel) reste une
+  // micro-discontinuite de phase qui peut geiner le decodeur SSTV en
+  // pleine acquisition de synchro si elle est trop frequente.
+  const int AFC_PERIOD_FRAMES = 40;
 
   volatile sig_atomic_t g_quit = 0;
   bool g_touch_present = false;
@@ -125,6 +131,11 @@ namespace
   // que l'AFC etait active.
   bool g_afc = false;
   double g_afc_offset_hz = 0.0;
+  // true entre le verrou de synchro initial (premiere ligne dessinee) et la
+  // fin/l'abandon de l'image en cours (voir c_sstv_decoder_radio) : l'AFC
+  // ne corrige plus pendant ce temps, pour ne pas perturber la synchro
+  // ligne par ligne d'une image en cours de reception.
+  bool g_image_in_progress = false;
   std::string g_mode = "FM";
   std::string g_sdr_name;
   std::string g_sstv_mode = "-"; // mode SSTV detecte (PD120, Robot36, ...), affiche des la synchro
@@ -511,6 +522,8 @@ namespace
   // bruitee.
   void afc_update()
   {
+    if (g_image_in_progress) return; // ne pas perturber une synchro en cours
+
     static int counter = 0;
     if (++counter < AFC_PERIOD_FRAMES) return;
     counter = 0;
@@ -785,6 +798,11 @@ namespace
         m_origin_y = IMAGE_TOP + (avail_h - scaled_h) / 2;
         if (m_origin_y < IMAGE_TOP) m_origin_y = IMAGE_TOP;
         m_origin_set = true;
+        // Coupe l'AFC tant qu'une image est en cours (voir afc_update()) :
+        // meme un decalage NCO logiciel, sans glitch de relock PLL, reste
+        // une micro-discontinuite de phase qui peut perturber la synchro
+        // ligne par ligne du decodeur SSTV en plein decodage.
+        g_image_in_progress = true;
         g_sstv_mode = mode_name;
         draw_header(); // redessine aussi les boutons (voir son commentaire)
         // Synchro confirmee : on coupe l'ecoute (le "bruit" SSTV n'a pas
@@ -822,6 +840,7 @@ namespace
       m_lines_written = 0;
       m_mode_name.clear();
       m_origin_set = false;
+      g_image_in_progress = false; // nouvelle tentative : l'AFC peut de nouveau corriger tant que rien n'est accroche
 
       bool image_in_progress = false;
       bool done = false;
