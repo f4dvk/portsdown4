@@ -100,6 +100,13 @@ namespace
   std::string g_mode = "FM";
   std::string g_sdr_name;
   std::string g_sstv_mode = "-"; // mode SSTV detecte (PD120, Robot36, ...), affiche des la synchro
+  // Certains SDR (Pluto en particulier, connexion IIO reseau) mettent
+  // plusieurs secondes -- jusqu'a 15-20 s observees -- avant la toute
+  // premiere trame de spectre, sans aucun retour visuel entre-temps : un
+  // ecran statique peut alors sembler fige. g_sdr_connecting pilote
+  // l'affichage d'un message "Connexion..." dans la zone image jusqu'a la
+  // premiere trame recue (voir drain_spectrum()).
+  bool g_sdr_connecting = true;
   // g_waterfall[0] = relevé FFT le plus recent (sert aussi a la trace du
   // haut) ; les lignes suivantes sont l'historique, decalees vers le bas a
   // chaque nouvelle trame (defilement).
@@ -457,7 +464,15 @@ namespace
       memcpy(g_waterfall[0], frame, sizeof(frame));
       got = true;
     }
-    if (got) draw_spectrum();
+    if (got) {
+      draw_spectrum();
+      if (g_sdr_connecting) {
+        // Premiere trame recue : le SDR est bien connecte et produit des
+        // donnees, efface le message "Connexion..." de la zone image.
+        g_sdr_connecting = false;
+        fill_rect(0, IMAGE_TOP, screenXsize, screenYsize - IMAGE_TOP, COL_BG[0], COL_BG[1], COL_BG[2]);
+      }
+    }
   }
 
   // Lit une valeur "cle=valeur" dans un fichier de configuration texte de
@@ -1013,6 +1028,23 @@ int main(int argc, char** argv)
   g_spectrum_fd = make_udp_server(spectrum_port);
 
   draw_chrome();
+
+  // Message temporaire tant qu'aucune trame de spectre n'est arrivee (voir
+  // g_sdr_connecting / drain_spectrum()) : sans lui, l'ecran reste figement
+  // statique pendant toute la connexion au SDR (observe jusqu'a 15-20 s sur
+  // Pluto, connexion IIO reseau), ce qui peut sembler plante.
+  {
+    const char* msg = "Connexion au SDR en cours...";
+    int msg_w = (int)strlen(msg) * 8;
+    int msg_x = (screenXsize - msg_w) / 2;
+    int msg_y = IMAGE_TOP + (screenYsize - IMAGE_TOP) / 2 - 4;
+    if (msg_x < 0) msg_x = 0;
+    setForeColour(COL_TEXT[0], COL_TEXT[1], COL_TEXT[2]);
+    setBackColour(COL_BG[0], COL_BG[1], COL_BG[2]);
+    textSize = 1;
+    gotoXY(msg_x, msg_y);
+    displayStr((char*)msg);
+  }
 
   c_source_pipe source(g_audio_fd);
   bool allow_replay = true;
