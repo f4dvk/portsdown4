@@ -94,11 +94,20 @@ if [ "$SDR" == "PLUTOSDR" ]; then
   B="--s16"
 fi
 
+if [ "$MODULATION" == "DVB-S2" ]; then
+  LDPC="--ldpc-soft --ldpc-threads 4"
+else
+  LDPC=""
+fi
+
 sudo killall leandvb >/dev/null 2>/dev/null
 
 sudo sysctl fs.pipe-max-size=32000000 2>/dev/null
 
+#sudo $KEY\
+#      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 --ts-udp $UDPIP:$UDPPORT -f $SR_RTLSDR >/dev/null 2>/dev/null &
+
 sudo $KEY\
-      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 --ts-udp $UDPIP:$UDPPORT -f $SR_RTLSDR >/dev/null 2>/dev/null &
+      | $PATHBIN"leandvb" --inpipe 32000000 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION $LDPC --sampler rrc --rrc-rej 30 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
 
 exit

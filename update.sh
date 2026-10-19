@@ -697,7 +697,7 @@ unzip master.zip
 mv leansdr-master leansdr
 rm master.zip
 cd leansdr/src/apps
-make -j$(nproc)
+make native -j$(nproc)
 cp leandvb ../../../../bin/
 
 cd /home/pi/rpidatv/src/fake_read

@@ -116,17 +116,24 @@ if [ "$SDR" == "PLUTOSDR" ]; then
   B="--s16"
 fi
 
+if [ "$MODULATION" == "DVB-S2" ]; then
+  LDPC="--ldpc-soft --ldpc-threads 4"
+else
+#  LDPC="--viterbi"
+  LDPC=""
+fi
+
 # Pluto
 # Phonie : rx_sdr -F CF32 -s 1200000 -f 430500000 - | csdr fir_decimate_cc 25 0.005 HAMMING | csdr fmdemod_quadri_cf  | csdr limit_ff | csdr deemphasis_nfm_ff 48000 | csdr fastagc_ff | csdr convert_f_i16  | aplay -f S16_LE -c1 -r48000
 # DATV : rx_sdr -I CS16 -F CS16 -s 1200000 -f 437000000 -
 
-sudo rm fifo.264 >/dev/null 2>/dev/null
-sudo rm videots >/dev/null 2>/dev/null
+#sudo rm fifo.264 >/dev/null 2>/dev/null
+#sudo rm videots >/dev/null 2>/dev/null
 sudo killall leandvb >/dev/null 2>/dev/null
 echo " " >/home/pi/tmp/vlc_overlay.txt
 sudo killall vlc >/dev/null 2>/dev/null
-mkfifo fifo.264
-mkfifo videots
+#mkfifo fifo.264
+#mkfifo videots
 
 if [[ ! -f /home/pi/tmp/vlcprimed ]]; then
   cvlc -I rc --rc-host 127.0.0.1:1111 -f --codec ffmpeg --video-title-timeout=100 \
@@ -146,8 +153,11 @@ sudo fbi -T 1 -noverbose -a $PATHSCRIPT"/images/Blank_Black.png"
 
 sudo sysctl fs.pipe-max-size=32000000 2>/dev/null
 
+#sudo $KEY\
+#      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
+
 sudo $KEY\
-      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
+      | $PATHBIN"leandvb" --inpipe 32000000 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION $LDPC --sampler rrc --rrc-rej 30 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
 
 cvlc -I rc --rc-host 127.0.0.1:1111 -f --codec ffmpeg --video-title-timeout=100 \
   --width 800 --height 480 \

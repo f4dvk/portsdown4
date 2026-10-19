@@ -173,14 +173,23 @@ if [ "$SDR" == "PLUTOSDR" ]; then
   B="--s16"
 fi
 
-sudo rm videots >/dev/null 2>/dev/null
+if [ "$MODULATION" == "DVB-S2" ]; then
+  LDPC="--ldpc-soft --ldpc-threads 4"
+else
+  LDPC=""
+fi
+
+#sudo rm videots >/dev/null 2>/dev/null
 sudo killall omxplayer.bin >/dev/null 2>/dev/null
-mkfifo videots
+#mkfifo videots
 
 sudo sysctl fs.pipe-max-size=32000000 2>/dev/null
 
+#sudo $KEY\
+#      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
+
 sudo $KEY\
-      | $PATHBIN"leandvb" --inpipe 32000000 --nhelpers 3 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION --sampler rrc --rrc-rej 30 --ldpc-bf 150 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
+      | $PATHBIN"leandvb" --inpipe 32000000 $B --fd-info 3 $FECDVB $FASTLOCK --sr $SYMBOLRATE --standard $MODULATION $LDPC --sampler rrc --rrc-rej 30 -f $SR_RTLSDR --ts-udp 127.0.0.1:10123 2>/dev/null &
 
 omxplayer --vol 600 --adev alsa:plughw:"$AUDIO_OUT_DEV",0 \
   --live --layer 6 udp://127.0.0.1:10123 &

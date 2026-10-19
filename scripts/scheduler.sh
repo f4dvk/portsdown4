@@ -582,7 +582,7 @@ while true; do
       /home/pi/rpidatv/bin/sstv_radio --sdr "$SSTV_SDR_FLAG" --freq "$SSTV_FREQ_HZ" --mode FM \
         $SSTV_DEVICE_ARGS \
         --sdr-dir /home/pi/rpidatv/src/SSTV/sdr --out /home/pi/rpidatv/src/SSTV/images \
-        --kiosk --web > /tmp/SSTVReceiver.log 2>&1
+        --kiosk --web --afc > /tmp/SSTVReceiver.log 2>&1
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
