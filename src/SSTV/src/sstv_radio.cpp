@@ -69,20 +69,32 @@ namespace
   int IMAGE_TOP = SPECTRUM_Y + SPECTRUM_H + 4;
   const int FFT_SIZE = 512;
   const float SPECTRUM_MIN_DB = -90.0f, SPECTRUM_MAX_DB = -20.0f;
-  // Reglages AFC (voir afc_update()) : fenetre de calcul du centroide
-  // (+/- AFC_SEARCH_HZ autour de la frequence accordee) -- doit couvrir la
-  // largeur occupee reelle du signal FM (deviation +/-5 kHz + modulation
-  // jusqu'a 2.3 kHz, soit ~14.6 kHz par la regle de Carson), pas juste une
-  // bande etroite autour de la porteuse, sinon le centroide est biaise par
-  // le bord de la fenetre. Le reste : marge au-dessus du bruit ambiant
-  // pour faire confiance a la mesure (AFC_THRESHOLD_DB), zone morte en
-  // bins pour ne pas corriger un signal deja a peu pres centre
-  // (AFC_DEADBAND_BINS), et fraction de l'ecart mesure appliquee a chaque
-  // correction pour converger en douceur (AFC_DAMPING).
-  const double AFC_SEARCH_HZ = 8000.0;
+  // Reglages AFC (voir afc_update(), algorithme en deux temps) :
+  // - AFC_SEARCH_HZ : fenetre large de recherche du pic -- plus elle est
+  //   large, plus l'AFC peut rattraper une grosse derive, mais plus elle
+  //   risque aussi d'attraper un parasite distant (peigne de porteuses
+  //   observe en pratique sur Pluto) plutot que le vrai signal. 4 kHz
+  //   couvre une derive Doppler/LO raisonnable sans trop s'exposer.
+  // - AFC_CENTROID_HZ : fenetre ETROITE pour affiner la position autour du
+  //   pic trouve (etape 2) -- doit couvrir l'etalement FM d'un seul signal
+  //   (deviation +/-5 kHz, voir common_rx.py) sans deborder sur un autre
+  //   signal plus loin.
+  // - AFC_THRESHOLD_DB : marge au-dessus du bruit ambiant pour faire
+  //   confiance au pic trouve.
+  // - AFC_DEADBAND_BINS : zone morte pour ne pas corriger un signal deja a
+  //   peu pres centre.
+  // - AFC_DAMPING : fraction de l'ecart mesure appliquee a chaque
+  //   correction, pour converger en douceur.
+  // - AFC_MAX_STEP_HZ : plafond dur par correction, quelle que soit la
+  //   mesure -- meme un verrouillage sur un mauvais pic ne peut alors
+  //   eloigner la frequence que lentement, le temps qu'une mesure
+  //   suivante corrige le tir (au lieu d'un grand saut d'un coup).
+  const double AFC_SEARCH_HZ = 4000.0;
+  const double AFC_CENTROID_HZ = 1500.0;
   const float AFC_THRESHOLD_DB = 8.0f;
   const int AFC_DEADBAND_BINS = 2;
   const double AFC_DAMPING = 0.5;
+  const double AFC_MAX_STEP_HZ = 250.0;
   // ~1 evaluation toutes les 5 s (SPECTRUM_FPS=8 cote common_rx.py) : une
   // derive Doppler/LO reste lente a l'echelle de quelques secondes, pas
   // besoin de corriger chaque seconde -- et chaque correction (meme un
@@ -515,22 +527,27 @@ namespace
     for (auto& b : g_mode_buttons) draw_button(b, b.label == g_mode, COL_BTN_BG);
   }
 
-  // AFC : recentre g_freq sur le centroide (centre d'energie) du spectre
-  // local (g_waterfall[0], derniere trame) dans une fenetre autour de la
-  // frequence accordee. Un simple pic ne convient pas ici : en FM, le
-  // signal occupe toute la largeur de deviation (+/-5 kHz, voir
-  // common_rx.py) et l'energie instantanee se deplace avec le contenu de
-  // l'image (zones claires/sombres) plutot que de rester concentree sur la
-  // porteuse -- un "pic" observe suit alors le contenu de l'image, pas le
-  // centre reel du signal. Le centroide pondere par l'energie (lineaire,
-  // pas en dB) reste lui centre sur le signal independamment de cette
-  // derive instantanee, tant que le spectre FM reste a peu pres
-  // symetrique autour de la porteuse. Appelee a chaque trame recue
-  // (drain_spectrum()) mais n'agit qu'une fois toutes les
-  // AFC_PERIOD_FRAMES trames (~1 fois/s a 8 trames/s, cote common_rx.py)
-  // et seulement d'une fraction (AFC_DAMPING) de l'ecart mesure, pour
-  // converger en douceur plutot que de sur-corriger sur une mesure
-  // bruitee.
+  // AFC : recentre g_freq sur le signal present pres de la frequence
+  // accordee. En deux temps, pour resister a un parasite plus fort que le
+  // signal reel (peigne de porteuses paralites observe en pratique) :
+  //   1. Pic le plus fort dans une fenetre de recherche large mais bornee
+  //      (AFC_SEARCH_HZ) -- identifie QUEL signal suivre.
+  //   2. Centroide (centre d'energie, pondere en lineaire) dans une fenetre
+  //      ETROITE (AFC_CENTROID_HZ) autour de CE pic seulement -- affine sa
+  //      position reelle en tenant compte de l'etalement FM (deviation
+  //      +/-5 kHz, voir common_rx.py : un simple pic suivrait le contenu
+  //      de l'image -- zones claires/sombres -- plutot que le centre
+  //      reel), sans etre dilue par d'AUTRES signaux plus loin dans la
+  //      fenetre large.
+  // Un plafond strict (AFC_MAX_STEP_HZ) limite en plus l'amplitude de
+  // chaque correction, quelle que soit la mesure : meme un verrouillage
+  // sur un mauvais pic ne peut alors eloigner la frequence que lentement,
+  // le temps qu'une mesure suivante corrige le tir.
+  // Appelee a chaque trame recue (drain_spectrum()) mais n'agit qu'une
+  // fois toutes les AFC_PERIOD_FRAMES trames (~1 fois/5 s a 8 trames/s,
+  // cote common_rx.py) et seulement d'une fraction (AFC_DAMPING) de
+  // l'ecart mesure, pour converger en douceur plutot que de sur-corriger
+  // sur une mesure bruitee.
   void afc_update()
   {
     if (g_image_in_progress) return; // ne pas perturber une synchro en cours
@@ -543,23 +560,34 @@ namespace
     // coherent si l'un des deux change.
     const double HZ_PER_BIN = 32000.0 / FFT_SIZE;
     const int SEARCH_BINS = (int)(AFC_SEARCH_HZ / HZ_PER_BIN);
+    const int CENTROID_BINS = (int)(AFC_CENTROID_HZ / HZ_PER_BIN);
     const int CENTER = FFT_SIZE / 2;
 
-    // Plancher de bruit estime (minimum de la fenetre) : seule l'energie
-    // qui le depasse compte dans le centroide, pour ne pas laisser un
-    // bruit de fond a peu pres uniforme (qui contribue alors a peu pres
-    // symetriquement, donc sans biais) diluer le poids du signal reel.
+    // Plancher de bruit estime (minimum de la fenetre large) : seule
+    // l'energie qui le depasse compte, pour ne pas laisser un bruit de
+    // fond a peu pres uniforme diluer le poids du signal.
     float floor_db = 1e9f;
     for (int s = CENTER - SEARCH_BINS; s <= CENTER + SEARCH_BINS; ++s) {
       float v = g_waterfall[0][shifted_bin(s, FFT_SIZE)];
       if (v < floor_db) floor_db = v;
     }
 
-    double weight_sum = 0.0, weighted_offset_sum = 0.0;
+    // Etape 1 : le pic le plus fort dans la fenetre large -- quel signal suivre.
     float peak_above_floor_db = 0.0f;
+    int peak_s = CENTER;
     for (int s = CENTER - SEARCH_BINS; s <= CENTER + SEARCH_BINS; ++s) {
       float v = g_waterfall[0][shifted_bin(s, FFT_SIZE)] - floor_db; // >= 0
-      if (v > peak_above_floor_db) peak_above_floor_db = v;
+      if (v > peak_above_floor_db) { peak_above_floor_db = v; peak_s = s; }
+    }
+    if (peak_above_floor_db < AFC_THRESHOLD_DB) return; // rien d'assez net pour s'y fier
+
+    // Etape 2 : centroide dans une fenetre etroite autour de CE pic --
+    // affine sa position sans se faire tirer par un autre signal plus loin.
+    double weight_sum = 0.0, weighted_offset_sum = 0.0;
+    for (int s = peak_s - CENTROID_BINS; s <= peak_s + CENTROID_BINS; ++s) {
+      if (s < CENTER - SEARCH_BINS || s > CENTER + SEARCH_BINS) continue; // reste dans la fenetre large
+      float v = g_waterfall[0][shifted_bin(s, FFT_SIZE)] - floor_db;
+      if (v < 0.0f) v = 0.0f;
       // dB -> lineaire : poids proportionnel a l'energie, pas a sa version
       // compressee en dB (sinon un signal fort et un bruit faible pesent
       // presque pareil dans le centroide).
@@ -568,14 +596,14 @@ namespace
       weight_sum += p;
       weighted_offset_sum += p * (s - CENTER);
     }
-
-    if (peak_above_floor_db < AFC_THRESHOLD_DB) return; // rien d'assez net pour s'y fier
     if (weight_sum <= 0.0) return;
 
     double centroid_offset_bins = weighted_offset_sum / weight_sum;
     if (fabs(centroid_offset_bins) <= AFC_DEADBAND_BINS) return; // deja raisonnablement centre
 
     double correction = centroid_offset_bins * HZ_PER_BIN * AFC_DAMPING;
+    if (correction > AFC_MAX_STEP_HZ) correction = AFC_MAX_STEP_HZ;
+    if (correction < -AFC_MAX_STEP_HZ) correction = -AFC_MAX_STEP_HZ;
     if (correction == 0.0) return;
     // Decalage NUMERIQUE (xlate, cote common_rx.py), pas un re-accord
     // materiel : g_freq (la frequence reellement accordee) ne change pas.
