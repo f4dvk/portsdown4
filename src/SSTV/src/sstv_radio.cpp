@@ -61,7 +61,12 @@ namespace
   // la trace est le dernier relevé FFT brut (reactif, sans lissage ajoute),
   // la cascade accumule l'historique ligne par ligne, defilement vers le bas.
   const int LINE_H = 30, WATERFALL_ROWS = 70;
-  const int SPECTRUM_H = LINE_H + WATERFALL_ROWS;
+  // Reglette de frequence (amont/moins -- 0 -- aval/plus), meme principe
+  // que l'echelle sous le spectre de LangstoneGUI_RtlSdr.c : graduations
+  // + kHz d'ecart par rapport a la frequence accordee, juste sous la
+  // cascade.
+  const int AXIS_H = 14;
+  const int SPECTRUM_H = LINE_H + WATERFALL_ROWS + AXIS_H;
   // SPECTRUM_Y et IMAGE_TOP dependent du mode kiosque (pas de ligne de
   // boutons) : valeurs par defaut ici, recalculees par configure_layout()
   // une fois --kiosk connu, avant le premier dessin.
@@ -463,6 +468,22 @@ namespace
     // repere de frequence centrale
     for (int y = 0; y < h; ++y)
       put(w / 2, y, 255, 140, 0);
+
+    // -- reglette de frequence (amont/aval, "chute d'eau" cliquable --
+    // voir handle_touch_point()) sous la cascade, meme principe que
+    // l'echelle de LangstoneGUI_RtlSdr.c : ligne d'axe + graduations tous
+    // les 5 kHz. IF_RATE (32000 Hz, voir common_rx.py) couvre toute la
+    // largeur w, x=0..w <-> -IF_RATE/2..+IF_RATE/2 Hz autour de la
+    // frequence accordee (meme correspondance que shifted_bin()).
+    const int axis_y = LINE_H + WATERFALL_ROWS; // haut de la bande reglette, repere local au buffer
+    const double HZ_SPAN = 32000.0;
+    for (int x = 0; x < w; ++x) put(x, axis_y, 0, 180, 0);
+    for (int khz = -15; khz <= 15; khz += 5) {
+      int x = w / 2 + (int)((khz * 1000.0 / HZ_SPAN) * w);
+      if (x < 0 || x >= w) continue;
+      for (int dy = 1; dy <= 3; ++dy) put(x, axis_y + dy, 0, 255, 0);
+    }
+
     // bordure (redessinee a chaque image, comprise dans le meme blit)
     for (int x = 0; x < w; ++x) { put(x, 0, COL_BORDER[0], COL_BORDER[1], COL_BORDER[2]);
                                    put(x, h - 1, COL_BORDER[0], COL_BORDER[1], COL_BORDER[2]); }
@@ -470,6 +491,25 @@ namespace
                                    put(w - 1, y, COL_BORDER[0], COL_BORDER[1], COL_BORDER[2]); }
 
     blit_rect(0, SPECTRUM_Y, w, h, buf);
+
+    // Etiquettes kHz : displayStr() ecrit directement dans le framebuffer
+    // (hors du buffer compose ci-dessus), donc apres le blit pour ne pas
+    // etre effacees.
+    setForeColour(0, 255, 0);
+    setBackColour(COL_BG[0], COL_BG[1], COL_BG[2]);
+    textSize = 1;
+    for (int khz = -10; khz <= 10; khz += 5) {
+      int x = w / 2 + (int)((khz * 1000.0 / HZ_SPAN) * w);
+      char label[8];
+      if (khz == 0) strcpy(label, "0");
+      else snprintf(label, sizeof(label), "%+dk", khz);
+      int label_w = (int)strlen(label) * 8;
+      int label_x = x - label_w / 2;
+      if (label_x < 0) label_x = 0;
+      if (label_x + label_w > w) label_x = w - label_w;
+      gotoXY(label_x, SPECTRUM_Y + axis_y + 4);
+      displayStr(label);
+    }
   }
 
   void draw_chrome()
