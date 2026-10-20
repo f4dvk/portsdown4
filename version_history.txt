@@ -1,3 +1,7 @@
+202610200
+SSTV, desactivation AFC via bouton
+SSTV, clic sur waterfall
+
 202610180
 LeanDVB LDPC
 Ajout SSTV
