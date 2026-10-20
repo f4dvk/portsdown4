@@ -110,7 +110,6 @@ int wbuttonsize = 100;
 int hbuttonsize = 50;
 int rawX, rawY;
 int FinishedButton = 0;
-int i;
 bool freeze = false;
 bool frozen = false;
 
@@ -218,6 +217,7 @@ int xscaleden = 20;       // Denominator for X scaling fraction
 void GetConfigParam(char *PathConfigFile, char *Param, char *Value);
 void SetConfigParam(char *PathConfigFile, char *Param, char *Value);
 void strcpyn(char *outstring, char *instring, int n);
+
 int CheckWebCtlExists();
 void CheckConfigFile();
 void ReadSavedParams();
@@ -291,6 +291,7 @@ void DrawTickMarks();
 void ShowRemoteCaption();
 void ShowConnectFail();
 void ShowStartFail();
+void ShowInternetFail();
 void ShowWaitConnect();
 void DrawYaxisLabels();
 void DrawSettings();
@@ -2042,6 +2043,7 @@ void wait_touch()
 
 void CalculateMarkers()
 {
+  int i;
   int maxy = 0;
   int xformaxy = 0;
   int xsum = 0;
@@ -3096,6 +3098,7 @@ void RedrawDisplay()
 
 void *WaitButtonEvent(void * arg)
 {
+  int i;
   int  rawPressure;
 
   for (;;)
@@ -3206,7 +3209,7 @@ void *WaitButtonEvent(void * arg)
         default:
           printf("Menu 1 Error\n");
       }
-      if(i != 8)
+      if ((i != 8) && (PortsdownExitRequested == true))
       {
         PortsdownExitRequested = false;
         Start_Highlights_Menu1();
@@ -5435,6 +5438,21 @@ void ShowStartFail()
 
   TextMid2(350, 350, "Unable to establish", &font_dejavu_sans_32);
   TextMid2(350, 275, "connection to server", &font_dejavu_sans_32);
+  TextMid2(350, 200, "      Re-trying      ", &font_dejavu_sans_32);
+}
+
+
+void ShowInternetFail()
+{
+  // Clear the background
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+
+  // Write the caption
+  setForeColour(255, 255, 255);                    // White text
+  setBackColour(0, 0, 0);                          // on Black
+
+  TextMid2(350, 350, "Unable to establish", &font_dejavu_sans_32);
+  TextMid2(350, 275, "connection to internet", &font_dejavu_sans_32);
   TextMid2(350, 200, "      Re-trying      ", &font_dejavu_sans_32);
 }
 
