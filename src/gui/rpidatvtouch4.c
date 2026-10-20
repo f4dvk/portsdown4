@@ -33589,6 +33589,7 @@ void Start_Highlights_Menu52()
   // Frequency
   int index;
   int NoButton;
+//  char Value[255];
 
   strcpy(MenuTitle[52], " Receive Frequency Selection Menu (52)");
 
@@ -33606,11 +33607,18 @@ void Start_Highlights_Menu52()
     AmendButtonStatus(ButtonNumber(52, NoButton), 1, FreqBtext, &Green);
 
     //Highlight the Current Button
-    if (strcmp(RXfreq[0], TabFreq[index]) == 0)
+    if (CallingMenu == 5)
     {
-      SelectInGroupOnMenu(52, 5, 9, NoButton, 1);
-      SelectInGroupOnMenu(52, 0, 3, NoButton, 1);
+      if (strcmp(RXfreq[0], TabFreq[index]) == 0)
+      {
+        SelectInGroupOnMenu(52, 5, 9, NoButton, 1);
+        SelectInGroupOnMenu(52, 0, 3, NoButton, 1);
+      }
     }
+//    else
+//    {
+//      GetConfigParam(PATH_RXPRESETS,"sstv_frequency",Value);
+//    }
   }
 }
 
