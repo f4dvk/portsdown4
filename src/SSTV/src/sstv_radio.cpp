@@ -179,6 +179,9 @@ namespace
     {0, ROW1_Y, BTN_W, BTN_H, "USB"}, {0, ROW1_Y, BTN_W, BTN_H, "LSB"},
     {0, ROW1_Y, BTN_W, BTN_H, "FM"} };
   s_button g_quit_button;
+  // Toujours visible (kiosque ou non), a cote du bouton Exit : bascule
+  // g_afc au clic (voir toggle_afc()).
+  s_button g_afc_button;
 
   void on_signal(int) { g_quit = 1; }
 
@@ -195,8 +198,10 @@ namespace
   {
     if (g_kiosk) {
       // Pas de boutons d'accord/mode : juste un petit "Exit" dans le
-      // bandeau d'info, en haut a droite.
+      // bandeau d'info, en haut a droite, et "AFC" juste a sa gauche
+      // (toujours visible, meme en kiosque -- voir toggle_afc()).
       g_quit_button = { screenXsize - 60 - 4, 2, 60, HEADER_H - 4, "Exit" };
+      g_afc_button = { g_quit_button.x - 60 - 4, 2, 60, HEADER_H - 4, "AFC" };
       return;
     }
 
@@ -206,6 +211,9 @@ namespace
     int freq_right = x - BTN_GAP;
 
     g_quit_button = { screenXsize - BTN_W - 4, ROW1_Y, BTN_W, BTN_H, "Quit" };
+    // Bandeau d'info (ligne de boutons d'accord/mode en dessous, inutilisee
+    // ici) : meme emplacement que son equivalent en mode kiosque.
+    g_afc_button = { screenXsize - 60 - 4, 2, 60, HEADER_H - 4, "AFC" };
 
     int mode_total_w = 3 * BTN_W + 2 * BTN_GAP;
     int available_w = g_quit_button.x - freq_right;
@@ -381,6 +389,9 @@ namespace
       for (auto& b : g_freq_buttons) draw_button(b, false, COL_BTN_BG);
       for (auto& b : g_mode_buttons) draw_button(b, b.label == g_mode, COL_BTN_BG);
     }
+    // AFC : toujours visible (kiosque ou non), colore en vert (COL_BTN_ACTIVE,
+    // meme convention que les boutons de mode actifs) quand active.
+    draw_button(g_afc_button, g_afc, COL_BTN_BG);
     draw_button(g_quit_button, false, COL_QUIT_BG);
   }
 
@@ -515,7 +526,25 @@ namespace
     g_freq += delta;
     if (g_freq < 0) g_freq = 0;
     g_afc_offset_hz = 0.0; // re-accord materiel : l'ancien decalage AFC n'a plus de sens (voir set_freq() cote common_rx.py)
+    // Un reglage manuel de la frequence (bouton d'accord ou clic sur la
+    // cascade, voir handle_touch_point()) coupe l'AFC : les deux
+    // entreraient sinon en conflit (l'AFC "corrigerait" aussitot la
+    // frequence choisie a la main).
+    g_afc = false;
     send_control("FREQ %lld", g_freq);
+    draw_header();
+  }
+
+  // Bascule l'AFC au clic sur le bouton dedie (voir layout_buttons()).
+  // Remet a zero le decalage NCO en cours en la desactivant (retour a la
+  // frequence materielle g_freq, sans correction residuelle).
+  void toggle_afc()
+  {
+    g_afc = !g_afc;
+    if (!g_afc) {
+      g_afc_offset_hz = 0.0;
+      send_control("AFC %f", g_afc_offset_hz);
+    }
     draw_header();
   }
 
@@ -697,6 +726,21 @@ namespace
   void handle_touch_point(int tx, int ty)
   {
     if (hit(g_quit_button, tx, ty)) { g_quit = 1; return; }
+    // AFC et clic sur le spectre/cascade : actifs meme en mode kiosque
+    // (contrairement aux boutons d'accord/mode ci-dessous), l'utilisateur
+    // doit pouvoir les utiliser sur une station laissee en reception fixe.
+    if (hit(g_afc_button, tx, ty)) { toggle_afc(); return; }
+    if (ty >= SPECTRUM_Y && ty < SPECTRUM_Y + SPECTRUM_H && tx >= 0 && tx < screenXsize) {
+      // Meme correspondance x -> frequence que l'affichage (shifted_bin,
+      // sans le repliement de tableau) : x=0 la plus basse frequence du
+      // spectre affiche, x=screenXsize/2 la frequence accordee, x=screenXsize
+      // la plus haute.
+      int shifted_index = tx * FFT_SIZE / screenXsize;
+      int offset_bins = shifted_index - FFT_SIZE / 2;
+      double hz_per_bin = 32000.0 / FFT_SIZE; // IF_RATE/FFT_SIZE, voir common_rx.py
+      adjust_freq((int)(offset_bins * hz_per_bin)); // desactive aussi l'AFC (voir adjust_freq())
+      return;
+    }
     if (g_kiosk) return; // pas de boutons d'accord/mode a tester
     for (int i = 0; i < 4; ++i)
       if (hit(g_freq_buttons[i], tx, ty)) { adjust_freq(g_freq_deltas[i]); return; }
