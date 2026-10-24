@@ -1,3 +1,6 @@
+202610240
+SSTV correction tactile
+
 202610200
 SSTV, desactivation AFC via bouton
 SSTV, clic sur waterfall
