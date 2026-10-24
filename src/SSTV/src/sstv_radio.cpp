@@ -54,6 +54,15 @@ namespace
   // Tous les boutons (accord + mode + quitter) tiennent sur une seule
   // ligne, pour laisser le plus de place possible a l'image SSTV en dessous.
   const int BTN_W = 70, BTN_H = 28, BTN_GAP = 4;
+  // Boutons AFC et Exit (kiosque) : taille des boutons Langstone (100x50,
+  // libelle en taille 2, voir displayButton() de Langstone), dans la marge
+  // droite de la zone image -- inutilisee, les images etant centrees et
+  // plus etroites que l'ecran (Scottie 320 px, PD120 reduite ~433 px sur
+  // 800) -- a EDGE_MARGIN des bords. SIDE_RESERVED est retire de chaque
+  // cote de la largeur disponible pour l'image (voir image_write_line()),
+  // pour qu'une image ne passe jamais sous un bouton.
+  const int BIG_BTN_W = 100, BIG_BTN_H = 50, EDGE_MARGIN = 20;
+  const int SIDE_RESERVED = EDGE_MARGIN + BIG_BTN_W + 10;
   const int HEADER_H = 22; // bandeau d'info (SDR/freq/mode), toujours affiche
   int ROW1_Y = HEADER_H + 2; // ligne de boutons d'accord/mode -- absente en mode kiosque
   // Trace spectrale (ligne, type Langstone) + cascade/waterfall en dessous,
@@ -111,7 +120,7 @@ namespace
   volatile sig_atomic_t g_quit = 0;
   bool g_touch_present = false;
   // Mode kiosque (--kiosk) : masque les boutons d'accord/mode (reglages
-  // fixes en ligne de commande), ne garde qu'un petit bouton "Exit" --
+  // fixes en ligne de commande), ne garde que les boutons AFC et Exit --
   // utile sur une station laissee en reception fixe, pour eviter qu'un
   // appui accidentel sur l'ecran tactile ne change la frequence ou le mode.
   bool g_kiosk = false;
@@ -175,7 +184,7 @@ namespace
   // chaque nouvelle trame (defilement).
   float g_waterfall[WATERFALL_ROWS][FFT_SIZE];
 
-  struct s_button { int x, y, w, h; std::string label; };
+  struct s_button { int x, y, w, h; std::string label; int text_size = 1; };
   s_button g_freq_buttons[4] = {
     {0, ROW1_Y, BTN_W, BTN_H, "-1k"}, {0, ROW1_Y, BTN_W, BTN_H, "-100"},
     {0, ROW1_Y, BTN_W, BTN_H, "+100"}, {0, ROW1_Y, BTN_W, BTN_H, "+1k"} };
@@ -201,12 +210,15 @@ namespace
 
   void layout_buttons()
   {
+    // Colonne droite de la zone image (voir BIG_BTN_W/SIDE_RESERVED) : AFC
+    // en haut, Exit (kiosque) en bas -- eloignes l'un de l'autre pour ne
+    // pas quitter par erreur en voulant basculer l'AFC.
+    const int col_x = screenXsize - EDGE_MARGIN - BIG_BTN_W;
+    g_afc_button = { col_x, IMAGE_TOP + EDGE_MARGIN / 2, BIG_BTN_W, BIG_BTN_H, "AFC", 2 };
+
     if (g_kiosk) {
-      // Pas de boutons d'accord/mode : juste un petit "Exit" dans le
-      // bandeau d'info, en haut a droite, et "AFC" juste a sa gauche
-      // (toujours visible, meme en kiosque -- voir toggle_afc()).
-      g_quit_button = { screenXsize - 60 - 4, 2, 60, HEADER_H - 4, "Exit" };
-      g_afc_button = { g_quit_button.x - 60 - 4, 2, 60, HEADER_H - 4, "AFC" };
+      // Pas de boutons d'accord/mode : juste Exit, en bas de la colonne.
+      g_quit_button = { col_x, screenYsize - EDGE_MARGIN - BIG_BTN_H, BIG_BTN_W, BIG_BTN_H, "Exit", 2 };
       return;
     }
 
@@ -216,9 +228,6 @@ namespace
     int freq_right = x - BTN_GAP;
 
     g_quit_button = { screenXsize - BTN_W - 4, ROW1_Y, BTN_W, BTN_H, "Quit" };
-    // Bandeau d'info (ligne de boutons d'accord/mode en dessous, inutilisee
-    // ici) : meme emplacement que son equivalent en mode kiosque.
-    g_afc_button = { screenXsize - 60 - 4, 2, 60, HEADER_H - 4, "AFC" };
 
     int mode_total_w = 3 * BTN_W + 2 * BTN_GAP;
     int available_w = g_quit_button.x - freq_right;
@@ -324,25 +333,26 @@ namespace
     fill_rect(b.x, b.y, b.w, b.h, bg[0], bg[1], bg[2]);
     const int* border = active ? COL_ACCENT : COL_BORDER;
     frame_rect(b.x, b.y, b.w, b.h, border[0], border[1], border[2]);
+    if (b.text_size > 1) // gros boutons (AFC/Exit) : bordure doublee, plus lisible
+      frame_rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, border[0], border[1], border[2]);
     setForeColour(COL_TEXT[0], COL_TEXT[1], COL_TEXT[2]);
     setBackColour(bg[0], bg[1], bg[2]);
-    textSize = 1;
-    int tx = b.x + (b.w - (int)b.label.size() * 8) / 2;
-    int ty = b.y + (b.h - 9) / 2;
+    textSize = b.text_size;
+    int tx = b.x + (b.w - (int)b.label.size() * 8 * b.text_size) / 2;
+    int ty = b.y + (b.h - 9 * b.text_size) / 2;
     gotoXY(tx, ty);
     displayStr((char*)b.label.c_str());
+    textSize = 1;
   }
 
   void draw_controls(); // voir plus bas -- redessine aussi depuis draw_header()
 
   // Redessine tout le bandeau d'info (0..HEADER_H), PUIS les boutons
-  // (draw_controls()) : en mode kiosque, le petit bouton "Exit" vit dans
-  // cette meme bande (voir layout_buttons()), donc tout redessin du
-  // bandeau sans ce deuxieme appel l'effacait durablement -- rencontre une
-  // premiere fois avec la synchro d'image (image_write_line()), puis a
-  // nouveau avec les corrections AFC (afc_update()) : les deux appellent
-  // draw_header(), les fusionner ici evite que ce bug ne revienne a chaque
-  // nouveau point d'appel futur.
+  // (draw_controls()) : les appelants de draw_header() viennent souvent
+  // d'effacer une zone ou vit un bouton (ex. image_write_line() efface la
+  // zone image, ou se trouvent AFC/Exit -- voir layout_buttons()) ; un
+  // oubli de redessin a deja fait disparaitre Exit deux fois. Les fusionner
+  // ici evite que ce bug ne revienne a chaque nouveau point d'appel.
   void draw_header()
   {
     fill_rect(0, 0, screenXsize, HEADER_H, COL_HEADER_BG[0], COL_HEADER_BG[1], COL_HEADER_BG[2]);
@@ -368,9 +378,8 @@ namespace
     // tentative en cours, voir update_sync_diag()) -- "-" si vraiment rien.
     snprintf(sstv_buf, sizeof(sstv_buf), "SSTV: %s",
              (g_sstv_mode != "-") ? g_sstv_mode.c_str() : g_sync_diag.c_str());
-    // Centre (pas aligne a droite) : en mode kiosque, le petit bouton
-    // "Exit" occupe le coin superieur droit du bandeau et masquait ce
-    // texte. Le centrage pur peut retomber trop pres du texte de gauche
+    // Centre (pas aligne a droite, ou un ancien petit bouton "Exit" le
+    // masquait). Le centrage pur peut retomber trop pres du texte de gauche
     // (SDR/Freq/Mode, de longueur variable) : on decale alors vers la
     // droite plutot que de simplement masquer le texte -- l'ancienne
     // version exigeait 20 px de marge par rapport au centrage calcule et
@@ -703,6 +712,7 @@ namespace
         // donnees, efface le message "Connexion..." de la zone image.
         g_sdr_connecting = false;
         fill_rect(0, IMAGE_TOP, screenXsize, screenYsize - IMAGE_TOP, COL_BG[0], COL_BG[1], COL_BG[2]);
+        draw_controls(); // AFC/Exit vivent dans la zone image, effaces juste au-dessus
       }
       if (g_afc) afc_update();
     }
@@ -912,8 +922,14 @@ namespace
         // IMAGE_TOP est reservee (bandeau/spectre) et ne doit pas etre
         // ecrasee par l'image.
         int avail_h = screenYsize - IMAGE_TOP;
+        // Largeur : on retire de chaque cote la colonne des boutons AFC/Exit
+        // (SIDE_RESERVED) -- l'image reste centree sans jamais passer sous
+        // un bouton. Sans effet sur les modes actuels en 800x480 (Scottie
+        // 320 px, PD120 deja reduite en hauteur a ~433 px, pour 540 dispo).
+        int avail_w = screenXsize - 2 * SIDE_RESERVED;
+        if (avail_w < screenXsize / 2) avail_w = screenXsize / 2; // petits ecrans : rester lisible
         m_scale = 1.0;
-        if (width > screenXsize) m_scale = std::min(m_scale, (double)screenXsize / width);
+        if (width > avail_w) m_scale = std::min(m_scale, (double)avail_w / width);
         if (height > avail_h) m_scale = std::min(m_scale, (double)avail_h / height);
         int scaled_w = (int)(width * m_scale);
         int scaled_h = (int)(height * m_scale);
@@ -1164,7 +1180,7 @@ namespace
       "          [--fb peripherique] [--touch peripherique] [--geom LxHxBPP] [--kiosk] [--web] [--afc]\n"
       "Sans --sdr : un menu de selection tactile s'affiche (necessite --touch).\n"
       "--kiosk : masque les boutons d'accord/mode (reglages figes par la ligne de\n"
-      "          commande), ne garde qu'un petit bouton \"Exit\".\n"
+      "          commande), ne garde que les boutons AFC et Exit.\n"
       "--web : force l'activation de la commande web Portsdown4 (port 2005),\n"
       "        meme sans portsdown_config.txt (webcontrol=enabled).\n"
       "--afc : recentre automatiquement la frequence sur le pic du spectre\n"
