@@ -98,8 +98,10 @@ namespace
     if (g_touch_present) {
       int t = getTouch();
       if (t == 1) { // debut d'appui
-        if (touchX >= g_quit_btn_x && touchX <= g_quit_btn_x + BUTTON_W &&
-            touchY >= g_quit_btn_y && touchY <= g_quit_btn_y + BUTTON_H) {
+        int sx, sy;
+        touchToScreen(screenXsize, screenYsize, &sx, &sy); // plage du controleur -> pixels ecran
+        if (sx >= g_quit_btn_x && sx <= g_quit_btn_x + BUTTON_W &&
+            sy >= g_quit_btn_y && sy <= g_quit_btn_y + BUTTON_H) {
           g_quit = 1;
         }
       }

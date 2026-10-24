@@ -805,7 +805,11 @@ namespace
     if (!g_touch_present) return;
     int t = getTouch();
     if (t != 1) return; // debut d'appui uniquement
-    handle_touch_point(touchX, touchY);
+    // Clic web (ci-dessus) : deja en pixels ecran. Tactile physique :
+    // plage du controleur ramenee a l'ecran (voir touchToScreen()).
+    int sx, sy;
+    touchToScreen(screenXsize, screenYsize, &sx, &sy);
+    handle_touch_point(sx, sy);
   }
 
   void rgb565_to_rgb(uint16_t v, uint8_t& r, uint8_t& g, uint8_t& b)
@@ -1138,8 +1142,10 @@ namespace
       if (g_touch_present) {
         int t = getTouch();
         if (t == 1) {
+          int sx, sy;
+          touchToScreen(screenXsize, screenYsize, &sx, &sy);
           for (size_t i = 0; i < buttons.size(); ++i)
-            if (hit(buttons[i], touchX, touchY)) return items[i].key;
+            if (hit(buttons[i], sx, sy)) return items[i].key;
         }
       }
       usleep(50000);

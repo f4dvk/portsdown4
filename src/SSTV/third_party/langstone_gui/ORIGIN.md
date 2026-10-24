@@ -30,6 +30,14 @@ sur `/dev/input/eventX`.
   succès (fonction C sans `return` sur le chemin normal). Un `return 0;` a
   été ajouté pour que RPI_SSTV puisse désactiver proprement le tactile si le
   périphérique indiqué ne s'ouvre pas, au lieu de le supposer actif.
+- `Touch.h` : `getTouch()` renvoie les coordonnées **brutes** du contrôleur
+  tactile, qui n'a pas forcément la résolution du framebuffer (écran
+  1024x600 forcé en 800x480, contrôleur résistif 0-4095...). `initTouch()`
+  lit maintenant la plage annoncée par le pilote (`EVIOCGABS(ABS_X/ABS_Y)`)
+  et `touchToScreen()` ramène la position brute en pixels écran — même
+  principe que `rpidatvtouch4.c` de Portsdown4 (`scaleXvalue =
+  (max-min)/wscreen`), avec l'origine en haut à gauche comme le
+  framebuffer. `touchX`/`touchY` restent bruts (comportement d'origine).
 - `Font.h` : recopié à l'identique (table de police bitmap, aucune
   modification).
 
