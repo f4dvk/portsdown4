@@ -1,0 +1,6 @@
+bin/*
+!bin/.gitkeep
+images/*.bmp
+images/*.png
+images/*.jpg
+!images/.gitkeep
