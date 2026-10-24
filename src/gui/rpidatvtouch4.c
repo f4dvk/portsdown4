@@ -732,6 +732,7 @@ static void cleanexit(int exit_code);
 static void scheduler_exit(int exit_code);
 void do_Langstone();
 void do_SSTVReceive();
+void do_SSTVView();
 void do_video_monitor(int button);
 void MonitorStop();
 void IPTSConfig(int NoButton);
@@ -18457,6 +18458,222 @@ void do_SSTVReceive()
 }
 
 
+// RX View button of Menu 58 (SSTV) : visualisation des images enregistrees
+// par le recepteur SSTV (sstv_radio, 10 au plus -- les plus anciennes sont
+// effacees). Meme technique que do_snapcheck() : image composee par
+// ImageMagick, affichee par fbi, ce qui marche aussi depuis la page web.
+// - Planche de miniatures (5 x 2, la plus recente en haut a gauche, date et
+//   heure sous chaque miniature) : toucher une miniature l'ouvre en plein
+//   ecran, le bouton Exit revient au Menu 58.
+// - Plein ecran : tiers gauche = image precedente, tiers droit = suivante,
+//   centre = retour a la planche.
+
+#define SSTV_IMAGE_DIR   "/home/pi/rpidatv/src/SSTV/images"
+#define SSTV_VIEW_MAX    10
+#define SSTV_GALLERY_JPG "/home/pi/tmp/sstv_gallery.jpg"
+#define SSTV_VIEW_JPG    "/home/pi/tmp/sstv_view.jpg"
+
+// Planche : cellules de 160 px de large (5 colonnes sur 800), miniature
+// 150 x 118 + cadre 1 px, puis 22 px pour la date ; 2 rangees.
+#define SSTV_CELL_W      160
+#define SSTV_ROW0_Y      46
+#define SSTV_ROW_PITCH   152
+
+// Liste les images, la plus recente en premier (noms horodates
+// sstv_AAAAMMJJ_HHMMSS_cc.bmp : l'ordre alphabetique inverse est l'ordre
+// chronologique inverse). Retourne leur nombre.
+static int SSTVListImages(char Files[SSTV_VIEW_MAX][255])
+{
+  FILE *fp;
+  int n = 0;
+
+  fp = popen("ls -1r " SSTV_IMAGE_DIR "/sstv_*.bmp 2>/dev/null", "r");
+  if (fp == NULL)
+  {
+    return 0;
+  }
+  while ((n < SSTV_VIEW_MAX) && (fgets(Files[n], 255, fp) != NULL))
+  {
+    Files[n][strcspn(Files[n], "\n")] = '\0';
+    if (strlen(Files[n]) > 0)
+    {
+      n++;
+    }
+  }
+  pclose(fp);
+  return n;
+}
+
+// Date et heure de reception tirees du nom du fichier : "JJ/MM HH:MM" pour
+// les miniatures, "JJ/MM/AAAA  HH:MM:SS" en plein ecran.
+static void SSTVImageDate(const char *path, char *out, int outlen, bool longformat)
+{
+  const char *b = strrchr(path, '/');
+  b = (b == NULL) ? path : b + 1;
+
+  if ((strlen(b) >= 20) && (strncmp(b, "sstv_", 5) == 0))
+  {
+    if (longformat)
+    {
+      snprintf(out, outlen, "%.2s/%.2s/%.4s  %.2s:%.2s:%.2s", b + 11, b + 9, b + 5, b + 14, b + 16, b + 18);
+    }
+    else
+    {
+      snprintf(out, outlen, "%.2s/%.2s %.2s:%.2s", b + 11, b + 9, b + 14, b + 16);
+    }
+  }
+  else
+  {
+    snprintf(out, outlen, "%s", b);
+  }
+}
+
+// Affiche une image 800x480 deja composee (fbi reste actif jusqu'au
+// prochain "killall fbi", comme dans do_snapcheck()).
+static void SSTVShowImage(const char *jpg)
+{
+  char fbicmd[511];
+
+  snprintf(fbicmd, sizeof(fbicmd), "sudo fbi -T 1 -noverbose -a %s >/dev/null 2>/dev/null", jpg);
+  system(fbicmd);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
+  UpdateWeb();
+}
+
+// Attend une touche (ecran, souris ou page web) et la ramene en pixels
+// ecran, origine en haut a gauche : TransformTouchMap() donne Y depuis le bas.
+static void SSTVWaitTouch(int *x, int *y)
+{
+  int rawX, rawY, rawPressure;
+
+  while (getTouchSample(&rawX, &rawY, &rawPressure) == 0)
+  {
+    usleep(100000);
+  }
+  system("sudo killall fbi >/dev/null 2>/dev/null");
+  TransformTouchMap(rawX, rawY);
+  *x = scaledX;
+  *y = hscreen - scaledY;
+}
+
+void do_SSTVView()
+{
+  char Files[SSTV_VIEW_MAX][255];
+  char cmd[4096];
+  char part[511];
+  char label[63];
+  int n, i, tx, ty, row, col;
+  int Selected = -1;            // -1 : planche de miniatures, sinon index affiche en plein ecran
+  bool GalleryBuilt = false;
+
+  n = SSTVListImages(Files);
+  if (n == 0)
+  {
+    MsgBox4("No SSTV image received yet", " ",
+            "Images are saved by RECEIVE", "Touch Screen to Continue");
+    wait_touch();
+    return;
+  }
+
+  while (true)
+  {
+    if (Selected < 0)           // Planche de miniatures
+    {
+      if (!GalleryBuilt)        // Composee une seule fois (1 a 2 s pour 10 images)
+      {
+        setForeColour(255, 255, 255);
+        setBackColour(0, 0, 0);
+        clearScreen();
+        TextMid2(wscreen / 2, hscreen / 2, "Loading SSTV images...", &font_dejavu_sans_32);
+        UpdateWeb();
+
+        snprintf(cmd, sizeof(cmd), "convert -size 800x480 xc:black -font FreeSans");
+        for (i = 0; i < n; i++)
+        {
+          SSTVImageDate(Files[i], label, sizeof(label), false);
+          snprintf(part, sizeof(part),
+                   " \\( %s -resize 150x118 -background black -gravity center -extent 150x118"
+                   " -bordercolor grey40 -border 1 -gravity south -splice 0x22"
+                   " -fill white -pointsize 16 -annotate +0+2 \"%s\" \\)"
+                   " -gravity NorthWest -geometry +%d+%d -composite",
+                   Files[i], label, (i % 5) * SSTV_CELL_W + 4, SSTV_ROW0_Y + (i / 5) * SSTV_ROW_PITCH);
+          strncat(cmd, part, sizeof(cmd) - strlen(cmd) - 1);
+        }
+        snprintf(part, sizeof(part),
+                 " -gravity NorthWest -fill white -pointsize 26 -annotate +12+6 \"SSTV Received Images (%d)\""
+                 " -fill grey70 -pointsize 20 -annotate +12+425 \"Touch an image to view it\""
+                 " -fill \"rgb(0,0,128)\" -draw \"rectangle 640,400 780,460\""
+                 " -fill white -pointsize 30 -annotate +681+412 \"Exit\""
+                 " -quality 90 " SSTV_GALLERY_JPG, n);
+        strncat(cmd, part, sizeof(cmd) - strlen(cmd) - 1);
+        system(cmd);
+        GalleryBuilt = true;
+      }
+
+      SSTVShowImage(SSTV_GALLERY_JPG);
+      SSTVWaitTouch(&tx, &ty);
+
+      if ((tx >= 630) && (ty >= 390))          // Exit (bouton 640,400 - 780,460)
+      {
+        break;
+      }
+      col = tx / SSTV_CELL_W;
+      row = -1;
+      if ((ty >= SSTV_ROW0_Y - 5) && (ty < SSTV_ROW0_Y + SSTV_ROW_PITCH))
+      {
+        row = 0;
+      }
+      else if ((ty >= SSTV_ROW0_Y + SSTV_ROW_PITCH) && (ty < SSTV_ROW0_Y + 2 * SSTV_ROW_PITCH))
+      {
+        row = 1;
+      }
+      if ((row >= 0) && (col >= 0) && (col < 5) && (row * 5 + col < n))
+      {
+        Selected = row * 5 + col;
+      }
+    }
+    else                        // Plein ecran
+    {
+      SSTVImageDate(Files[Selected], label, sizeof(label), true);
+      snprintf(cmd, sizeof(cmd),
+               "convert -size 800x480 xc:black -font FreeSans"
+               " \\( %s -resize 800x408 \\) -gravity North -geometry +0+34 -composite"
+               " -gravity NorthWest -fill white -pointsize 22 -annotate +12+4 \"SSTV  %d/%d   %s\""
+               " -fill \"rgb(0,0,64)\" -draw \"rectangle 0,444 799,479\""
+               " -fill white -pointsize 22 -gravity SouthWest -annotate +16+6 \"< Previous\""
+               " -gravity South -annotate +0+6 \"Back to list\""
+               " -gravity SouthEast -annotate +16+6 \"Next >\""
+               " -fill grey40 -draw \"line 266,446 266,477\" -draw \"line 533,446 533,477\""
+               " -quality 90 " SSTV_VIEW_JPG,
+               Files[Selected], Selected + 1, n, label);
+      system(cmd);
+
+      SSTVShowImage(SSTV_VIEW_JPG);
+      SSTVWaitTouch(&tx, &ty);
+
+      if (tx < wscreen / 3)                    // Precedente (plus recente)
+      {
+        Selected = (Selected + n - 1) % n;
+      }
+      else if (tx >= 2 * wscreen / 3)          // Suivante (plus ancienne)
+      {
+        Selected = (Selected + 1) % n;
+      }
+      else                                     // Retour a la planche
+      {
+        Selected = -1;
+      }
+    }
+  }
+
+  // Meme sortie que do_snapcheck()
+  system("sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/scripts/images/BATC_Black.png  >/dev/null 2>/dev/null");
+  UpdateWindow();
+  system("sudo killall fbi >/dev/null 2>/dev/null");
+}
+
+
 void do_video_monitor(int button)
 {
   char startCommand[255];
@@ -27364,7 +27581,12 @@ void waituntil(int w,int h)
           Start_Highlights_Menu5();    // Refresh button labels
           UpdateWindow();*/
           break;
-        case 4:
+        case 4:                                             // RX View
+          do_SSTVView();
+          setBackColour(0, 0, 0);
+          clearScreen();
+          Start_Highlights_Menu58();
+          UpdateWindow();
           break;
         case 5:
           break;
@@ -34219,7 +34441,7 @@ void Define_Menu58()
   //AddButtonStatus(button, " ", &Grey);
 
   button = CreateButton(58, 4);
-  //AddButtonStatus(button, "RX^View", &Blue);
+  AddButtonStatus(button, "RX^View", &Blue);
   AddButtonStatus(button, "RX^View", &Grey);
 
   // 2nd Row, Menu 58.
