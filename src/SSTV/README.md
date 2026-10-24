@@ -243,10 +243,12 @@ En USB/LSB, le filtre passe-bande est resserré à 500–2400 Hz (au lieu de
 SSTV) : le décodeur (`third_party/sstv_library/sstv_decoder.cpp`) n'utilise
 que 600–1000 Hz (référence de bruit), 1000–1400 Hz (synchro) et jusqu'à
 2300 Hz (pixels), donc couper le reste réduit le bruit sans toucher à ces
-bandes. Le décodeur SSTV lui-même (détection de synchro par seuil adaptatif
-au bruit ambiant) n'a pas été modifié : c'est du code amont éprouvé, et je
-n'ai pas de signal réel dégradé ici pour valider un réglage différent sans
-risque de régression.
+bandes. La détection de synchro du décodeur SSTV (seuil adaptatif au bruit
+ambiant) n'a pas été modifiée : c'est du code amont éprouvé, et je n'ai pas
+de signal réel dégradé ici pour valider un réglage différent sans risque de
+régression. Seuls ont été ajoutés des accesseurs en lecture (diagnostic de
+synchro) et le suivi de la dernière ligne confirmée par un top de synchro
+(`get_valid_rows()`), voir ci-dessous.
 
 Les fréquences d'exemple ci-dessus sont des usages réels : 14.230 MHz USB
 (20 m), 7.171 MHz LSB (40 m), 145.800 MHz FM (SSTV depuis l'ISS).
@@ -267,6 +269,13 @@ L'image se dessine ligne par ligne pendant le décodage, une copie BMP est
 l'image reste affichée jusqu'à ce qu'un nouveau signal soit synchronisé.
 `Ctrl+C`, ou le bouton tactile "Quitter" si `--touch` est utilisé, arrêtent
 proprement le programme.
+
+Le décodeur a besoin de 3 tops de synchro pour se verrouiller : il démarre
+donc quelques lignes après le début de l'émission, et la fin de l'image tombe
+après la fin de l'émission. Les lignes décodées après le dernier top valide
+(fin d'émission, signal perdu) ne sont que du bruit : elles sont retirées de
+l'image enregistrée et effacées de l'écran, l'image BMP prenant la hauteur
+réellement reçue (ex : 253 lignes au lieu de 256 en Scottie S1).
 
 Fichiers de test fournis :
 

@@ -12,6 +12,7 @@ class c_bmp_writer
   void change_width(uint16_t width);
   void change_height(uint16_t height);
   void update_header();
+  void truncate_rows(uint16_t rows);
 
   private:
   uint16_t m_width;
@@ -25,6 +26,9 @@ class c_bmp_writer
   virtual void file_close()=0;
   virtual void file_write(const void* data, uint32_t element_size, uint32_t num_elements)=0;
   virtual void file_seek(uint32_t offset)=0;
+  // Raccourcit le fichier a 'size' octets (voir truncate_rows()). Sans effet
+  // par defaut, pour les supports qui ne savent pas le faire.
+  virtual void file_truncate(uint32_t size) { (void)size; }
 
 };
 

@@ -120,6 +120,7 @@ namespace
     bool m_origin_set = false;
     int m_origin_x = 0;
     int m_origin_y = 0;
+    int m_scaled_w = 0;
     double m_scale = 1.0;
 
     int16_t get_audio_sample() override { return m_source.read_sample(); }
@@ -156,6 +157,7 @@ namespace
         m_origin_x = (screenXsize - scaled_w) / 2;
         m_origin_y = HEADER_HEIGHT + (avail_h - scaled_h) / 2;
         if (m_origin_y < HEADER_HEIGHT) m_origin_y = HEADER_HEIGHT;
+        m_scaled_w = scaled_w;
         m_origin_set = true;
         set_status(std::string("Decodage : ") + mode_name);
       }
@@ -191,12 +193,24 @@ namespace
         if ((++n & 0x3FF) == 0) poll_ui();
       }
 
+      // Lignes decodees apres le dernier top de synchro valide (fin
+      // d'emission, signal perdu) : du bruit, retire du fichier et de
+      // l'ecran (voir get_valid_rows()).
+      const uint32_t kept = std::min<uint32_t>(m_lines_written, get_valid_rows());
+      if (kept < m_lines_written && m_origin_set) {
+        // A echelle reduite plusieurs lignes tombent sur la meme ligne
+        // ecran : on part de celle qui suit la derniere ligne gardee.
+        int top = kept > 0 ? m_origin_y + (int)((kept - 1) * m_scale) + 1 : m_origin_y;
+        int bottom = m_origin_y + (int)((m_lines_written - 1) * m_scale) + 1;
+        if (bottom > top) clear_rect(m_origin_x, top, m_scaled_w, bottom - top, 0, 0, 0);
+      }
+      bmp.truncate_rows(kept);
       bmp.update_header();
       bmp.close();
       m_bmp = nullptr;
 
       mode_out = m_mode_name;
-      return m_lines_written > 0;
+      return kept > 0;
     }
   };
 

@@ -6,6 +6,7 @@
 
 #include "../third_party/sstv_library/bmp_lib.h"
 #include <cstdio>
+#include <unistd.h>
 
 class c_bmp_writer_stdio : public c_bmp_writer
 {
@@ -21,6 +22,11 @@ class c_bmp_writer_stdio : public c_bmp_writer
   void file_write(const void* data, uint32_t element_size, uint32_t num_elements) override
   {
     fwrite(data, element_size, num_elements, f);
+  }
+  void file_truncate(uint32_t size) override
+  {
+    fflush(f);
+    if (ftruncate(fileno(f), size) != 0) { /* fichier laisse tel quel : en-tete quand meme a jour */ }
   }
 };
 

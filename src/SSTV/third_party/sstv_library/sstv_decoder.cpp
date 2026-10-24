@@ -743,6 +743,7 @@ void c_sstv_decoder :: decode_sample(uint16_t magnitude, uint16_t frequency, uin
         pixel_n = 0;
         last_x = 0;
         m_image_sample = 0;
+        m_valid_rows = 0;
         sync_timeout = m_timeout;
       } else {
         confirm_count++;
@@ -790,6 +791,21 @@ void c_sstv_decoder :: decode_sample(uint16_t magnitude, uint16_t frequency, uin
       if (line_length > (99 * modes[decode_mode].samples_per_line) / (100 * m_scale) &&
           line_length < (101 * modes[decode_mode].samples_per_line) / (100 * m_scale)) {
         sync_timeout = m_timeout; // reset timeout on each good sync pulse
+        // Ligne couverte par ce top (voir get_valid_rows()) : celle dont les
+        // donnees suivent immediatement le top et son palier -- la ligne
+        // suivante quand le top ouvre la ligne (Martin, PD, Robot...), la
+        // ligne courante en Scottie (top entre le bleu et le rouge).
+        // sample_to_pixel() connait la geometrie de chaque mode.
+        {
+          uint16_t sx, sy;
+          uint8_t sc;
+          sample_to_pixel(sx, sy, sc, (int32_t)m_image_sample + (int32_t)modes[decode_mode].samples_per_hsync +
+                                          (int32_t)(m_scale * m_Fs * 3.0 / 1000.0));
+          const bool pd = decode_mode == pd_50 || decode_mode == pd_90 || decode_mode == pd_120 ||
+                          decode_mode == pd_180;
+          const uint16_t rows = (sy + 1) * (pd ? 2 : 1);
+          if (rows > m_valid_rows) m_valid_rows = rows;
+        }
         const uint32_t samples_since_confirmed = sample_number - confirmed_sync_sample;
         const uint16_t num_lines =
             round(1.0 * m_scale * samples_since_confirmed / modes[decode_mode].samples_per_line);

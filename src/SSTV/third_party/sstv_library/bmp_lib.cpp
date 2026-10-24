@@ -115,7 +115,21 @@ void c_bmp_writer :: update_header()
     file_write(&info_header, sizeof(info_header), 1);
 }
 
-void c_bmp_writer :: close() 
+//Ne garde que les 'rows' premieres lignes deja ecrites (au plus celles ecrites) : hauteur et taille du
+//fichier ajustees a ce qui reste, fichier raccourci. Sert a retirer les lignes de bruit decodees apres
+//la fin d'une emission, et donne aussi a une image interrompue la hauteur de ce qui a ete recu. A
+//appeler avant update_header().
+void c_bmp_writer :: truncate_rows(uint16_t rows)
+{
+    if (rows > m_y) rows = m_y;
+    m_y = rows;
+    m_height = rows;
+    m_image_size = m_width_padded * rows;
+    m_file_size = sizeof(BMPFileHeader) + sizeof(BMPInfoHeader) + m_image_size;
+    file_truncate(m_file_size);
+}
+
+void c_bmp_writer :: close()
 {
     file_close();
 }

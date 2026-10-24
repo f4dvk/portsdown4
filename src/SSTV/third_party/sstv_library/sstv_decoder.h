@@ -97,6 +97,7 @@ private:
   uint32_t m_timeout;
   bool m_image_open_flag = false;
   bool m_image_complete_flag = false;
+  uint16_t m_valid_rows = 0; // voir get_valid_rows()
   uint8_t m_line[640][5]; // array to contain seperate colour components of each decoded line
 
   void decode_sample(uint16_t magnitude, uint16_t frequency, uint16_t &pixel_y, uint16_t &pixel_x, uint8_t &pixel_colour, uint8_t &pixel, bool &pixel_complete, bool &line_complete, bool &image_complete);
@@ -137,6 +138,14 @@ public:
   {
     return (state != detect_sync) ? modes[decode_mode].mode_string : nullptr;
   }
+
+  // Nombre de lignes de l'image en cours (en lignes de sortie, 2 par top en
+  // PD) couvertes par le dernier top de synchro valide. Le verrouillage
+  // demandant 3 tops, le decodage demarre quelques lignes apres le debut de
+  // l'emission et la fin de l'image (max_height) tombe alors apres la fin de
+  // l'emission : les lignes au-dela de cette valeur ne sont que du bruit et
+  // peuvent etre retirees de l'image enregistree.
+  uint16_t get_valid_rows() const { return m_valid_rows; }
 };
 
 #endif

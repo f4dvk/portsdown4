@@ -890,7 +890,7 @@ namespace
     uint32_t m_lines_written = 0;
     std::string m_mode_name;
     bool m_origin_set = false;
-    int m_origin_x = 0, m_origin_y = 0;
+    int m_origin_x = 0, m_origin_y = 0, m_scaled_w = 0;
     double m_scale = 1.0;
     bool m_allow_replay;
     bool m_replay_requested = false;
@@ -941,6 +941,7 @@ namespace
         m_origin_x = (screenXsize - scaled_w) / 2;
         m_origin_y = IMAGE_TOP + (avail_h - scaled_h) / 2;
         if (m_origin_y < IMAGE_TOP) m_origin_y = IMAGE_TOP;
+        m_scaled_w = scaled_w;
         m_origin_set = true;
         // Coupe l'AFC tant qu'une image est en cours (voir afc_update()) :
         // meme un decalage NCO logiciel, sans glitch de relock PLL, reste
@@ -1020,6 +1021,19 @@ namespace
         if ((++n & 0x3FF) == 0) { poll_ui(); update_sync_diag(); }
       }
 
+      // Lignes decodees apres le dernier top de synchro valide (fin
+      // d'emission, signal perdu) : du bruit, retire du fichier et de
+      // l'ecran (voir get_valid_rows()).
+      const uint32_t kept = std::min<uint32_t>(m_lines_written, get_valid_rows());
+      if (kept < m_lines_written && m_origin_set) {
+        // A echelle reduite plusieurs lignes tombent sur la meme ligne
+        // ecran : on part de celle qui suit la derniere ligne gardee.
+        int top = kept > 0 ? m_origin_y + (int)((kept - 1) * m_scale) + 1 : m_origin_y;
+        int bottom = m_origin_y + (int)((m_lines_written - 1) * m_scale) + 1;
+        if (bottom > top)
+          fill_rect(m_origin_x, top, m_scaled_w, bottom - top, COL_BG[0], COL_BG[1], COL_BG[2]);
+      }
+      bmp.truncate_rows(kept);
       bmp.update_header();
       bmp.close();
       m_bmp = nullptr;
@@ -1028,7 +1042,7 @@ namespace
       // Fin de cette tentative (image complete, perdue ou interrompue) :
       // on retablit l'ecoute pour la prochaine attente de signal.
       send_control("MUTE 0");
-      return m_lines_written > 0;
+      return kept > 0;
     }
   };
 

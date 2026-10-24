@@ -76,12 +76,17 @@ namespace
 
       decode_image(timeout_s, true);
 
+      // Lignes decodees apres le dernier top de synchro valide (fin
+      // d'emission, signal perdu) : du bruit, retire de l'image (voir
+      // get_valid_rows()).
+      const uint32_t kept = m_lines_written < get_valid_rows() ? m_lines_written : get_valid_rows();
+      bmp.truncate_rows(kept);
       bmp.update_header();
       bmp.close();
       m_bmp = nullptr;
 
       mode_out = m_mode_name;
-      return m_lines_written > 0;
+      return kept > 0;
     }
   };
 
