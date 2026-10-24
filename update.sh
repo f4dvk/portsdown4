@@ -92,6 +92,28 @@ sudo killall keyedstream >/dev/null 2>/dev/null
 sudo killall keyedtx >/dev/null 2>/dev/null
 sudo killall ffmpeg >/dev/null 2>/dev/null
 
+# Mise a jour lancee a la main (SSH...) alors que Portsdown tourne sur la
+# console : scheduler.sh, source dans le shell de connexion de tty1, relance
+# un programme des que celui en cours s'arrete. Le "killall -9 rpidatvgui"
+# plus bas sortait avec le code 137 (128 + SIGKILL), que scheduler.sh prenait
+# pour une demande de Power Meter : celui-ci restait affiche pendant toute la
+# mise a jour, et la copie du nouveau power_meter (binaire en cours
+# d'execution) echouait. On arrete donc la console Portsdown avant de copier
+# ou compiler quoi que ce soit : getty d'abord (il relance aussitot une
+# connexion automatique, donc Portsdown), puis le shell du scheduler avant
+# ses programmes. La mise a jour se termine par un redemarrage, qui relance
+# tout normalement.
+# Lancee depuis le menu (scheduler.sh, code 132), la mise a jour tourne sur
+# tty1 et le menu est deja arrete : rien a faire.
+if [ "$(ps -o tty= -p $$ | tr -d ' ')" != "tty1" ]; then
+  printf "Stopping Portsdown on the console (tty1).\n\n"
+  sudo systemctl stop getty@tty1.service >/dev/null 2>/dev/null
+  sudo pkill -9 -t tty1 -x bash >/dev/null 2>/dev/null
+  sudo pkill -9 -t tty1 >/dev/null 2>/dev/null
+  sleep 1
+  sudo pkill -9 -t tty1 >/dev/null 2>/dev/null
+fi
+
 DisplayUpdateMsg "Step 3 of 10\nSaving Current Config\n\nXXX-------"
 
 PATHSCRIPT="/home/pi/rpidatv/scripts"

@@ -234,6 +234,31 @@ case "$MODE_STARTUP" in
   ;;
 esac
 
+# Un programme tue par un signal sort avec 128 + numero du signal, qui
+# retombe sur les codes ci-dessous : kill -9 (update.sh, manque de memoire)
+# = 137 = Power Meter, plantage SIGSEGV = 139 = Sweeper, SIGABRT = 134 =
+# XY Display... rpidatvgui note donc dans GUI_EXIT_REQUEST le code qu'il
+# demande avant de quitter (scheduler_exit() dans rpidatvtouch4.c). Un code
+# superieur a 129 (129 relance deja le menu) qu'il n'a pas demande est un
+# arret par signal : on relance simplement le menu au lieu de lancer
+# l'application correspondante.
+# Un rpidatvgui plus ancien (compilation ratee pendant une mise a jour...)
+# n'ecrit pas ce fichier : la verification n'est faite que si le binaire
+# connait GUI_EXIT_REQUEST, sinon aucune application ne se lancerait plus.
+GUI_EXIT_REQUEST=/tmp/rpidatvgui_exit_request
+rm -f "$GUI_EXIT_REQUEST"
+
+gui_exit_check()
+{
+  if [ "$GUI_RETURN_CODE" -gt 129 ] \
+     && grep -q "$GUI_EXIT_REQUEST" /home/pi/rpidatv/bin/rpidatvgui 2>/dev/null \
+     && [ "$(cat "$GUI_EXIT_REQUEST" 2>/dev/null)" != "$GUI_RETURN_CODE" ]; then
+    logger -t portsdown "rpidatvgui arrete par un signal (code $GUI_RETURN_CODE) : relance du menu"
+    GUI_RETURN_CODE=129
+  fi
+  rm -f "$GUI_EXIT_REQUEST"
+}
+
 # while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
 while true; do
 
@@ -247,6 +272,7 @@ while true; do
     0)
       /home/pi/rpidatv/bin/rpidatvgui > /tmp/PortsdownGUI.log 2>&1
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     128)
@@ -256,6 +282,7 @@ while true; do
     129)
       /home/pi/rpidatv/bin/rpidatvgui > /tmp/PortsdownGUI.log 2>&1
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     130)
@@ -644,31 +671,37 @@ while true; do
     198)
       /home/pi/rpidatv/bin/rpidatvgui -b rx   # Start Portsdown in RX mode
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     199)
       /home/pi/rpidatv/bin/rpidatvgui -b tx   # Start Portsdown in TX mode
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     200)
       /home/pi/rpidatv/bin/rpidatvgui -b 57   # Start Portsdown Sarsat Menu
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     207)
       /home/pi/rpidatv/bin/rpidatvgui -b 7
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     208)
       /home/pi/rpidatv/bin/rpidatvgui -b 8
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     *)
       /home/pi/rpidatv/bin/rpidatvgui
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
   esac

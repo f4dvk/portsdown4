@@ -729,6 +729,7 @@ void rtl_tcp();
 void do_snap();
 void do_snapcheck();
 static void cleanexit(int exit_code);
+static void scheduler_exit(int exit_code);
 void do_Langstone();
 void do_SSTVReceive();
 void do_video_monitor(int button);
@@ -1942,7 +1943,7 @@ void ExecuteUpdate(int NoButton)
       strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");
       system(LinuxCommand);
       system("reset");
-      exit(132);  // Pass control back to scheduler
+      scheduler_exit(132);  // Pass control back to scheduler
     }
     break;
   case 6:
@@ -1976,7 +1977,7 @@ void ExecuteUpdate(int NoButton)
       strcpy(LinuxCommand, "chmod +x /home/pi/update.sh");
       system(LinuxCommand);
       system("reset");
-      exit(133);  // Pass control back to scheduler for Dev Load
+      scheduler_exit(133);  // Pass control back to scheduler for Dev Load
     }
     break;
   default:
@@ -13273,7 +13274,7 @@ void *WaitButtonSnap(void * arg)
       printf("Leaving Delay\n");
       if (touch_response == 1) // count_time has elapsed and still no reponse
       {
-        exit(129);
+        scheduler_exit(129);
       }
       return NULL;
     }
@@ -13364,7 +13365,7 @@ void *WaitButtonLMRX(void * arg)
       {
         setBackColour(0, 0, 0);
         clearScreen();
-        exit(129);                 // Restart the GUI
+        scheduler_exit(129);       // Restart the GUI
       }
       return NULL;
     }
@@ -18300,6 +18301,23 @@ static void cleanexit(int exit_code)
   system(Commnd);
   sprintf(Commnd,"reset");
   system(Commnd);
+  scheduler_exit(exit_code);
+}
+
+
+// Quitte avec un code destine a scheduler.sh, en le notant d'abord dans
+// /tmp/rpidatvgui_exit_request : un arret par signal sort aussi avec un code
+// superieur a 128 (128 + numero du signal, kill -9 = 137 = Power Meter), et
+// scheduler.sh (gui_exit_check) ne lance l'application demandee que si le
+// code recu est bien celui note ici -- sinon il relance simplement le menu.
+static void scheduler_exit(int exit_code)
+{
+  FILE *fp = fopen("/tmp/rpidatvgui_exit_request", "w");
+  if (fp != NULL)
+  {
+    fprintf(fp, "%d\n", exit_code);
+    fclose(fp);
+  }
   exit(exit_code);
 }
 
@@ -34200,9 +34218,9 @@ void Define_Menu58()
   //AddButtonStatus(button, " ", &Blue);
   //AddButtonStatus(button, " ", &Grey);
 
-  //button = CreateButton(58, 4);
-  //AddButtonStatus(button, " ", &Blue);
-  //AddButtonStatus(button, " ", &Grey);
+  button = CreateButton(58, 4);
+  //AddButtonStatus(button, "RX^View", &Blue);
+  AddButtonStatus(button, "RX^View", &Grey);
 
   // 2nd Row, Menu 58.
 
@@ -34290,8 +34308,9 @@ void Define_Menu58()
   AddButtonStatus(button,"EXIT",&Green);
 
   button = CreateButton(58, 23);
-  AddButtonStatus(button,"Config",&Blue);
-  AddButtonStatus(button,"Config",&Green);
+  //AddButtonStatus(button,"Config",&Blue);
+  //AddButtonStatus(button,"Config",&Green);
+  AddButtonStatus(button,"Config",&Grey);
 }
 
 void Start_Highlights_Menu58()

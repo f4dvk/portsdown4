@@ -205,6 +205,22 @@ case "$MODE_STARTUP" in
   ;;
 esac
 
+# Arret de rpidatvgui par un signal (kill -9 = 137 = Power Meter...) : voir
+# le commentaire de gui_exit_check() dans scheduler.sh.
+GUI_EXIT_REQUEST=/tmp/rpidatvgui_exit_request
+rm -f "$GUI_EXIT_REQUEST"
+
+gui_exit_check()
+{
+  if [ "$GUI_RETURN_CODE" -gt 129 ] \
+     && grep -q "$GUI_EXIT_REQUEST" /home/pi/rpidatv/bin/rpidatvgui 2>/dev/null \
+     && [ "$(cat "$GUI_EXIT_REQUEST" 2>/dev/null)" != "$GUI_RETURN_CODE" ]; then
+    logger -t portsdown "rpidatvgui arrete par un signal (code $GUI_RETURN_CODE) : relance du menu"
+    GUI_RETURN_CODE=129
+  fi
+  rm -f "$GUI_EXIT_REQUEST"
+}
+
 while [ "$GUI_RETURN_CODE" -gt 90 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
 
   # Kill any process blocking port 2005
@@ -217,6 +233,7 @@ while [ "$GUI_RETURN_CODE" -gt 90 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
     0)
       /home/pi/rpidatv/bin/rpidatvgui
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     128)
@@ -226,6 +243,7 @@ while [ "$GUI_RETURN_CODE" -gt 90 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
     129)
       /home/pi/rpidatv/bin/rpidatvgui
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     130)
@@ -476,26 +494,31 @@ while [ "$GUI_RETURN_CODE" -gt 90 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
     198)
       /home/pi/rpidatv/bin/rpidatvgui -b rx   # Start Portsdown in RX mode
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     199)
       /home/pi/rpidatv/bin/rpidatvgui -b tx   # Start Portsdown in TX mode
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     207)
       /home/pi/rpidatv/bin/rpidatvgui -b 7
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     208)
       /home/pi/rpidatv/bin/rpidatvgui -b 8
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
     *)
       /home/pi/rpidatv/bin/rpidatvgui
       GUI_RETURN_CODE="$?"
+      gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null
     ;;
   esac
