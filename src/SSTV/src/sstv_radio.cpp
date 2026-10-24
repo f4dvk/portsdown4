@@ -55,10 +55,10 @@ namespace
   // ligne, pour laisser le plus de place possible a l'image SSTV en dessous.
   const int BTN_W = 70, BTN_H = 28, BTN_GAP = 4;
   // Boutons AFC et Exit (kiosque) : taille des boutons Langstone (100x50,
-  // libelle en taille 2, voir displayButton() de Langstone), dans la marge
-  // droite de la zone image -- inutilisee, les images etant centrees et
-  // plus etroites que l'ecran (Scottie 320 px, PD120 reduite ~433 px sur
-  // 800) -- a EDGE_MARGIN des bords. SIDE_RESERVED est retire de chaque
+  // libelle en taille 2, voir displayButton() de Langstone), dans les
+  // marges gauche et droite de la zone image -- inutilisees, les images etant
+  // centrees et plus etroites que l'ecran (Scottie 320 px, PD120 reduite
+  // ~433 px sur 800) -- a EDGE_MARGIN des bords. SIDE_RESERVED est retire de chaque
   // cote de la largeur disponible pour l'image (voir image_write_line()),
   // pour qu'une image ne passe jamais sous un bouton.
   const int BIG_BTN_W = 100, BIG_BTN_H = 50, EDGE_MARGIN = 20;
@@ -210,15 +210,16 @@ namespace
 
   void layout_buttons()
   {
-    // Colonne droite de la zone image (voir BIG_BTN_W/SIDE_RESERVED) : AFC
-    // en haut, Exit (kiosque) en bas -- eloignes l'un de l'autre pour ne
-    // pas quitter par erreur en voulant basculer l'AFC.
-    const int col_x = screenXsize - EDGE_MARGIN - BIG_BTN_W;
-    g_afc_button = { col_x, IMAGE_TOP + EDGE_MARGIN / 2, BIG_BTN_W, BIG_BTN_H, "AFC", 2 };
+    // Marges de la zone image (voir BIG_BTN_W/SIDE_RESERVED), en bas : AFC
+    // a gauche, Exit (kiosque) a droite -- symetriques de part et d'autre de
+    // l'image, et eloignes l'un de l'autre pour ne pas quitter par erreur en
+    // voulant basculer l'AFC.
+    const int bottom_y = screenYsize - EDGE_MARGIN - BIG_BTN_H;
+    g_afc_button = { EDGE_MARGIN, bottom_y, BIG_BTN_W, BIG_BTN_H, "AFC", 2 };
 
     if (g_kiosk) {
-      // Pas de boutons d'accord/mode : juste Exit, en bas de la colonne.
-      g_quit_button = { col_x, screenYsize - EDGE_MARGIN - BIG_BTN_H, BIG_BTN_W, BIG_BTN_H, "Exit", 2 };
+      // Pas de boutons d'accord/mode : juste Exit, en bas a droite.
+      g_quit_button = { screenXsize - EDGE_MARGIN - BIG_BTN_W, bottom_y, BIG_BTN_W, BIG_BTN_H, "Exit", 2 };
       return;
     }
 
@@ -922,7 +923,7 @@ namespace
         // IMAGE_TOP est reservee (bandeau/spectre) et ne doit pas etre
         // ecrasee par l'image.
         int avail_h = screenYsize - IMAGE_TOP;
-        // Largeur : on retire de chaque cote la colonne des boutons AFC/Exit
+        // Largeur : on retire de chaque cote la marge des boutons AFC/Exit
         // (SIDE_RESERVED) -- l'image reste centree sans jamais passer sous
         // un bouton. Sans effet sur les modes actuels en 800x480 (Scottie
         // 320 px, PD120 deja reduite en hauteur a ~433 px, pour 540 dispo).
