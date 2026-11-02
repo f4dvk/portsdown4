@@ -443,11 +443,11 @@ char flip[15] = "disabled";            // disabled, enabled, forced, half-flip
 char G5500piAddress[31] = "192.168.2.140:8008";
 char HamLibDevice[31] = "/dev/ttyUSB2";
 char HamLibModel[31] = "603";
-char HamLibBaud[7] = "9600";
+char HamLibBaud[15] = "9600";  // GetConfigParam() copie aussi le \n final : "115200\n" + 0 = 8 octets
 bool ISS_thread_running = false;       // Used to prevent multiple threads
 
 // GPIO
-char Gpio[4] = "on";
+char Gpio[15] = "on";          // "off\n" + 0 = 5 octets : [4] debordait sur la variable suivante
 
 //////////////////// USB ///////////////////
 char USB[8];            // Sirene USB Sarsat
@@ -13943,17 +13943,22 @@ void checkTunerSettings()
   }
 }
 
-// Metadonnees du flux recu publiees par leandvb sur --fd-info (fournisseur,
-// service, codecs, modulation et FEC), comme l'etat de LongMynd : voir
-// leansdr/tsmeta.h et s2_modcod_printer dans leandvb.cc.
+// Informations de reception publiees par leandvb sur --fd-info : en plus
+// de LOCK/SS/MER, les metadonnees du flux (fournisseur, service, codecs,
+// bourrage, MODCOD -- comme l'etat de LongMynd, voir leansdr/tsmeta.h et
+// s2_modcod_printer dans leandvb.cc) et ses parametres de depart
+// (STANDARD, SR, CONSTELLATION, CR).
 typedef struct
 {
+  char Standard[15];           // DVB-S, DVB-S2
+  char SymbolRate[15];         // En kS, ex. "125"
   char Provider[63];
   char Service[63];
   char Video[15];
   char Audio[15];
   char Constellation[15];
   char FEC[15];
+  char NullRatio[15];          // Paquets de bourrage (PID 0x1FFF), en %
 } leandvb_meta_t;
 
 // Texte UTF-8 vers ASCII affichable : les polices de l'ecran ne contiennent
@@ -14004,7 +14009,7 @@ static void LeandvbAscii(const char *in, char *out, int outlen)
 }
 
 // Analyse une ligne "ETIQUETTE valeur" de leandvb sans la modifier.
-// Retourne 1 si elle portait une metadonnee, 0 sinon.
+// Retourne 1 si elle portait une information retenue ici, 0 sinon.
 static int LeandvbParseMeta(const char *line, leandvb_meta_t *meta)
 {
   char tag[20];
@@ -14034,6 +14039,7 @@ static int LeandvbParseMeta(const char *line, leandvb_meta_t *meta)
       meta->Service[0] = '\0';
       meta->Video[0] = '\0';
       meta->Audio[0] = '\0';
+      meta->NullRatio[0] = '\0';
     }
   }
   else if (strcmp(tag, "SERVICE") == 0)
@@ -14056,6 +14062,18 @@ static int LeandvbParseMeta(const char *line, leandvb_meta_t *meta)
   {
     LeandvbAscii(value, meta->FEC, sizeof(meta->FEC));
   }
+  else if (strcmp(tag, "NULL_RATIO") == 0)
+  {
+    LeandvbAscii(value, meta->NullRatio, sizeof(meta->NullRatio));
+  }
+  else if (strcmp(tag, "STANDARD") == 0)
+  {
+    LeandvbAscii(value, meta->Standard, sizeof(meta->Standard));
+  }
+  else if (strcmp(tag, "SR") == 0)   // En symboles/s : "125000.000000"
+  {
+    snprintf(meta->SymbolRate, sizeof(meta->SymbolRate), "%.0f", atof(value) / 1000.0);
+  }
   else
   {
     return 0;
@@ -14063,37 +14081,113 @@ static int LeandvbParseMeta(const char *line, leandvb_meta_t *meta)
   return 1;
 }
 
-// Codecs et modulation en une ligne chacun, ex. "H264 MPA" et "8PSK 2/3".
-static void LeandvbMetaLines(const leandvb_meta_t *meta, char *encoding, char *modulation, int len)
-{
-  snprintf(encoding, len, "%s%s%s", meta->Video,
-           ((strlen(meta->Video) > 0) && (strlen(meta->Audio) > 0)) ? " " : "", meta->Audio);
-  snprintf(modulation, len, "%s%s%s", meta->Constellation,
-           ((strlen(meta->Constellation) > 0) && (strlen(meta->FEC) > 0)) ? " " : "", meta->FEC);
-}
+// Lignes d'information "Libelle: valeur", dans le meme ordre et le meme
+// format a l'ecran et dans le texte superpose a l'image VLC. Une valeur
+// vide (pas encore recue) laisse la ligne vide.
+#define LEANDVB_INFO_ROWS 9
+static const char *LeandvbInfoLabels[LEANDVB_INFO_ROWS] =
+  {"Status", "Provider", "Service", "Mode", "SR", "Codecs", "SS", "MER", "Null"};
 
-// Affiche les metadonnees sur les lignes libres de l'ecran de reception,
-// autour de l'etat (ligne 1), de SS (ligne 5) et du MER (ligne 7) :
-// 2 fournisseur, 3 service, 4 codecs, 6 modulation et FEC.
-static void LeandvbShowMeta(const leandvb_meta_t *meta, const font_t *font_ptr,
-                            int linepitch, int txtdesc, int txttot)
+static void LeandvbJoin(char *out, int len, const char *a, const char *b, const char *c)
 {
-  char encoding[63];
-  char modulation[63];
-  const int rows[4] = {2, 3, 4, 6};
-  const char *texts[4];
+  const char *parts[3] = {a, b, c};
   int i;
 
-  LeandvbMetaLines(meta, encoding, modulation, sizeof(encoding));
-  texts[0] = meta->Provider;
-  texts[1] = meta->Service;
-  texts[2] = encoding;
-  texts[3] = modulation;
-
-  for (i = 0; i < 4; i++)
+  out[0] = '\0';
+  for (i = 0; i < 3; i++)
   {
-    rectangle(wscreen * 1 / 40, hscreen - rows[i] * linepitch - txtdesc, wscreen * 30 / 40, txttot, 0, 0, 0);
-    Text2(wscreen * 1 / 40, hscreen - rows[i] * linepitch, (char *)texts[i], font_ptr);
+    if (strlen(parts[i]) > 0)
+    {
+      if (strlen(out) > 0)
+      {
+        strncat(out, " ", len - strlen(out) - 1);
+      }
+      strncat(out, parts[i], len - strlen(out) - 1);
+    }
+  }
+}
+
+static void LeandvbInfoLines(const leandvb_meta_t *meta, int Lock, float SS, float MER,
+                             char values[LEANDVB_INFO_ROWS][63])
+{
+  snprintf(values[0], 63, "%s", (Lock == 1) ? "Locked" : "Searching");
+  snprintf(values[1], 63, "%s", meta->Provider);
+  snprintf(values[2], 63, "%s", meta->Service);
+  LeandvbJoin(values[3], 63, meta->Standard, meta->Constellation, meta->FEC);
+  if (strlen(meta->SymbolRate) > 0)
+  {
+    snprintf(values[4], 63, "%s kS", meta->SymbolRate);
+  }
+  else
+  {
+    values[4][0] = '\0';
+  }
+  LeandvbJoin(values[5], 63, meta->Video, meta->Audio, "");
+  snprintf(values[6], 63, "%.0f", SS);
+  snprintf(values[7], 63, "%.1f dB", MER);
+  if (strlen(meta->NullRatio) > 0)
+  {
+    snprintf(values[8], 63, "%s %%", meta->NullRatio);
+  }
+  else
+  {
+    values[8][0] = '\0';
+  }
+}
+
+// Affiche les informations sur les lignes 1 a 9 de l'ecran de reception
+// (les lignes 11 et 12 restent aux consignes), libelles a gauche et valeurs
+// alignees dans une seconde colonne.
+static void LeandvbShowInfo(const leandvb_meta_t *meta, int Lock, float SS, float MER,
+                            const font_t *font_ptr, int linepitch, int txtdesc, int txttot)
+{
+  char values[LEANDVB_INFO_ROWS][63];
+  char label[31];
+  int valuex = wscreen * 1 / 40 + font_width_string(font_ptr, "Provider: ");
+  int i;
+
+  LeandvbInfoLines(meta, Lock, SS, MER, values);
+  for (i = 0; i < LEANDVB_INFO_ROWS; i++)
+  {
+    int y = hscreen - (i + 1) * linepitch;
+    rectangle(wscreen * 1 / 40, y - txtdesc, wscreen * 30 / 40, txttot, 0, 0, 0);
+    snprintf(label, sizeof(label), "%s:", LeandvbInfoLabels[i]);
+    Text2(wscreen * 1 / 40, y, label, font_ptr);
+    Text2(valuex, y, values[i], font_ptr);
+  }
+}
+
+// Meme contenu pour le texte superpose a l'image VLC (lignes separees par
+// %n), en omettant les lignes sans valeur.
+static void LeandvbOverlayText(const leandvb_meta_t *meta, int Lock, float SS, float MER,
+                               char *out, int len)
+{
+  char values[LEANDVB_INFO_ROWS][63];
+  char line[160];
+  int i;
+
+  LeandvbInfoLines(meta, Lock, SS, MER, values);
+  out[0] = '\0';
+  for (i = 0; i < LEANDVB_INFO_ROWS; i++)
+  {
+    if (strlen(values[i]) > 0)
+    {
+      // VLC (marq) traite le texte comme un format strftime : %n est le
+      // saut de ligne, un % de la valeur doit etre double.
+      char escaped[127];
+      int j, k = 0;
+      for (j = 0; (values[i][j] != '\0') && (k < (int)sizeof(escaped) - 2); j++)
+      {
+        if (values[i][j] == '%')
+        {
+          escaped[k++] = '%';
+        }
+        escaped[k++] = values[i][j];
+      }
+      escaped[k] = '\0';
+      snprintf(line, sizeof(line), "%s: %s%%n", LeandvbInfoLabels[i], escaped);
+      strncat(out, line, len - strlen(out) - 1);
+    }
   }
 }
 
@@ -14227,10 +14321,7 @@ void ProcessLeandvb2(int NoButton)
           sscanf(token,"%f",&SignalStrength);
         }
 
-        char sSignalStrength[50];
-        sprintf(sSignalStrength, "[SS: %3.0f]", SignalStrength);
 
-        char sLock[50];
 
         if((strcmp(strTag,"LOCK")==0) || (strcmp(strTag,"FRAMELOCK") == 0))
         {
@@ -14244,18 +14335,10 @@ void ProcessLeandvb2(int NoButton)
           }
         }
 
-        if (Lock == 1)
+        if ((Lock == 1) && (FirstLock == 0)) // This is the first time MER has exceeded threshold
         {
-          strcpy(sLock,"[LOCKED]");
-          if (FirstLock == 0) // This is the first time MER has exceeded threshold
-          {
-            FirstLock = 1;
-            LockTime = clock();  // Set first lock time
-          }
-        }
-        else
-        {
-          strcpy(sLock,"[SEARCH]");
+          FirstLock = 1;
+          LockTime = clock();  // Set first lock time
         }
 
         if((strcmp(strTag, "MER") == 0))
@@ -14265,8 +14348,6 @@ void ProcessLeandvb2(int NoButton)
           sscanf(token,"%f",&MER);
         }
 
-        char sMER[50];
-        sprintf(sMER, "[MER: %2.1fdB]", MER);
 
         if (FinishedButton == 1)  // Parameters requested to be displayed
         {
@@ -14276,13 +14357,7 @@ void ProcessLeandvb2(int NoButton)
           }
           Parameters_currently_displayed = 1;
 
-          rectangle(wscreen * 1 / 40, hscreen - 1 * linepitch - txtdesc, wscreen * 30 / 40, txttot, 0, 0, 0);
-          Text2(wscreen * 1 / 40, hscreen - 1 * linepitch, sLock, font_ptr);
-          rectangle(wscreen * 1 / 40, hscreen - 5 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
-          Text2(wscreen * 1 / 40, hscreen - 5 * linepitch, sSignalStrength, font_ptr);
-          rectangle(wscreen * 1 / 40, hscreen - 7 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
-          Text2(wscreen * 1 / 40, hscreen - 7 * linepitch, sMER, font_ptr);
-          LeandvbShowMeta(&LeanMeta, font_ptr, linepitch, txtdesc, txttot);
+          LeandvbShowInfo(&LeanMeta, Lock, SignalStrength, MER, font_ptr, linepitch, txtdesc, txttot);
 
           if ((clock() > LockTime + 600000) && (FirstLock == 1))  // About 5s since first lock
           {
@@ -14294,33 +14369,8 @@ void ProcessLeandvb2(int NoButton)
           if (MER != previousMER)
           {
 
-            // Build string for VLC
-            strcpy(vlctext, sLock);
-            strcat(vlctext, "%n");
-            strcat(vlctext, sSignalStrength);
-            strcat(vlctext, "%n");
-            strcat(vlctext, sMER);
-            strcat(vlctext, "%n");
-
-            // Fournisseur, service, codecs, modulation : une ligne chacun s'ils sont connus
-            {
-              char encoding[63], modulation[63];
-              const char *metalines[4];
-              int m;
-              LeandvbMetaLines(&LeanMeta, encoding, modulation, sizeof(encoding));
-              metalines[0] = LeanMeta.Provider;
-              metalines[1] = LeanMeta.Service;
-              metalines[2] = encoding;
-              metalines[3] = modulation;
-              for (m = 0; m < 4; m++)
-              {
-                if (strlen(metalines[m]) > 0)
-                {
-                  strncat(vlctext, metalines[m], sizeof(vlctext) - strlen(vlctext) - 3);
-                  strncat(vlctext, "%n", sizeof(vlctext) - strlen(vlctext) - 1);
-                }
-              }
-            }
+            // Build string for VLC : memes lignes "Libelle: valeur" qu'a l'ecran
+            LeandvbOverlayText(&LeanMeta, Lock, SignalStrength, MER, vlctext, sizeof(vlctext) - 60);
 
             strcat(vlctext, "%n.%nTouch Left to Hide Overlay%nTouch Centre to Exit");
 
@@ -14422,10 +14472,7 @@ void ProcessLeandvb2(int NoButton)
           sscanf(token,"%f",&SignalStrength);
         }
 
-        char sSignalStrength[50];
-        sprintf(sSignalStrength, "[SS: %3.0f]", SignalStrength);
 
-        char sLock[50];
 
         if((strcmp(strTag,"LOCK")==0) || (strcmp(strTag,"FRAMELOCK") == 0))
         {
@@ -14439,18 +14486,10 @@ void ProcessLeandvb2(int NoButton)
           }
         }
 
-        if (Lock == 1)
+        if ((Lock == 1) && (FirstLock == 0)) // This is the first time MER has exceeded threshold
         {
-          strcpy(sLock,"[LOCKED]");
-          if (FirstLock == 0) // This is the first time MER has exceeded threshold
-          {
-            FirstLock = 1;
-            LockTime = clock();  // Set first lock time
-          }
-        }
-        else
-        {
-          strcpy(sLock,"[SEARCH]");
+          FirstLock = 1;
+          LockTime = clock();  // Set first lock time
         }
 
         if((strcmp(strTag, "MER") == 0))
@@ -14460,18 +14499,10 @@ void ProcessLeandvb2(int NoButton)
           sscanf(token,"%f",&MER);
         }
 
-        char sMER[50];
-        sprintf(sMER, "[MER: %2.1fdB]", MER);
 
         if (FinishedButton == 1)  // Parameters requested to be displayed
         {
-          rectangle(wscreen * 1 / 40, hscreen - 1 * linepitch - txtdesc, wscreen * 30 / 40, txttot, 0, 0, 0);
-          Text2(wscreen * 1 / 40, hscreen - 1 * linepitch, sLock, font_ptr);
-          rectangle(wscreen * 1 / 40, hscreen - 5 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
-          Text2(wscreen * 1 / 40, hscreen - 5 * linepitch, sSignalStrength, font_ptr);
-          rectangle(wscreen * 1 / 40, hscreen - 7 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
-          Text2(wscreen * 1 / 40, hscreen - 7 * linepitch, sMER, font_ptr);
-          LeandvbShowMeta(&LeanMeta, font_ptr, linepitch, txtdesc, txttot);
+          LeandvbShowInfo(&LeanMeta, Lock, SignalStrength, MER, font_ptr, linepitch, txtdesc, txttot);
           Text2(wscreen * 1 / 40, hscreen - 11 * linepitch, "Touch Centre to exit", font_ptr);
           Text2(wscreen * 1 / 40, hscreen - 12 * linepitch, "Touch Lower left for image capture", font_ptr);
 
@@ -14529,10 +14560,7 @@ void ProcessLeandvb2(int NoButton)
           sscanf(token,"%f",&SignalStrength);
         }
 
-        char sSignalStrength[50];
-        sprintf(sSignalStrength, "[SS: %3.0f]", SignalStrength);
 
-        char sLock[50];
 
         if((strcmp(strTag,"LOCK")==0) || (strcmp(strTag,"FRAMELOCK") == 0))
         {
@@ -14546,15 +14574,6 @@ void ProcessLeandvb2(int NoButton)
           }
         }
 
-        if (Lock == 1)
-        {
-          strcpy(sLock,"[LOCKED]");
-        }
-        else
-        {
-          strcpy(sLock,"[SEARCH]");
-        }
-
         if((strcmp(strTag, "MER") == 0))
         {
           token = strtok(line," ");
@@ -14562,16 +14581,8 @@ void ProcessLeandvb2(int NoButton)
           sscanf(token,"%f",&MER);
         }
 
-        char sMER[50];
-        sprintf(sMER, "[MER: %2.1fdB]", MER);
 
-        rectangle(wscreen * 1 / 40, hscreen - 1 * linepitch - txtdesc, wscreen * 30 / 40, txttot, 0, 0, 0);
-        Text2(wscreen * 1 / 40, hscreen - 1 * linepitch, sLock, font_ptr);
-        rectangle(wscreen * 1 / 40, hscreen - 5 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
-        Text2(wscreen * 1 / 40, hscreen - 5 * linepitch, sSignalStrength, font_ptr);
-        rectangle(wscreen * 1 / 40, hscreen - 7 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
-        Text2(wscreen * 1 / 40, hscreen - 7 * linepitch, sMER, font_ptr);
-        LeandvbShowMeta(&LeanMeta, font_ptr, linepitch, txtdesc, txttot);
+        LeandvbShowInfo(&LeanMeta, Lock, SignalStrength, MER, font_ptr, linepitch, txtdesc, txttot);
         setForeColour(255, 255, 255);  // Set foreground colour to white
 				Text2(wscreen * 1 / 40, hscreen - 11 * linepitch, udp_string, font_ptr);
 				Text2(wscreen * 1 / 40, hscreen - 12 * linepitch, "Touch Centre to Exit", font_ptr);
