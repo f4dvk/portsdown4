@@ -1458,6 +1458,122 @@ fi
     fi
   ;;
 
+#============================================ H264 TCANIM =============================================================
+
+  # Mire animee TCAnim : generee par ffmpeg (scripts/tcanim.sh), avec un bip
+  # comme son. Remplace tcanim1v16 (OpenVG) de l'ancien Portsdown, absent
+  # sur RPi 4. Taille d'image selon le debit, comme les autres sources H264.
+
+  "PATERNAUDIO")
+
+    # Free up the Pi Camera if present
+    vcgencmd get_camera | grep 'detected=1' >/dev/null 2>/dev/null
+    if [ "$?" -eq 0 ]; then
+      sudo modprobe -r bcm2835_v4l2
+    fi
+
+    # Son : bip AAC 24 kbit/s, si le debit le permet (le debit video calcule
+    # plus haut l'a ete sans son quand aucune carte son n'est presente).
+    TCANIM_AUDIO="-c:a aac -ac 1 -ar 48000 -b:a 24k"
+    TCANIM_AUDIO_MAP="audio"
+    if [ "$AUDIO_CHANNELS" == 0 ]; then
+      let TCANIM_VIDEO=($BITRATE_TS-24000-36000)*725/1000
+      if [ "$TCANIM_VIDEO" -ge 100000 ]; then
+        BITRATE_VIDEO=$TCANIM_VIDEO
+      else
+        TCANIM_AUDIO="-an"   # Debit trop faible : image seule
+        TCANIM_AUDIO_MAP=""
+      fi
+    fi
+
+    source /home/pi/rpidatv/scripts/tcanim.sh
+    TCANIM_CALL="$CALL"
+    TCANIM_LOCATOR="$LOCATOR"
+    TCANIM_INFO="$MODULATION $SYMBOLRATE_K kS FEC $FECNUM/$FECDEN  -  $FREQ_OUTPUT MHz"
+    TCANIM_W=$VIDEO_WIDTH
+    TCANIM_H=$VIDEO_HEIGHT
+    TCANIM_FPS=25
+    TCANIM_IMAGES=/home/pi/rpidatv/video
+    TCANIM_TMP=/home/pi/tmp/tcanim
+    tcanim_prepare
+    if [ "$TCANIM_AUDIO_MAP" == "audio" ]; then
+      TCANIM_AUDIO_MAP="-map $TCANIM_NEXT_INPUT:a"   # le bip, ajoute apres les entrees de la mire
+    fi
+
+    # Show the first test card on the screen and for the web view
+    sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/video/imz-10.jpg >/dev/null 2>/dev/null
+    (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &
+    (sleep 1; /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh) &
+
+    ############ Pluto : flux RTMP vers le firmware F5OEO (image seule) ##########
+
+    if [ "$MODE_OUTPUT" == "PLUTO" ] && [ "$MODULATION" != "DVB-T" ]; then
+      TZ=UTC $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -re "${TCANIM_INPUTS[@]}" \
+        -filter_complex "$TCANIM_GRAPH" -map "[v]" \
+        -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 \
+        -f flv \
+        rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
+      exit
+    fi
+
+    ############ Autres sorties : flux TS vers le modulateur #####################
+
+    if [ "$MODULATION" != "DVB-T" ]; then
+      case "$MODE_OUTPUT" in
+        "IP")
+          # OUTPUT deja regle sur udp://$UDPOUTADDR:$UDPOUTPORT
+        ;;
+        "DATVEXPRESS")
+          echo "set ptt tx" >> /tmp/expctrl
+          # OUTPUT deja regle sur udp://127.0.0.1:1314 (express_server)
+        ;;
+        "LIMEMINI" | "LIMEUSB" | "LIMEDVB")
+          $PATHRPI"/limesdr_dvb" -i videots -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
+            -t "$FREQ_OUTPUT"e6 -g $LIME_GAINF -q $CAL $CUSTOM_FPGA -D $DIGITAL_GAIN -e $BAND_GPIO $LIMETYPE &
+        ;;
+        "MUNTJAC")
+          $PATHRPI"/muntjacsdr_dvb" -i videots -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
+            -t "$FREQ_OUTPUT"e6 -g $MUNTJAC_GAINF -e $BAND_GPIO &
+        ;;
+        "COMPVID")
+          OUTPUT="/dev/null"
+        ;;
+        *)
+          # For IQ, QPSKRF, DIGITHIN and DTX1
+          OUTPUT=videots
+          sudo $PATHRPI"/rpidatv" -i videots -s $SYMBOLRATE_K -c $FECNUM"/"$FECDEN -f $FREQUENCY_OUT -p $GAIN -m $MODE -x $PIN_I -y $PIN_Q &
+        ;;
+      esac
+    else                     # DVB-T : dvb_t_stack lit le flux TS en UDP sur le port 1314
+      case "$MODE_OUTPUT" in
+        "PLUTO")
+          OUTPUT="udp://127.0.0.1:1314?pkt_size=1316&buffer_size=1316"
+          /home/pi/rpidatv/bin/dvb_t_stack -m $CONSTLN -f $FREQ_OUTPUTHZ -a -"$PLUTOPWR" -r pluto \
+            -g 1/"$GUARD" -b $SYMBOLRATE -p 1314 -e "$FECNUM"/"$FECDEN" -n $PLUTOIP -i /dev/null &
+        ;;
+        "LIMEMINI" | "LIMEUSB")
+          OUTPUT="udp://127.0.0.1:1314?pkt_size=1316&buffer_size=1316"
+          /home/pi/rpidatv/bin/dvb_t_stack -m $CONSTLN -f $FREQ_OUTPUTHZ -a $LIME_GAINF -r lime \
+            -g 1/"$GUARD" -b $SYMBOLRATE -p 1314 -e "$FECNUM"/"$FECDEN" -i /dev/null &
+        ;;
+      esac
+    fi
+
+    # -re : la mire est generee, pas captee ; sans elle, ffmpeg produirait
+    # le flux plus vite que le temps reel (sorties UDP sans contre-pression).
+    TZ=UTC $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -re "${TCANIM_INPUTS[@]}" \
+      -f lavfi -i "sine=frequency=500:beep_factor=4:sample_rate=48000" \
+      -filter_complex "$TCANIM_GRAPH" -map "[v]" $TCANIM_AUDIO_MAP \
+      -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 \
+      $TCANIM_AUDIO \
+      -f mpegts -blocksize 1880 \
+      -mpegts_original_network_id 1 -mpegts_transport_stream_id 1 \
+      -mpegts_service_id $SERVICEID \
+      -mpegts_pmt_start_pid $PIDPMT -streamid 0:"$PIDVIDEO" -streamid 1:"$PIDAUDIO" \
+      -metadata service_provider=$CHANNEL -metadata service_name=$CALL \
+      -muxrate $BITRATE_TS -y $OUTPUT &
+  ;;
+
 #============================================ DESKTOP MODES H264 =============================================================
 
   "DESKTOP" | "CONTEST" | "CARDH264")

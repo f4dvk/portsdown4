@@ -2345,6 +2345,14 @@ void ReadModeInput(char coding[256], char vsource[256])
     SetConfigParam(PATH_PCONFIG, "format", CurrentFormat);
     strcpy(CurrentSource, TabSource[3]); // TestCard
   }
+  else if (strcmp(ModeInput, "PATERNAUDIO") == 0)  // TCAnim : mire animee generee par ffmpeg (a.sh)
+  {
+    strcpy(coding, "H264");
+    strcpy(vsource, "Animated Test Card");
+    strcpy(CurrentEncoding, "H264");
+    strcpy(CurrentFormat, "4:3");
+    strcpy(CurrentSource, TabSource[2]); // TCAnim
+  }
   else if (strcmp(ModeInput, "CONTEST") == 0)
   {
     strcpy(coding, "H264");
@@ -9259,6 +9267,10 @@ void ApplyTXConfig()
         {
           strcpy(ModeInput, "CONTEST");
         }
+        else if (strcmp(CurrentSource, "TCAnim") == 0)
+        {
+          strcpy(ModeInput, "PATERNAUDIO");
+        }
         else if (strcmp(CurrentSource, "Webcam") == 0)
         {
           strcpy(ModeInput, "WEBCAMH264");
@@ -14213,9 +14225,13 @@ void ProcessLeandvb2(int NoButton)
   leandvb_meta_t LeanMeta;     // Fournisseur, service, codecs, modulation (leandvb --fd-info)
   memset(&LeanMeta, 0, sizeof(LeanMeta));
   int Parameters_currently_displayed = 1;  // 1 for displayed, 0 for blank
-  float previousMER = 0;
   int FirstLock = 0;  // set to 1 on first lock, and 2 after parameter fade
-  clock_t LockTime;
+  time_t LockTime = 0;  // Heure (reelle) du premier verrouillage
+  // Infos de reception gardees au premier plan au debut de la reception :
+  // LEANDVB_INFO_HOLD_S secondes apres le premier verrouillage (avant :
+  // clock(), temps processeur du programme, d'ou une duree imprevisible).
+  #define LEANDVB_INFO_HOLD_S 20
+  char vlclast[511] = "";  // Dernier texte ecrit pour VLC
   bool webupdate_this_time = true;   // Only update web on alternate MER changes
 
   // Set globals
@@ -14338,7 +14354,7 @@ void ProcessLeandvb2(int NoButton)
         if ((Lock == 1) && (FirstLock == 0)) // This is the first time MER has exceeded threshold
         {
           FirstLock = 1;
-          LockTime = clock();  // Set first lock time
+          LockTime = time(NULL);  // Set first lock time
         }
 
         if((strcmp(strTag, "MER") == 0))
@@ -14351,29 +14367,24 @@ void ProcessLeandvb2(int NoButton)
 
         if (FinishedButton == 1)  // Parameters requested to be displayed
         {
-          if (Parameters_currently_displayed != 1)
-          {
-            previousMER = 0;
-          }
           Parameters_currently_displayed = 1;
 
           LeandvbShowInfo(&LeanMeta, Lock, SignalStrength, MER, font_ptr, linepitch, txtdesc, txttot);
 
-          if ((clock() > LockTime + 600000) && (FirstLock == 1))  // About 5s since first lock
+          if ((time(NULL) >= LockTime + LEANDVB_INFO_HOLD_S) && (FirstLock == 1))
           {
             FinishedButton = 2; // Hide parameters
             FirstLock = 2;      // and stop it trying to hide them again
           }
 
-          // Only change VLC overlayfile if MER has changed
-          if (MER != previousMER)
+          // Build string for VLC : memes lignes "Libelle: valeur" qu'a l'ecran.
+          // Fichier reecrit des que le texte change (fournisseur, service...
+          // arrivent apres le verrouillage), pas seulement le MER.
+          LeandvbOverlayText(&LeanMeta, Lock, SignalStrength, MER, vlctext, sizeof(vlctext) - 60);
+          strcat(vlctext, "%n.%nTouch Left to Hide Overlay%nTouch Centre to Exit");
+
+          if (strcmp(vlctext, vlclast) != 0)
           {
-
-            // Build string for VLC : memes lignes "Libelle: valeur" qu'a l'ecran
-            LeandvbOverlayText(&LeanMeta, Lock, SignalStrength, MER, vlctext, sizeof(vlctext) - 60);
-
-            strcat(vlctext, "%n.%nTouch Left to Hide Overlay%nTouch Centre to Exit");
-
             FILE *fw=fopen("/home/pi/tmp/vlc_temp_overlay.txt","w+");
             if(fw!=0)
             {
@@ -14384,7 +14395,7 @@ void ProcessLeandvb2(int NoButton)
             // Copy temp file to file to be read by VLC to prevent file collisions
             system("cp /home/pi/tmp/vlc_temp_overlay.txt /home/pi/tmp/vlc_overlay.txt");
 
-            previousMER = MER;
+            strcpy(vlclast, vlctext);
           }
 
           Text2(wscreen * 1 / 40, hscreen - 11 * linepitch, "Touch Centre to exit", font_ptr);
@@ -14404,6 +14415,7 @@ void ProcessLeandvb2(int NoButton)
               fprintf(fw, " ");
             }
             fclose(fw);
+            vlclast[0] = '\0';  // Texte a reecrire s'il est reaffiche
           }
         }
         // Update web on alternate MER changes (to reduce processor workload)
@@ -14489,7 +14501,7 @@ void ProcessLeandvb2(int NoButton)
         if ((Lock == 1) && (FirstLock == 0)) // This is the first time MER has exceeded threshold
         {
           FirstLock = 1;
-          LockTime = clock();  // Set first lock time
+          LockTime = time(NULL);  // Set first lock time
         }
 
         if((strcmp(strTag, "MER") == 0))
@@ -14506,7 +14518,7 @@ void ProcessLeandvb2(int NoButton)
           Text2(wscreen * 1 / 40, hscreen - 11 * linepitch, "Touch Centre to exit", font_ptr);
           Text2(wscreen * 1 / 40, hscreen - 12 * linepitch, "Touch Lower left for image capture", font_ptr);
 
-          if ((clock() > LockTime + 600000) && (FirstLock == 1))  // About 5s since first lock
+          if ((time(NULL) >= LockTime + LEANDVB_INFO_HOLD_S) && (FirstLock == 1))
           {
             FinishedButton = 2; // Hide parameters
             FirstLock = 2;      // and stop it trying to hide them again
@@ -26712,7 +26724,10 @@ void waituntil(int w,int h)
           SelectSource(i);
           printf("CompVid\n");
           break;
-        // case 7:                               // TCAnim No tcanim on RPi 4
+        case 7:                               // TCAnim : mire animee (ffmpeg, voir a.sh)
+          SelectSource(i);
+          printf("TCAnim\n");
+          break;
         case 8:                               // TestCard
           SelectSource(i);
           printf("TestCard\n");
@@ -33443,10 +33458,12 @@ void Define_Menu45()
   AddButtonStatus(button, TabSource[1], &Green);
   AddButtonStatus(button, TabSource[1], &Grey);
 
-  // button = CreateButton(45, 7);                     // TCAnim not avilable on RPi 4
-  // AddButtonStatus(button, TabSource[2], &Blue);
-  // AddButtonStatus(button, TabSource[2], &Green);
-  // AddButtonStatus(button, TabSource[2], &Grey);
+  // TCAnim : l'ancien tcanim1v16 (OpenVG) n'existe pas sur RPi 4 ; la mire
+  // animee est desormais generee par ffmpeg dans a.sh (PATERNAUDIO).
+  button = CreateButton(45, 7);                     // TCAnim
+  AddButtonStatus(button, TabSource[2], &Blue);
+  AddButtonStatus(button, TabSource[2], &Green);
+  AddButtonStatus(button, TabSource[2], &Grey);
 
   button = CreateButton(45, 8);                     // TestCard
   AddButtonStatus(button, TabSource[3], &Blue);
