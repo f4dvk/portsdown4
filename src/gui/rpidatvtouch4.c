@@ -13943,6 +13943,160 @@ void checkTunerSettings()
   }
 }
 
+// Metadonnees du flux recu publiees par leandvb sur --fd-info (fournisseur,
+// service, codecs, modulation et FEC), comme l'etat de LongMynd : voir
+// leansdr/tsmeta.h et s2_modcod_printer dans leandvb.cc.
+typedef struct
+{
+  char Provider[63];
+  char Service[63];
+  char Video[15];
+  char Audio[15];
+  char Constellation[15];
+  char FEC[15];
+} leandvb_meta_t;
+
+// Texte UTF-8 vers ASCII affichable : les polices de l'ecran ne contiennent
+// que les caracteres 0x20 a 0x7E (tableau indexe par l'octet, qu'un octet
+// >= 0x7F ferait lire hors limites). Les lettres accentuees Latin-1 perdent
+// leur accent, les autres caracteres deviennent '?'.
+static void LeandvbAscii(const char *in, char *out, int outlen)
+{
+  static const char latin1[] =   // U+00C0 a U+00FF
+    "AAAAAAACEEEEIIII" "DNOOOOOxOUUUUYTs" "aaaaaaaceeeeiiii" "dnooooo/ouuuuyty";
+  const unsigned char *p = (const unsigned char *)in;
+  int n = 0;
+
+  while ((*p != 0) && (n < outlen - 1))
+  {
+    if ((*p >= 0x20) && (*p < 0x7F))
+    {
+      out[n++] = *p++;
+    }
+    else if (((*p == 0xC2) || (*p == 0xC3)) && ((p[1] & 0xC0) == 0x80))
+    {
+      int cp = ((*p & 0x1F) << 6) | (p[1] & 0x3F);
+      if (cp >= 0xC0)
+      {
+        out[n++] = latin1[cp - 0xC0];
+      }
+      else if ((cp == 0xAB) || (cp == 0xBB))   // guillemets
+      {
+        out[n++] = '"';
+      }
+      else
+      {
+        out[n++] = ' ';
+      }
+      p += 2;
+    }
+    else                                       // autre caractere ou controle
+    {
+      out[n++] = '?';
+      p++;
+      while ((*p & 0xC0) == 0x80)              // octets de continuation UTF-8
+      {
+        p++;
+      }
+    }
+  }
+  out[n] = '\0';
+}
+
+// Analyse une ligne "ETIQUETTE valeur" de leandvb sans la modifier.
+// Retourne 1 si elle portait une metadonnee, 0 sinon.
+static int LeandvbParseMeta(const char *line, leandvb_meta_t *meta)
+{
+  char tag[20];
+  char value[255];
+  const char *sp = strchr(line, ' ');
+  int taglen;
+
+  if (sp == NULL)
+  {
+    return 0;
+  }
+  taglen = sp - line;
+  if (taglen >= (int)sizeof(tag))
+  {
+    return 0;
+  }
+  memcpy(tag, line, taglen);
+  tag[taglen] = '\0';
+  snprintf(value, sizeof(value), "%s", sp + 1);
+  value[strcspn(value, "\r\n")] = '\0';
+
+  if (strcmp(tag, "SERVICE_PROVIDER") == 0)
+  {
+    LeandvbAscii(value, meta->Provider, sizeof(meta->Provider));
+    if (strlen(value) == 0)    // Flux perdu : leandvb a tout oublie
+    {
+      meta->Service[0] = '\0';
+      meta->Video[0] = '\0';
+      meta->Audio[0] = '\0';
+    }
+  }
+  else if (strcmp(tag, "SERVICE") == 0)
+  {
+    LeandvbAscii(value, meta->Service, sizeof(meta->Service));
+  }
+  else if (strcmp(tag, "VIDEO") == 0)
+  {
+    LeandvbAscii(value, meta->Video, sizeof(meta->Video));
+  }
+  else if (strcmp(tag, "AUDIO") == 0)
+  {
+    LeandvbAscii(value, meta->Audio, sizeof(meta->Audio));
+  }
+  else if (strcmp(tag, "CONSTELLATION") == 0)
+  {
+    LeandvbAscii(value, meta->Constellation, sizeof(meta->Constellation));
+  }
+  else if (strcmp(tag, "CR") == 0)
+  {
+    LeandvbAscii(value, meta->FEC, sizeof(meta->FEC));
+  }
+  else
+  {
+    return 0;
+  }
+  return 1;
+}
+
+// Codecs et modulation en une ligne chacun, ex. "H264 MPA" et "8PSK 2/3".
+static void LeandvbMetaLines(const leandvb_meta_t *meta, char *encoding, char *modulation, int len)
+{
+  snprintf(encoding, len, "%s%s%s", meta->Video,
+           ((strlen(meta->Video) > 0) && (strlen(meta->Audio) > 0)) ? " " : "", meta->Audio);
+  snprintf(modulation, len, "%s%s%s", meta->Constellation,
+           ((strlen(meta->Constellation) > 0) && (strlen(meta->FEC) > 0)) ? " " : "", meta->FEC);
+}
+
+// Affiche les metadonnees sur les lignes libres de l'ecran de reception,
+// autour de l'etat (ligne 1), de SS (ligne 5) et du MER (ligne 7) :
+// 2 fournisseur, 3 service, 4 codecs, 6 modulation et FEC.
+static void LeandvbShowMeta(const leandvb_meta_t *meta, const font_t *font_ptr,
+                            int linepitch, int txtdesc, int txttot)
+{
+  char encoding[63];
+  char modulation[63];
+  const int rows[4] = {2, 3, 4, 6};
+  const char *texts[4];
+  int i;
+
+  LeandvbMetaLines(meta, encoding, modulation, sizeof(encoding));
+  texts[0] = meta->Provider;
+  texts[1] = meta->Service;
+  texts[2] = encoding;
+  texts[3] = modulation;
+
+  for (i = 0; i < 4; i++)
+  {
+    rectangle(wscreen * 1 / 40, hscreen - rows[i] * linepitch - txtdesc, wscreen * 30 / 40, txttot, 0, 0, 0);
+    Text2(wscreen * 1 / 40, hscreen - rows[i] * linepitch, (char *)texts[i], font_ptr);
+  }
+}
+
 void ProcessLeandvb2(int NoButton)
 {
   #define PATH_SCRIPT_LEANVLC "/home/pi/rpidatv/scripts/leandvb_vlc.sh 3>&1"
@@ -13961,7 +14115,9 @@ void ProcessLeandvb2(int NoButton)
   // To be Global Paramaters:
 
   char udp_string[63];
-  char vlctext[255];
+  char vlctext[511];
+  leandvb_meta_t LeanMeta;     // Fournisseur, service, codecs, modulation (leandvb --fd-info)
+  memset(&LeanMeta, 0, sizeof(LeanMeta));
   int Parameters_currently_displayed = 1;  // 1 for displayed, 0 for blank
   float previousMER = 0;
   int FirstLock = 0;  // set to 1 on first lock, and 2 after parameter fade
@@ -14058,6 +14214,7 @@ void ProcessLeandvb2(int NoButton)
       {
         char strTag[20];
         sscanf(line,"%s ",strTag);
+        LeandvbParseMeta(line, &LeanMeta);  // avant strtok(), qui modifie line
         char * token;
         static int Lock = 0;
         static float MER = 0;
@@ -14125,6 +14282,7 @@ void ProcessLeandvb2(int NoButton)
           Text2(wscreen * 1 / 40, hscreen - 5 * linepitch, sSignalStrength, font_ptr);
           rectangle(wscreen * 1 / 40, hscreen - 7 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
           Text2(wscreen * 1 / 40, hscreen - 7 * linepitch, sMER, font_ptr);
+          LeandvbShowMeta(&LeanMeta, font_ptr, linepitch, txtdesc, txttot);
 
           if ((clock() > LockTime + 600000) && (FirstLock == 1))  // About 5s since first lock
           {
@@ -14143,6 +14301,26 @@ void ProcessLeandvb2(int NoButton)
             strcat(vlctext, "%n");
             strcat(vlctext, sMER);
             strcat(vlctext, "%n");
+
+            // Fournisseur, service, codecs, modulation : une ligne chacun s'ils sont connus
+            {
+              char encoding[63], modulation[63];
+              const char *metalines[4];
+              int m;
+              LeandvbMetaLines(&LeanMeta, encoding, modulation, sizeof(encoding));
+              metalines[0] = LeanMeta.Provider;
+              metalines[1] = LeanMeta.Service;
+              metalines[2] = encoding;
+              metalines[3] = modulation;
+              for (m = 0; m < 4; m++)
+              {
+                if (strlen(metalines[m]) > 0)
+                {
+                  strncat(vlctext, metalines[m], sizeof(vlctext) - strlen(vlctext) - 3);
+                  strncat(vlctext, "%n", sizeof(vlctext) - strlen(vlctext) - 1);
+                }
+              }
+            }
 
             strcat(vlctext, "%n.%nTouch Left to Hide Overlay%nTouch Centre to Exit");
 
@@ -14231,6 +14409,7 @@ void ProcessLeandvb2(int NoButton)
       {
         char strTag[20];
         sscanf(line,"%s ",strTag);
+        LeandvbParseMeta(line, &LeanMeta);  // avant strtok(), qui modifie line
         char * token;
         static int Lock = 0;
         static float MER = 0;
@@ -14292,6 +14471,7 @@ void ProcessLeandvb2(int NoButton)
           Text2(wscreen * 1 / 40, hscreen - 5 * linepitch, sSignalStrength, font_ptr);
           rectangle(wscreen * 1 / 40, hscreen - 7 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
           Text2(wscreen * 1 / 40, hscreen - 7 * linepitch, sMER, font_ptr);
+          LeandvbShowMeta(&LeanMeta, font_ptr, linepitch, txtdesc, txttot);
           Text2(wscreen * 1 / 40, hscreen - 11 * linepitch, "Touch Centre to exit", font_ptr);
           Text2(wscreen * 1 / 40, hscreen - 12 * linepitch, "Touch Lower left for image capture", font_ptr);
 
@@ -14336,6 +14516,7 @@ void ProcessLeandvb2(int NoButton)
       {
         char strTag[20];
         sscanf(line,"%s ",strTag);
+        LeandvbParseMeta(line, &LeanMeta);  // avant strtok(), qui modifie line
         char * token;
         static int Lock = 0;
         static float MER = 0;
@@ -14390,6 +14571,7 @@ void ProcessLeandvb2(int NoButton)
         Text2(wscreen * 1 / 40, hscreen - 5 * linepitch, sSignalStrength, font_ptr);
         rectangle(wscreen * 1 / 40, hscreen - 7 * linepitch - txtdesc, wscreen * 19 / 40, txttot, 0, 0, 0);
         Text2(wscreen * 1 / 40, hscreen - 7 * linepitch, sMER, font_ptr);
+        LeandvbShowMeta(&LeanMeta, font_ptr, linepitch, txtdesc, txttot);
         setForeColour(255, 255, 255);  // Set foreground colour to white
 				Text2(wscreen * 1 / 40, hscreen - 11 * linepitch, udp_string, font_ptr);
 				Text2(wscreen * 1 / 40, hscreen - 12 * linepitch, "Touch Centre to Exit", font_ptr);
@@ -18561,7 +18743,7 @@ void do_SSTVView()
 {
   char Files[SSTV_VIEW_MAX][255];
   char cmd[4096];
-  char part[511];
+  char part[1024];             // un chemin (255) + date + options ImageMagick
   char label[63];
   int n, i, tx, ty, row, col;
   int Selected = -1;            // -1 : planche de miniatures, sinon index affiche en plein ecran
