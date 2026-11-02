@@ -1,3 +1,9 @@
+202611020
+LeanDVB, affichage fournisseur, service, codecs, MODCOD et paquets nuls
+LeanDVB, infos de reception homogenes, visibles 20 s au debut de la reception
+TCAnim de retour, mire animee modernisee
+Correction debordement parametre gpio
+
 202610243
 Visualisation images SSTV
 
