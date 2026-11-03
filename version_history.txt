@@ -1,3 +1,6 @@
+202611030
+TCAnim selectionnable en sortie Pluto et LibreSDR
+
 202611020
 LeanDVB, affichage fournisseur, service, codecs, MODCOD et paquets nuls
 LeanDVB, infos de reception homogenes, visibles 20 s au debut de la reception

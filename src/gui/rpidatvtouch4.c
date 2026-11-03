@@ -9159,7 +9159,8 @@ void ApplyTXConfig()
     &&  (strcmp(CurrentEncoding, "IPTS in H264") != 0)
     &&  (strcmp(CurrentEncoding, "IPTS in H265") != 0)
     &&  (strcmp(CurrentEncoding, "RTSP") != 0)
-    &&  (strcmp(CurrentEncoding, "TS File") != 0))
+    &&  (strcmp(CurrentEncoding, "TS File") != 0)
+    &&  (strcmp(CurrentEncoding, "TCAnim") != 0))
     {
       if (strcmp(CurrentEncoding, "MPEG-2") == 0)
       {
@@ -9195,6 +9196,10 @@ void ApplyTXConfig()
       else if (strcmp(CurrentSource, "Contest") == 0)
       {
         strcpy(ModeInput, "CONTEST");
+      }
+      else if (strcmp(CurrentSource, "TCAnim") == 0)  // mire animee, flux RTMP (a.sh)
+      {
+        strcpy(ModeInput, "PATERNAUDIO");
       }
       else                             // Default
       {
