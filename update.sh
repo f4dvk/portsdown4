@@ -53,6 +53,28 @@ end
 EOF
 }
 
+# Paquets apt : un seul appel (bien plus rapide que paquet par paquet) ; si
+# un paquet manque dans le depot, on reprend un par un pour installer les autres
+apt_install()
+{
+  sudo apt-get -y install "$@" && return 0
+  local p
+  for p in "$@"; do
+    sudo apt-get -y install "$p"
+  done
+}
+
+# Compilation d'une bibliotheque : nombre de jobs selon la memoire disponible
+# (environ 250 Mo par compilateur C++, au plus un par coeur), pour qu'un Pi de
+# 1 Go ne sature pas sa memoire
+MAKE_J=$(( ($(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo) - 150) / 250 ))
+if [ $MAKE_J -lt 1 ]; then
+  MAKE_J=1
+fi
+if [ $MAKE_J -gt $(nproc) ]; then
+  MAKE_J=$(nproc)
+fi
+
 ##############################################################
 
 reset
@@ -306,7 +328,7 @@ if [ ! -f  /home/pi/libiio/iio.h ]; then
   cd libiio
   git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
   cmake -DWITH_EXAMPLES=ON ./
-  make all
+  make -j$MAKE_J all
   sudo make install
   cd /home/pi
 else
@@ -325,25 +347,30 @@ else
   echo
 fi
 
-sudo apt-get -y install libairspy-dev                                   # For Airspy Bandviewer
-sudo apt-get -y install expect                                          # For unattended installs
-sudo apt-get -y install uhubctl                                         # For SDRPlay USB resets
-sudo apt-get -y install libssl-dev                                      # For libwebsockets
-sudo apt-get -y install libiio-dev libzstd-dev                          # For libiio 202309040
-sudo apt-get -y install arp-scan                                        # For List Network Devices
-sudo apt-get -y install cppcheck                                        # For HamTV Merger Client
-sudo apt-get -y install libcurl4-openssl-dev                            # ctl_cam
-sudo apt-get -y install socat                                           # For debugging network issues
-sudo apt-get -y install lsof                                            # For debugging web control issues
-sudo apt-get -y install python3-dev                                     # For ISS tracker
-sudo apt-get -y install python3-pip                                     # For ISS tracker
-sudo apt-get -y install libhamlib-dev                                   # For ISS tracker
-sudo apt-get -y install libhamlib++-dev                                 # For ISS tracker
-sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
-pip3 install ephem requests                                             # For ISS tracker
+# Paquets necessaires (un seul appel a apt ; ceux de 406/install.sh compris)
+PACKAGES=(
+  libairspy-dev                     # Airspy Bandviewer
+  expect                            # unattended installs
+  uhubctl                           # SDRPlay USB resets
+  libssl-dev                        # libwebsockets
+  libiio-dev libzstd-dev            # libiio 202309040
+  arp-scan                          # List Network Devices
+  cppcheck                          # HamTV Merger Client
+  libcurl4-openssl-dev              # cam_ctl
+  socat                             # debugging network issues
+  lsof                              # debugging web control issues
+  python3-dev python3-pip           # ISS tracker
+  libhamlib-dev libhamlib++-dev libhamlib-utils   # ISS tracker
+  pi-bluetooth bluealsa             # Bluetooth audio
+  nodejs npm                        # streaming audio
+  picotool                          # Flasheur de RP2040
+  gcc build-essential sox perl sendemail          # decodeur 406 (406/install.sh)
+)
+apt_install "${PACKAGES[@]}"
 
-sudo apt-get -y install pi-bluetooth
-sudo apt-get -y install bluealsa
+# Modules Python du suivi ISS, seulement s'ils manquent
+python3 -c "import ephem, requests" 2>/dev/null || pip3 install ephem requests
+
 sudo adduser pi bluetooth
 if ! grep -q noplugin=sap /lib/systemd/system/bluetooth.service; then
   sudo cp /lib/systemd/system/bluetooth.service /lib/systemd/system/bluetooth.service-org
@@ -357,7 +384,7 @@ if [ ! -d  /home/pi/libwebsockets ]; then
   git clone https://github.com/warmcat/libwebsockets.git
   cd libwebsockets
   cmake ./
-  make all
+  make -j$MAKE_J all
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -370,13 +397,12 @@ if grep -q 'ts.tv_sec = target_us / 1000000' /home/pi/libwebsockets/lib/core-net
   git clone https://github.com/warmcat/libwebsockets.git
   cd libwebsockets
   cmake ./
-  make all
+  make -j$MAKE_J all
   sudo make install
   sudo ldconfig
   cd /home/pi
 fi
 
-sudo apt-get install -y nodejs npm         # streaming audio
 
 if [ ! $(find /usr/bin -name ffmpeg2) ]; then
   sudo apt-get install -y ffmpeg
@@ -386,7 +412,6 @@ if [ ! $(find /usr/bin -name aplay2) ]; then
   sudo cp /usr/bin/aplay /usr/bin/aplay2
 fi
 
-sudo apt-get install -y picotool # Flasheur de RP2040
 
 cd /home/pi
 
@@ -414,7 +439,7 @@ if ! grep -q 9c983d8 /home/pi/LimeSuite/commit_tag.txt; then
   mkdir dirbuild
   cd dirbuild/
   cmake ../
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -458,7 +483,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd mbelib
   mkdir build && cd build
   cmake ..
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -469,7 +494,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd itpp-4.3.1
   mkdir build && cd build
   cmake ..
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   sudo ldconfig
   cd /home/pi
@@ -479,7 +504,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd dsdcc
   mkdir build && cd build
   cmake -DUSE_MBELIB=ON ..
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   cd /home/pi
   sudo rm -r dsdcc
@@ -488,7 +513,7 @@ if [ ! -f  /usr/local/bin/dsd ]; then
   cd dsd
   mkdir build && cd build
   cmake ..
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   cd /home/pi
   sudo rm -r dsd
@@ -537,25 +562,28 @@ cd /home/pi
 
 DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\n\nXXXXXX----"
 
-# Compile rpidatv gui
 sudo killall -9 rpidatvgui
-echo "Installing rpidatvgui"
-cd /home/pi/rpidatv/src/gui
-make -j$(nproc)
-sudo make install
 
 echo
 echo "-----------------------------------------------"
 echo "------- Update RTL-SDR Drivers and Apps -------"
 echo "-----------------------------------------------"
+# Recompile seulement si le depot osmocom a change depuis la derniere fois
 cd /home/pi
-sudo rm -r rtl-sdr
-git clone https://github.com/osmocom/rtl-sdr.git
+RTL_REMOTE=$(git ls-remote https://github.com/osmocom/rtl-sdr.git HEAD 2>/dev/null | cut -f1)
+if [ -n "$RTL_REMOTE" ] && [ -f /usr/local/lib/librtlsdr.so ] \
+  && [ "$(git -C /home/pi/rtl-sdr rev-parse HEAD 2>/dev/null)" == "$RTL_REMOTE" ]; then
+  echo "rtl-sdr already up to date"
+else
+  sudo rm -rf rtl-sdr
+  git clone https://github.com/osmocom/rtl-sdr.git
 
-# Compile and install rtl-sdr
-cd rtl-sdr/ && mkdir build && cd build
-cmake ../ -DINSTALL_UDEV_RULES=ON
-make -j$(nproc) && sudo make install && sudo ldconfig
+  # Compile and install rtl-sdr
+  cd rtl-sdr/ && mkdir build && cd build
+  cmake ../ -DINSTALL_UDEV_RULES=ON
+  make -j$MAKE_J && sudo make install && sudo ldconfig
+  cd /home/pi
+fi
 
 if [ ! -f  /usr/local/lib/libSoapySDR.so ]; then
   # Install SoapySDR
@@ -563,7 +591,7 @@ if [ ! -f  /usr/local/lib/libSoapySDR.so ]; then
   cd SoapySDR
   mkdir build && cd build
   cmake ..
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   cd /home/pi
 
@@ -572,7 +600,7 @@ if [ ! -f  /usr/local/lib/libSoapySDR.so ]; then
   cd SoapyPlutoSDR
   mkdir build && cd build
   cmake ..
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   cd /home/pi
 
@@ -587,7 +615,7 @@ if [ ! -f /usr/bin/csdr ]; then
   # Install csdr
   git clone https://github.com/ha7ilm/csdr.git
   cd csdr
-  make -j$(nproc)
+  make -j$MAKE_J
   sudo make install
   cd /home/pi
 
@@ -598,416 +626,14 @@ else
 fi
 
 echo
-echo "-----------------------------------------------"
-echo "---------- Installing rx_tools Apps -----------"
-echo "-----------------------------------------------"
-# Install rx_tools
-cd /home/pi/rpidatv/src/rx_tools
-cmake .
-make -j$(nproc)
-sudo make install
-cd /home/pi
-
-# Update limesdr_toolbox
-echo "Updating limesdr_toolbox"
-
-cd /home/pi/rpidatv/src/limesdr_toolbox
-
-# Install sub project dvb modulation
-# Download and overwrite
-wget https://github.com/F5OEO/libdvbmod/archive/master.zip -O master.zip
-unzip -o master.zip
-rm -rf libdvbmod
-cp -f -r libdvbmod-master libdvbmod
-rm master.zip
-rm -rf libdvbmod-master
-
-# Make libdvbmod
-cd libdvbmod/libdvbmod
-make -j$(nproc)
-cd ../DvbTsToIQ/
-make -j$(nproc)
-cp dvb2iq /home/pi/rpidatv/bin/
-
-#Make limesdr_toolbox
-cd /home/pi/rpidatv/src/limesdr_toolbox/
-make -j$(nproc)
-cp limesdr_send /home/pi/rpidatv/bin/
-cp limesdr_dump /home/pi/rpidatv/bin/
-cp limesdr_stopchannel /home/pi/rpidatv/bin/
-cp limesdr_forward /home/pi/rpidatv/bin/
-make dvb
-cp limesdr_dvb /home/pi/rpidatv/bin/
-cd /home/pi
-
-# Update Muntjac
-echo
-echo "----------------------------"
-echo "----- Updating Muntjac -----"
-echo "----------------------------"
-
-cd /home/pi/rpidatv/src/muntjac
-
-gcc  muntjacsdr_dvb.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o  muntjacsdr_dvb
-#gcc  mjcalib-0v1a.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o mjcalib  # only used for manual calibration
-
-cp muntjacsdr_dvb /home/pi/rpidatv/bin/             # Executable
-
-cd /home/pi
-
-DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nDVB-T Transmitter\nXXXXXX----"
-
-echo
-echo "--------------------------------"
-echo "----- Updating dvb_t_stack -----"
-echo "--------------------------------"
-cd /home/pi/rpidatv/src/dvb_t_stack/Release
-make clean
-make -j$(nproc)
-cp dvb_t_stack /home/pi/rpidatv/bin/dvb_t_stack
-
-# Install the DATV Express firmware files
-cd /home/pi/rpidatv/src/dvb_t_stack
-sudo cp datvexpress16.ihx /lib/firmware/datvexpress/datvexpress16.ihx
-sudo cp datvexpressraw16.rbf /lib/firmware/datvexpress/datvexpressraw16.rbf
-cd /home/pi
-
-echo
-echo "-------------------------------------"
-echo "----- Updating the H264 Encoder -----"
-echo "-------------------------------------"
-cd /home/pi/avc2ts
-rm avc2ts.cpp
-
-# Download the previously selected version of avc2ts.cpp for Portsdown 4
-wget https://github.com/BritishAmateurTelevisionClub/avc2ts/raw/portsdown4/avc2ts.cpp
-
-# Make avc2ts with new source
-make -j$(nproc)
-cp avc2ts ../rpidatv/bin/
-cd /home/pi
-
-DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nLongMynd Receiver\nXXXXXX----"
-
-echo
-echo "------------------------------------------"
-echo "----- Updating the LongMynd Receiver -----"
-echo "------------------------------------------"
-cd /home/pi
-rm -rf longmynd
-cp -r /home/pi/rpidatv/src/longmynd/ /home/pi/
-cd longmynd
-make -j$(nproc)
-
-# Check the minitiouner.rules file and update if required
-grep -q "ba2c" /etc/udev/rules.d/minitiouner.rules
-if [ $? -ne 0 ]; then  #  file is not there or has the wrong entry for PicoTuner
-  sudo cp minitiouner.rules /etc/udev/rules.d/
-fi
-
-cd /home/pi
-
-echo
-echo "--------------------------------------------"
-echo "------ Installing the LeanDVB Receiver -----"
-echo "--------------------------------------------"
-#install leandvb DVB-S2
-cd /home/pi/rpidatv/src/
-sudo rm -fr leansdr
-wget https://github.com/f4dvk/leansdr/archive/master.zip
-unzip master.zip
-mv leansdr-master leansdr
-rm master.zip
-cd leansdr/src/apps
-make native -j$(nproc)
-cp leandvb ../../../../bin/
-
-cd /home/pi/rpidatv/src/fake_read
-make -j$(nproc)
-cp fake_read ../../bin/
-cd /home/pi
-
-DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nSignal Generator\nXXXXXX----"
-
-echo
-echo "------------------------------------------"
-echo "----- Compiling the Signal Generator -----"
-echo "------------------------------------------"
-cd /home/pi/rpidatv/src/siggen
-touch siggentouch4.c            # Force recompilation for LimeSuite update
-make -j$(nproc)
-sudo make install
-cd /home/pi
-
-echo
-echo "----------------------------------------"
-echo "----- Compiling the ADF4351 driver -----"
-echo "----------------------------------------"
-cd /home/pi/rpidatv/src/adf4351
-make -j$(nproc)
-cp adf4351 ../../bin/
-cd /home/pi
-
-DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nBandViewer\nXXXXXX----"
-
-# Compile Band Viewer
-echo
-echo "-----------------------------------------"
-echo "----- Compiling LimeSDR Band Viewer -----"
-echo "-----------------------------------------"
-cd /home/pi/rpidatv/src/bandview
-make -j$(nproc)
-cp bandview ../../bin/
-# Copy the fftw wisdom file to home so that there is no start-up delay
-# This file works for both BandViewer and NF Meter
-cp .fftwf_wisdom /home/pi/.fftwf_wisdom
-cd /home/pi
-
-# Compile Airspy Band Viewer
-echo
-echo "----------------------------------------"
-echo "----- Compiling Airspy Band Viewer -----"
-echo "----------------------------------------"
-cd /home/pi/rpidatv/src/airspyview
-make -j$(nproc)
-cp airspyview ../../bin/
-cd /home/pi
-
-# Compile RTL-SDR Band Viewer
-echo
-echo "----------------------------------------"
-echo "----- Compiling RTL-SDR Band Viewer -----"
-echo "----------------------------------------"
-cd /home/pi/rpidatv/src/rtlsdrview
-make -j$(nproc)
-cp rtlsdrview ../../bin/
-cd /home/pi
-
-# Compile Pluto Band Viewer
-echo
-echo "---------------------------------------"
-echo "----- Compiling Pluto Band Viewer -----"
-echo "---------------------------------------"
-cd /home/pi/rpidatv/src/plutoview
-make -j$(nproc)
-cp plutoview ../../bin/
-cd /home/pi
-
-# Install SDRPlay API and compile MeteorViewer and sdrplayview
-# Install the sdrplay drivers if required
-if [ ! -f  /usr/local/include/sdrplay_api.h ]; then
-  echo
-  echo "-------------------------------------------------"
-  echo "----- Setting SDRPlay for install on reboot -----"
-  echo "-------------------------------------------------"
-
-  cd /home/pi/rpidatv/src/meteorview
-
-  # Download api if required
-  if [ ! -f  SDRplay_RSP_API-ARM-3.09.1.run ]; then
-    wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
-  fi
-  chmod +x SDRplay_RSP_API-ARM-3.09.1.run
-
-  # Create file to trigger install on next reboot
-  touch /home/pi/rpidatv/.post-install_actions
-  cd /home/pi
-
-else            # api is intalled, so try to compile SDRplay apps
-  echo
-  echo "----------------------------------"
-  echo "----- Compiling MeteorViewer -----"
-  echo "----------------------------------"
-  cd /home/pi/rpidatv/src/meteorview
-  # Compile meteorview.  Do it on next boot if it fails
-  make -j$(nproc)
-  if [[ "$?" == "0" ]]; then     # Successful compile
-    cp meteorview ../../bin/
-    echo
-    echo "-----------------------------------------"
-    echo "----- Compiling SDRplay Band Viewer -----"
-    echo "-----------------------------------------"
-    cd /home/pi/rpidatv/src/sdrplayview
-    make -j$(nproc)
-    if [[ "$?" == "0" ]]; then     # Successful compile so copy with permissions
-      cp -p sdrplayview ../../bin
-      cd /home/pi
-    else
-      # Create file to trigger install on next reboot
-      touch /home/pi/rpidatv/.post-install_actions
-      cd /home/pi
-    fi
-  else
-    # Create file to trigger install on next reboot
-    touch /home/pi/rpidatv/.post-install_actions
-    cd /home/pi
-  fi
-fi
-
-DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nTest Equipment\nXXXXXX----"
-
-# Compile Power Meter
-echo
-echo "---------------------------------"
-echo "----- Compiling Power Meter -----"
-echo "---------------------------------"
-cd /home/pi/rpidatv/src/power_meter
-make -j$(nproc)
-cp power_meter ../../bin/
-cd /home/pi
-
-# Compile Lime NF Meter
-echo
 echo "---------------------------------------------"
-echo "----- Compiling Lime Noise Figure Meter -----"
+echo "----- Compiling the Portsdown programs ------"
 echo "---------------------------------------------"
-cd /home/pi/rpidatv/src/nf_meter
-make -j$(nproc)
-cp nf_meter ../../bin/
-cd /home/pi
-
-# Compile Pluto NF Meter
-echo
-echo "----------------------------------------------"
-echo "----- Compiling Pluto Noise Figure Meter -----"
-echo "----------------------------------------------"
-cd /home/pi/rpidatv/src/pluto_nf_meter
-make -j$(nproc)
-cp pluto_nf_meter ../../bin/
-cd /home/pi
-
-# Compile Sweeper
-echo
-echo "---------------------------------------"
-echo "----- Compiling Frequency Sweeper -----"
-echo "---------------------------------------"
-cd /home/pi/rpidatv/src/sweeper
-touch sweeper.c                  # Force recompilation for LimeSuite update
-make -j$(nproc)
-cp sweeper ../../bin/
-cd /home/pi
-
-# Compile DMM Display
-echo
-echo "---------------------------------------"
-echo "-------- Compiling DMM Display --------"
-echo "---------------------------------------"
-cd /home/pi/rpidatv/src/dmm
-make -j$(nproc)
-cp dmm ../../bin/
-cd /home/pi
-
-# Compile LimeSDR Noise Meter
-echo
-echo "--------------------------------------"
-echo "----- Compiling Lime Noise Meter -----"
-echo "--------------------------------------"
-cd /home/pi/rpidatv/src/noise_meter
-make -j$(nproc)
-cp noise_meter ../../bin/
-cd /home/pi
-
-# Compile Pluto SDR Noise Meter
-echo
-echo "---------------------------------------"
-echo "----- Compiling Pluto Noise Meter -----"
-echo "---------------------------------------"
-cd /home/pi/rpidatv/src/pluto_noise_meter
-make -j$(nproc)
-cp pluto_noise_meter ../../bin/
-cd /home/pi
-
-# Compile Touchscreen Listener
-echo
-echo "------------------------------------------"
-echo "----- Compiling Touchscreen Listener -----"
-echo "------------------------------------------"
-cd /home/pi/rpidatv/src/rydemon
-make -j$(nproc)
-cp rydemon ../../bin/
-cd /home/pi
-
-# Compile SSTV Receiver
-echo
-echo "----------------------------------"
-echo "----- Compiling SSTV Receiver -----"
-echo "----------------------------------"
-cd /home/pi/rpidatv/src/SSTV
-./scripts/build.sh
-cp bin/sstv_decode bin/sstv_gui bin/sstv_radio ../../bin/
-cd /home/pi
-
-# Compile client for HamTV Merger
-echo
-echo "---------------------------------------------"
-echo "----- Compiling Client for HamTV Merger -----"
-echo "---------------------------------------------"
-
-cd /home/pi
-rm master.zip >/dev/null 2>/dev/null
-rm -r tsmerge-client-linuxcli-master >/dev/null 2>/dev/null   # (from earlier faulty update)
-wget https://github.com/ARISS-UK/tsmerge-client-linuxcli/archive/refs/heads/master.zip
-unzip master.zip
-rm master.zip
-rm -r /home/pi/tsmerge >/dev/null 2>/dev/null
-mv tsmerge-client-linuxcli-master tsmerge
-cd /home/pi/tsmerge
-make cppcheck && make -j$(nproc)
-
-# Compile OOK48 Test Source
-echo
-echo "---------------------------------------"
-echo "----- Compiling OOK48 Test Source -----"
-echo "---------------------------------------"
-cd /home/pi/rpidatv/src/ook48
-make -j$(nproc)
-cp ook48 ../../bin/
-cd /home/pi
-
-# Compile and install the executable for GPIO-switched transmission (201710080)
-echo "Installing keyedtx"
-cd /home/pi/rpidatv/src/keyedtx
-make -j$(nproc)
-mv keyedtx /home/pi/rpidatv/bin/
-cd /home/pi
-
-# Compile and install the executable for GPIO-switched transmission with touch (202003020)
-cd /home/pi/rpidatv/src/keyedtxtouch
-make -j$(nproc)
-mv keyedtxtouch /home/pi/rpidatv/bin/
-cd /home/pi
-
-# Compile the Attenuator Driver (201801060)
-echo "Installing atten"
-cd /home/pi/rpidatv/src/atten
-make -j$(nproc)
-cp /home/pi/rpidatv/src/atten/set_attenuator /home/pi/rpidatv/bin/set_attenuator
-cd /home/pi
-
-# Compile the wav2lime utility (202301140)
-cd /home/pi/rpidatv/src/wav2lime
-touch wav2lime.c
-gcc -o wav2lime wav2lime.c -lLimeSuite
-cp /home/pi/rpidatv/src/wav2lime/wav2lime /home/pi/rpidatv/bin/wav2lime
-
-echo
-echo "----------------------------------"
-echo "------- Compiling cam_ctl --------"
-echo "----------------------------------"
-cd /home/pi/rpidatv/src/cam_ctl
-rm cam_ctl >/dev/null 2>/dev/null
-gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl
-cp cam_ctl ../../bin
-
-echo
-echo "----------------------------------"
-echo "------ Compiling serial_com ------"
-echo "----------------------------------"
-cd /home/pi/rpidatv/src/serial_com
-rm serial_com >/dev/null 2>/dev/null
-gcc serial_com.c -o serial_com -I/usr/include/libusb-1.0 -L/usr/lib/arm-linux-gnueabihf -lusb-1.0
-cp serial_com ../../bin
-
+# Programmes independants compiles en parallele, selon les coeurs et la memoire
+# disponible, et seulement si leurs sources ont change (scripts/build_jobs.sh) ;
+# journaux dans /home/pi/build_logs
+source /home/pi/rpidatv/scripts/build_jobs.sh
+build_portsdown_programs
 cd /home/pi
 
 DisplayUpdateMsg "Step 8 of 10\nRestoring Config\n\nXXXXXXXX--"
