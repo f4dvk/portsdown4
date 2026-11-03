@@ -1,3 +1,8 @@
+202611031
+Pluto et LibreSDR sous firmware Tezuka (MQTT), deux nouvelles sorties
+Correction menu Output : Pluto, Muntjac et Lime DVB a nouveau selectionnables
+TCAnim, SPS/PPS repetes pour les recepteurs qui arrivent en cours
+
 202611030
 TCAnim selectionnable en sortie Pluto et LibreSDR
 

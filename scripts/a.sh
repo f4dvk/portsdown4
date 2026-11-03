@@ -292,6 +292,66 @@ case "$MODE_OUTPUT" in
     MODE_OUTPUT=PLUTO
   ;;
 
+  PLUTOTZ | LIBRETZ)
+    # Pluto ou LibreSDR sous firmware Tezuka (F5OEO) : la radio module elle-meme
+    # le flux TS recu en UDP ; elle est reglee par MQTT (tezuka_ctl.py). Les
+    # sources video sont donc traitees comme la sortie IPTS out (MODE_OUTPUT=IP).
+    PLUTOPWR=$(get_config_var plutopwr $PCONFIGFILE)
+    if [ "$MODE_OUTPUT" == "LIBRETZ" ]; then
+      if [ "$LIBREIP" == "dhcp" ]; then
+        TEZUKAHOST=libre
+      else
+        TEZUKAHOST=$LIBREIP
+      fi
+    else
+      TEZUKAHOST=$PLUTOIP
+    fi
+    # Adresse numerique : avc2ts n'accepte pas les noms
+    TEZUKAIP=$(getent hosts $TEZUKAHOST | awk '{print $1; exit}')
+    if [ -z "$TEZUKAIP" ]; then
+      TEZUKAIP=$TEZUKAHOST
+    fi
+    TEZUKA_TSPORT=1314   # la radio ecoute le TS sur toutes ses adresses, sur ce port
+
+    if [ "$MODULATION" == "DVB-T" ]; then
+      printf "DVB-T non disponible avec le firmware Tezuka\n"
+      exit 1
+    fi
+
+    FREQUENCY_OUT=0
+    OUTPUT_IP="-n"$TEZUKAIP":"$TEZUKA_TSPORT
+    OUTPUT="udp://"$TEZUKAIP":"$TEZUKA_TSPORT"?pkt_size=1316&buffer_size=1316"
+    MODE_OUTPUT=IP
+
+    if [ "$MODE_INPUT" != "CARRIER" ]; then   # porteuse : voir plus bas
+      if [ "$MODTYPE" == "DVBS" ]; then
+        TZMODE=dvbs
+        TZFEC="$FECNUM/$FECDEN"
+        if [ "$TZFEC" == "7/8" ]; then
+          TZFEC="9/10"     # le firmware emet 7/8 en DVB-S pour 8/9 et 9/10
+        fi
+      else
+        TZMODE=dvbs2-ts
+        TZFEC="$FECNUM/$FECDEN"
+      fi
+      if [ "$PILOT" == "on" ]; then TZPILOTS=1; else TZPILOTS=0; fi
+      if [ "$FRAME" == "short" ]; then TZFRAME=short; else TZFRAME=long; fi
+
+      python3 $PATHSCRIPT"/tezuka_ctl.py" --host $TEZUKAIP start --mode $TZMODE \
+        --sr $SYMBOLRATE --constel ${CONSTLN,,} --fec $TZFEC --frame $TZFRAME \
+        --pilots $TZPILOTS --freq $FREQ_OUTPUTHZ --gain -$PLUTOPWR \
+        --ts 0.0.0.0:$TEZUKA_TSPORT
+      if [ $? -ne 0 ]; then
+        printf "Radio Tezuka $TEZUKAHOST non reglee, emission annulee\n"
+        exit 1
+      fi
+      if [ "$GPIO" == "on" ]; then
+        gpio -g mode 21 out    # PTT (BCM 21) : la radio est en emission
+        gpio -g write 21 1
+      fi
+    fi
+  ;;
+
   DATVEXPRESS)
     if pgrep -x "express_server" > /dev/null
     then
@@ -1561,10 +1621,12 @@ fi
 
     # -re : la mire est generee, pas captee ; sans elle, ffmpeg produirait
     # le flux plus vite que le temps reel (sorties UDP sans contre-pression).
+    # h264_omx n'envoie SPS et PPS qu'au debut : global_header + dump_extra
+    # les repetent a chaque image cle, pour un recepteur qui arrive en cours.
     TZ=UTC $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -re "${TCANIM_INPUTS[@]}" \
       -f lavfi -i "sine=frequency=500:beep_factor=4:sample_rate=48000" \
       -filter_complex "$TCANIM_GRAPH" -map "[v]" $TCANIM_AUDIO_MAP \
-      -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 \
+      -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 -flags:v +global_header -bsf:v dump_extra \
       $TCANIM_AUDIO \
       -f mpegts -blocksize 1880 \
       -mpegts_original_network_id 1 -mpegts_transport_stream_id 1 \
@@ -1868,6 +1930,15 @@ fi
     # Turn off the viewfinder (which would show Pi Cam)
     v4l2-ctl --overlay=0
 
+    # Firmware Tezuka : la radio recoit le TS en UDP et le module elle-meme
+    if [ -n "$TEZUKAIP" ]; then
+      if [ "$MODE_INPUT" == "IPTSIN" ]; then          # TS complet : simple relais UDP
+        socat -u UDP4-RECV:$UDPINPORT UDP4-SENDTO:$TEZUKAIP:$TEZUKA_TSPORT &
+        exit
+      fi
+      MODE_OUTPUT=TEZUKA   # IPTSIN264/265 : ffmpeg ci-dessous ecrit vers la radio
+    fi
+
     if [ "$MODULATION" != "DVB-T" ]; then
       # Set up means to transport of stream out of unit
       case "$MODE_OUTPUT" in
@@ -1877,6 +1948,9 @@ fi
         ;;
         "COMPVID")
           : # Do nothing.  Mode does not work yet
+        ;;
+        "TEZUKA")
+          : # Pas de modulateur local
         ;;
         "LIMEMINI" | "LIMEUSB" | "LIMEDVB")
         $PATHRPI"/limesdr_dvb" -i videots -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
@@ -1942,8 +2016,12 @@ fi
 
   let BITRATE_VIDEO=BITRATE_VIDEO/1000
 
+  if [ -n "$TEZUKAIP" ]; then
+    MODE_OUTPUT=TEZUKA   # firmware Tezuka : le TS part directement vers la radio
+  fi
+
   case "$MODE_OUTPUT" in
-    "LIMEMINI" | "LIMEUSB" | "LIMEDVB" | "DATVEXPRESS")
+    "LIMEMINI" | "LIMEUSB" | "LIMEDVB" | "DATVEXPRESS" | "TEZUKA")
       $PATHRPI"/cam_ctl" $RTSPIP h265 $VIDEO_FPS $RESOLUTION $BITRATE_VIDEO >/dev/null 2>/dev/null
     ;;
     "PLUTO")
@@ -1954,6 +2032,9 @@ fi
   if [ "$MODULATION" != "DVB-T" ]; then                    ######### DVB-S/S2
     OUTPUT_FFMPEG="-y videots"
     case "$MODE_OUTPUT" in
+      "TEZUKA")
+        OUTPUT_FFMPEG="-y $OUTPUT"
+      ;;
       "LIMEMINI" | "LIMEUSB" | "LIMEDVB")
         $PATHRPI"/limesdr_dvb" -i videots -s "$SYMBOLRATE_K"000 -f $FECNUM/$FECDEN -r $UPSAMPLE -m $MODTYPE -c $CONSTLN $PILOTS $FRAMES \
           -t "$FREQ_OUTPUT"e6 -g $LIME_GAINF -q $CAL $CUSTOM_FPGA -D $DIGITAL_GAIN -e $BAND_GPIO $LIMETYPE &
@@ -2000,7 +2081,15 @@ fi
     v4l2-ctl --overlay=0
 
     # Set up means to transport of stream out of unit
+    if [ -n "$TEZUKAIP" ]; then
+      MODE_OUTPUT=TEZUKA
+    fi
     case "$MODE_OUTPUT" in
+      "TEZUKA")
+        # Firmware Tezuka : fichier lu en boucle au rythme reel, vers la radio
+        $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -re -stream_loop -1 -i $TSVIDEOFILE \
+          -map 0 -c copy -f mpegts -muxrate $BITRATE_TS -y "$OUTPUT" &
+      ;;
       "DATVEXPRESS")
         echo "set ptt tx" >> /tmp/expctrl
         sudo nice -n -30 netcat -u -4 127.0.0.1 1314 < $TSVIDEOFILE &
@@ -2044,6 +2133,16 @@ fi
       ;;
       "PLUTO")
         # Put Pluto carrier code here
+      ;;
+      "IP")
+        if [ -n "$TEZUKAIP" ]; then   # Pluto ou LibreSDR sous firmware Tezuka
+          python3 $PATHSCRIPT"/tezuka_ctl.py" --host $TEZUKAIP carrier \
+            --freq $FREQ_OUTPUTHZ --gain -$PLUTOPWR
+          if [ $? -eq 0 ] && [ "$GPIO" == "on" ]; then
+            gpio -g mode 21 out
+            gpio -g write 21 1
+          fi
+        fi
       ;;
     esac
   ;;

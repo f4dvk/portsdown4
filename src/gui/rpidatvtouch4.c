@@ -197,13 +197,34 @@ char TabPresetLabel[4][15]={"-", "-", "-", "-"};
 char TabModeAudio[6][15]={"auto", "mic", "video", "bleeps", "no_audio", "webcam"};
 char TabModeSTD[2][7]={"6","0"};
 char TabModeVidIP[2][7]={"0","1"};
-char TabModeOP[15][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
-  "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "EXPRESS2", "MUNTJAC", "LIMEDVB", "PLUTO"};
-char TabModeOPtext[15][31]={"Portsdown", " Ugly ", "Express", "Lime USB", "BATC^Stream", "Comp Vid", \
-  "LIBRESDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Express S2", "Muntjac", "Lime DVB", "Pluto"};
+// Indices utilises partout dans le code (11 Muntjac, 12 Lime DVB, 13 Pluto) :
+// MUNTJAC remplace EXPRESS2 a l'indice 11, comme dans le Portsdown d'origine.
+// 14 et 15 : Pluto et LibreSDR sous firmware Tezuka (reglage MQTT, TS en UDP).
+char TabModeOP[16][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
+  "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "MUNTJAC", "LIMEDVB", "PLUTO", "PLUTOTZ", "LIBRETZ"};
+char TabModeOPtext[16][31]={"Portsdown", " Ugly ", "Express", "Lime USB", "BATC^Stream", "Comp Vid", \
+  "LIBRESDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Muntjac", "Lime DVB", "Pluto", \
+  "Pluto^Tezuka", "LibreSDR^Tezuka"};
 char TabAtten[4][15] = {"NONE", "PE4312", "PE43713", "HMC1119"};
 char CurrentModeOP[31] = "QPSKRF";
 char CurrentModeOPtext[31] = " UGLY ";
+
+// Sorties Pluto et LibreSDR : firmware F5OEO d'origine (flux RTMP, PLUTO et
+// LIBRESDR) ou firmware Tezuka (PLUTOTZ et LIBRETZ, voir tezuka_ctl.py)
+static int OPIsTezuka(void)
+{
+  return (strcmp(CurrentModeOP, "PLUTOTZ") == 0) || (strcmp(CurrentModeOP, "LIBRETZ") == 0);
+}
+
+static int OPIsPluto(void)      // radio Pluto, quel que soit le firmware
+{
+  return (strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "PLUTOTZ") == 0);
+}
+
+static int OPIsLibreSDR(void)   // radio LibreSDR, quel que soit le firmware
+{
+  return (strcmp(CurrentModeOP, "LIBRESDR") == 0) || (strcmp(CurrentModeOP, "LIBRETZ") == 0);
+}
 char TabTXMode[7][255] = {"DVB-S", "Carrier", "S2QPSK", "8PSK", "16APSK", "32APSK", "DVB-T"};
 char CurrentTXMode[255] = "DVB-S";
 char CurrentPilots[7] = "off";
@@ -2662,6 +2683,16 @@ void ReadModeOutput(char Moutput[256])
   {
     strcpy(Moutput, "LibreSDR");
     strcpy(CurrentModeOPtext, TabModeOPtext[6]);
+  }
+  else if (strcmp(ModeOutput, "PLUTOTZ") == 0)
+  {
+    strcpy(Moutput, "Pluto (Tezuka)");
+    strcpy(CurrentModeOPtext, TabModeOPtext[14]);
+  }
+  else if (strcmp(ModeOutput, "LIBRETZ") == 0)
+  {
+    strcpy(Moutput, "LibreSDR (Tezuka)");
+    strcpy(CurrentModeOPtext, TabModeOPtext[15]);
   }
   else  // Possibly Ugly or IQ, so set to Lime Mini
   {
@@ -6320,7 +6351,7 @@ int GetPlutoCPU()
 
 void CheckPlutoReady()
 {
-  if (strcmp(CurrentModeOP, TabModeOP[13]) == 0)  // Pluto Output selected
+  if (OPIsPluto())  // Pluto Output selected (F5OEO or Tezuka firmware)
   {
     if (CheckPlutoIPConnect() == 1)
     {
@@ -6348,7 +6379,7 @@ void CheckLibreSDRReady()
   char *last_word;
   char IPforCheck[127];
 
-  if (strcmp(CurrentModeOP, TabModeOP[6]) == 0)  // LibreSDR Output selected
+  if (OPIsLibreSDR())  // LibreSDR Output selected (F5OEO or Tezuka firmware)
   {
     if (CheckPing(LibreIP) != 0)                 // LibreSDR does not respond to ping on current address
     {
@@ -9492,13 +9523,21 @@ void EnforceValidTXMode()
        && (strcmp(CurrentModeOP, "JLIME") != 0)
        && (strcmp(CurrentModeOP, "JEXPRESS") != 0)
        && (strcmp(CurrentModeOP, "PLUTO") != 0)
-       && (strcmp(CurrentModeOP, "LIBRESDR") != 0)) // If not any of these, then not DVB-S2-capable
+       && (strcmp(CurrentModeOP, "LIBRESDR") != 0)
+       && (!OPIsTezuka())) // If not any of these, then not DVB-S2-capable
   {
     if ((strcmp(CurrentTXMode, TabTXMode[0]) != 0) && (strcmp(CurrentTXMode, TabTXMode[1]) != 0))  // Not DVB-S and not Carrier
     {
       strcpy(CurrentTXMode, TabTXMode[0]);
       SetConfigParam(PATH_PCONFIG, Param, CurrentTXMode);
     }
+  }
+
+  // Le firmware Tezuka module en DVB-S et DVB-S2, pas en DVB-T
+  if (OPIsTezuka() && (strcmp(CurrentTXMode, TabTXMode[6]) == 0))
+  {
+    strcpy(CurrentTXMode, TabTXMode[2]);  // S2 QPSK
+    SetConfigParam(PATH_PCONFIG, Param, CurrentTXMode);
   }
 }
 
@@ -10615,6 +10654,7 @@ void GreyOut1()
       if ((strcmp(CurrentModeOP, "DATVEXPRESS") != 0)
         && (strcmp(CurrentModeOP, "PLUTO") != 0)
         && (strcmp(CurrentModeOP, "LIBRESDR") != 0)
+        && (!OPIsTezuka())
         && (strcmp(CurrentModeOP, TabModeOP[3]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[8]) != 0)
         && (strcmp(CurrentModeOP, TabModeOP[9]) != 0)
@@ -10649,6 +10689,7 @@ void GreyOut11()
    && (strcmp(CurrentModeOP, "MUNTJAC") != 0)
    && (strcmp(CurrentModeOP, "PLUTO") != 0)
    && (strcmp(CurrentModeOP, "LIBRESDR") != 0)
+   && (!OPIsTezuka())
    && (strcmp(CurrentModeOP, "STREAMER") != 0)
    && (strcmp(CurrentModeOP, "COMPVID") != 0)
    && (strcmp(CurrentModeOP, "IP") != 0)
@@ -10686,6 +10727,12 @@ void GreyOut11()
     SetButtonStatus(ButtonNumber(CurrentMenu, 8), 2); // grey-out Pilots on/off
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 2); // grey-out Frames long/short
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0); // Show DVB-T
+  }
+
+  // Firmware Tezuka : DVB-S et DVB-S2 jusqu'a 32APSK, porteuse, pilotes ; pas de DVB-T
+  if (OPIsTezuka())
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 2); // grey-out DVB-T
   }
 
   // For Muntjac
@@ -10780,6 +10827,8 @@ void GreyOutReset42()
   SetButtonStatus(ButtonNumber(CurrentMenu, 13), 0); // LimeMini DVB
   SetButtonStatus(ButtonNumber(CurrentMenu, 14), 0); // Pluto
   SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);  // LibreSDR
+  SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);  // Pluto Tezuka
+  SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);  // LibreSDR Tezuka
 }
 
 void GreyOut42()
@@ -10810,11 +10859,13 @@ void GreyOut42()
   if ((CheckPlutoIPConnect() == 1) && (CheckPlutoUSBConnect() != 0))   // Pluto not connected, so GreyOut
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 14), 2); // Pluto
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2);  // Pluto Tezuka
   }
   // Check LibreSDR
   if (CheckPing(LibreIP) != 0)   // LibreSDR not connected, so GreyOut
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 1), 2); // LibreSDR
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2); // LibreSDR Tezuka
   }
 }
 
@@ -11070,6 +11121,14 @@ void SelectOP(int NoButton)      // Output device
   if (NoButton < 4) // Bottom row
   {
     index = NoButton + 5;
+  }
+  if (NoButton == 5)  // Pluto, firmware Tezuka
+  {
+    index = 14;
+  }
+  if (NoButton == 6)  // LibreSDR, firmware Tezuka
+  {
+    index = 15;
   }
   strcpy(ModeOP, TabModeOP[index]);
   char Param[15]="modeoutput";
@@ -11764,7 +11823,7 @@ void ChangeBandDetails(int NoButton)
   snprintf(ActualValue, 30, "%d", TabBandPlutoLevel[band]);
   while ((PlutoLevel < -71) || (PlutoLevel > 0) || (strlen(KeyboardReturn) < 1))  // PlutoLevel init at 1
   {
-    if (strcmp(CurrentModeOPtext, "Pluto") == 0)
+    if (OPIsPluto())
     {
       snprintf(Prompt, 63, "Set the Pluto Power for the %s Band (0 to -71):", TabBandLabel[band]);
     }
@@ -12313,11 +12372,11 @@ void SetDeviceLevel()
     strcpy(Param, "muntjacgain");
     SetConfigParam(PATH_PCONFIG, Param, KeyboardReturn);
   }
-  else if ((strcmp(CurrentModeOP, "PLUTO") == 0) || (strcmp(CurrentModeOP, "LIBRESDR") == 0))  // Pluto
+  else if (OPIsPluto() || OPIsLibreSDR())  // Pluto or LibreSDR, any firmware
   {
     while ((PlutoLevel < -71) || (PlutoLevel > 0) || (strlen(KeyboardReturn) < 1))
     {
-      if (strcmp(CurrentModeOPtext, "Pluto") == 0)
+      if (OPIsPluto())
       {
         snprintf(Prompt, 63, "Set the Pluto Power for the %s Band (0 to -71):", TabBandLabel[CurrentBand]);
       }
@@ -26344,13 +26403,13 @@ void waituntil(int w,int h)
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
           printf("Output Device Selection Cancelled\n");
           break;
-        case 5:                               // IQ
-          //SelectOP(i);
-          //printf("IQ\n");
+        case 5:                               // Pluto, firmware Tezuka
+          SelectOP(i);
+          printf("Pluto Tezuka\n");
           break;
-        case 6:                               // QPSKRF
-          //SelectOP(i);
-          //printf("QPSKRF\n");
+        case 6:                               // LibreSDR, firmware Tezuka
+          SelectOP(i);
+          printf("LibreSDR Tezuka\n");
           break;
         case 7:                               // EXPRESS
           SelectOP(i);
@@ -28297,11 +28356,11 @@ void Start_Highlights_Menu1()
   {
     snprintf(Leveltext, 20, "Muntjac Gain^%d", TabBandMuntjacGain[CurrentBand]);
   }
-  else if (strcmp(CurrentModeOP, "PLUTO") == 0)  // Pluto
+  else if (OPIsPluto())  // Pluto (F5OEO or Tezuka firmware)
   {
     snprintf(Leveltext, 20, "Pluto Pwr^%d", TabBandPlutoLevel[CurrentBand]);
   }
-  else if (strcmp(CurrentModeOP, "LIBRESDR") == 0)  // LibreSDR
+  else if (OPIsLibreSDR())  // LibreSDR (F5OEO or Tezuka firmware)
   {
     snprintf(Leveltext, 20, "LibreSDR Pwr^%d", TabBandPlutoLevel[CurrentBand]);
   }
@@ -28385,6 +28444,30 @@ void Start_Highlights_Menu1()
   else if (strcmp(CurrentModeOPtext, "LibreSDR") == 0)
   {
     strcpy(Outputtext, "Output to^LibreSDR");
+    if (CheckPing(LibreIP) != 0)
+    {
+      AmendButtonStatus(17, 1, Outputtext, &Grey);
+    }
+    else
+    {
+      AmendButtonStatus(17, 1, Outputtext, &Green);
+    }
+  }
+  else if (strcmp(CurrentModeOP, "PLUTOTZ") == 0)   // gris si le Pluto ne repond pas
+  {
+    strcpy(Outputtext, "Output to^Pluto Tezuka");
+    if (CheckPlutoIPConnect() == 1)
+    {
+      AmendButtonStatus(17, 1, Outputtext, &Grey);
+    }
+    else
+    {
+      AmendButtonStatus(17, 1, Outputtext, &Green);
+    }
+  }
+  else if (strcmp(CurrentModeOP, "LIBRETZ") == 0)   // gris si la LibreSDR ne repond pas
+  {
+    strcpy(Outputtext, "Output to^Libre Tezuka");
     if (CheckPing(LibreIP) != 0)
     {
       AmendButtonStatus(17, 1, Outputtext, &Grey);
@@ -33094,13 +33177,16 @@ void Define_Menu42()
 
   // 2nd Row, Menu 42
 
-  //button = CreateButton(42, 5);
-  //AddButtonStatus(button, TabModeOPtext[0], &Blue);    // Was IQ
-  //AddButtonStatus(button, TabModeOPtext[0], &Green);
+  // 5 et 6 (autrefois IQ et QPSK RF) : Pluto et LibreSDR sous firmware Tezuka
+  button = CreateButton(42, 5);                          // Pluto Tezuka
+  AddButtonStatus(button, TabModeOPtext[14], &Blue);
+  AddButtonStatus(button, TabModeOPtext[14], &Green);
+  AddButtonStatus(button, TabModeOPtext[14], &Grey);
 
-  //button = CreateButton(42, 6);
-  //AddButtonStatus(button, TabModeOPtext[1], &Blue);    // Was QPSK RF
-  //AddButtonStatus(button, TabModeOPtext[1], &Green);
+  button = CreateButton(42, 6);                          // LibreSDR Tezuka
+  AddButtonStatus(button, TabModeOPtext[15], &Blue);
+  AddButtonStatus(button, TabModeOPtext[15], &Green);
+  AddButtonStatus(button, TabModeOPtext[15], &Grey);
 
   button = CreateButton(42, 7);                          // Express
   AddButtonStatus(button, TabModeOPtext[2], &Blue);
@@ -33202,6 +33288,16 @@ void Start_Highlights_Menu42()
   {
     SelectInGroupOnMenu(42, 5, 14, 14, 1);
     SelectInGroupOnMenu(42, 0, 3, 14, 1);
+  }
+  if(strcmp(CurrentModeOP, TabModeOP[14]) == 0)  // Pluto Tezuka
+  {
+    SelectInGroupOnMenu(42, 5, 14, 5, 1);
+    SelectInGroupOnMenu(42, 0, 3, 5, 1);
+  }
+  if(strcmp(CurrentModeOP, TabModeOP[15]) == 0)  // LibreSDR Tezuka
+  {
+    SelectInGroupOnMenu(42, 5, 14, 6, 1);
+    SelectInGroupOnMenu(42, 0, 3, 6, 1);
   }
   GreyOut42();
 }

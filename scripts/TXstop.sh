@@ -51,6 +51,12 @@ ENDSSH
   /home/pi/rpidatv/scripts/jetson_tx_off.sh &
 
 ;;
+"PLUTOTZ" | "LIBRETZ")
+  # Firmware Tezuka : sans flux TS la radio continue d'emettre du bourrage,
+  # il faut couper l'emission par MQTT
+  sudo pkill -f "socat -u UDP4-RECV" >/dev/null 2>/dev/null   # relais IPTS in
+  python3 /home/pi/rpidatv/scripts/tezuka_ctl.py stop
+;;
 esac
 
 exit
