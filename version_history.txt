@@ -1,3 +1,6 @@
+202611033
+Correction mise a jour : programmes installes par root (siggen) remplaces correctement
+
 202611032
 Touches : contraste renforce, sans contour clair
 Mise a jour et installation plus rapides, compilation adaptee a la memoire du Pi

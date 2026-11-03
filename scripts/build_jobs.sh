@@ -78,6 +78,16 @@ build_remember()
   { printf '%s\n' "$sum"; sha1sum "$@" | cut -c1-40; } > "$BUILD_SUMS/$name"
 }
 
+# Installe un fichier dans un dossier : copie temporaire puis renommage, ce qui
+# remplace aussi un binaire appartenant a root (anciens "sudo make install") ou
+# en cours d'execution
+bj_put()   # fichier, dossier
+{
+  local name
+  name=$(basename "$1")
+  cp "$1" "$2/.$name.new" && mv -f "$2/.$name.new" "$2/$name"
+}
+
 # Copie dans le systeme (sudo), sauf en essai
 sys()
 {
@@ -156,7 +166,7 @@ bj_simple()   # nom [binaire]
   local name=$1 bin=${2:-$1} s
   s=$(src_sum "$S/$name")
   build_skip "$name" "$s" "$B/$bin" && return 0
-  cd "$S/$name" && make && cp "$bin" "$B/" || return 1
+  cd "$S/$name" && make && bj_put "$bin" "$B" || return 1
   build_remember "$name" "$s" "$B/$bin"
 }
 
@@ -165,7 +175,7 @@ job_gui()
   local s
   s=$(src_sum "$S/gui")
   build_skip gui "$s" "$B/rpidatvgui" && return 0
-  cd "$S/gui" && make && cp rpidatvgui "$B/rpidatvgui.new" && mv -f "$B/rpidatvgui.new" "$B/rpidatvgui" || return 1
+  cd "$S/gui" && make && bj_put rpidatvgui "$B" || return 1
   build_remember gui "$s" "$B/rpidatvgui"
 }
 
@@ -200,7 +210,7 @@ job_wav2lime()
   local s
   s=$(src_sum "$S/wav2lime")
   build_skip wav2lime "$s" "$B/wav2lime" && return 0
-  cd "$S/wav2lime" && gcc -o wav2lime wav2lime.c -lLimeSuite && cp wav2lime "$B/" || return 1
+  cd "$S/wav2lime" && gcc -o wav2lime wav2lime.c -lLimeSuite && bj_put wav2lime "$B" || return 1
   build_remember wav2lime "$s" "$B/wav2lime"
 }
 
@@ -209,7 +219,7 @@ job_cam_ctl()
   local s
   s=$(src_sum "$S/cam_ctl")
   build_skip cam_ctl "$s" "$B/cam_ctl" && return 0
-  cd "$S/cam_ctl" && rm -f cam_ctl && gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl && cp cam_ctl "$B/" || return 1
+  cd "$S/cam_ctl" && rm -f cam_ctl && gcc ./cam_ctl.c -lm -lcurl -o ./cam_ctl && bj_put cam_ctl "$B" || return 1
   build_remember cam_ctl "$s" "$B/cam_ctl"
 }
 
@@ -220,7 +230,7 @@ job_serial_com()
   build_skip serial_com "$s" "$B/serial_com" && return 0
   cd "$S/serial_com" && rm -f serial_com \
     && gcc serial_com.c -o serial_com -I/usr/include/libusb-1.0 -L/usr/lib/arm-linux-gnueabihf -lusb-1.0 \
-    && cp serial_com "$B/" || return 1
+    && bj_put serial_com "$B" || return 1
   build_remember serial_com "$s" "$B/serial_com"
 }
 
@@ -230,7 +240,7 @@ job_muntjac()
   s=$(src_sum "$S/muntjac")
   build_skip muntjac "$s" "$B/muntjacsdr_dvb" && return 0
   cd "$S/muntjac" && gcc muntjacsdr_dvb.c dvbs2neon.S -mfpu=neon -lpthread -o muntjacsdr_dvb \
-    && cp muntjacsdr_dvb "$B/" || return 1
+    && bj_put muntjacsdr_dvb "$B" || return 1
   build_remember muntjac "$s" "$B/muntjacsdr_dvb"
 }
 
@@ -242,7 +252,7 @@ job_dvb_t_stack()
   sys cp "$S/dvb_t_stack/datvexpress16.ihx" /lib/firmware/datvexpress/datvexpress16.ihx
   sys cp "$S/dvb_t_stack/datvexpressraw16.rbf" /lib/firmware/datvexpress/datvexpressraw16.rbf
   build_skip dvb_t_stack "$s" "$B/dvb_t_stack" && return 0
-  cd "$S/dvb_t_stack/Release" && make clean && make && cp dvb_t_stack "$B/dvb_t_stack" || return 1
+  cd "$S/dvb_t_stack/Release" && make clean && make && bj_put dvb_t_stack "$B" || return 1
   build_remember dvb_t_stack "$s" "$B/dvb_t_stack"
 }
 
@@ -262,7 +272,8 @@ job_sstv()
   local s
   s=$(src_sum "$S/SSTV")
   build_skip sstv "$s" "$B/sstv_decode" "$B/sstv_gui" "$B/sstv_radio" && return 0
-  cd "$S/SSTV" && ./scripts/build.sh && cp bin/sstv_decode bin/sstv_gui bin/sstv_radio "$B/" || return 1
+  cd "$S/SSTV" && ./scripts/build.sh && bj_put bin/sstv_decode "$B" && bj_put bin/sstv_gui "$B" \
+    && bj_put bin/sstv_radio "$B" || return 1
   build_remember sstv "$s" "$B/sstv_decode" "$B/sstv_gui" "$B/sstv_radio"
 }
 
@@ -293,10 +304,11 @@ job_limesdr_toolbox()
   bins="$B/dvb2iq $B/limesdr_send $B/limesdr_dump $B/limesdr_stopchannel $B/limesdr_forward $B/limesdr_dvb"
   s=$(src_sum "$S/limesdr_toolbox")
   build_skip limesdr_toolbox "$s" $bins && return 0
-  cd libdvbmod/libdvbmod && make && cd ../DvbTsToIQ && make && cp dvb2iq "$B/" || return 1
+  cd libdvbmod/libdvbmod && make && cd ../DvbTsToIQ && make && bj_put dvb2iq "$B" || return 1
   cd "$S/limesdr_toolbox" && make || return 1
-  cp limesdr_send limesdr_dump limesdr_stopchannel limesdr_forward "$B/" || return 1
-  make dvb && cp limesdr_dvb "$B/" || return 1
+  bj_put limesdr_send "$B" && bj_put limesdr_dump "$B" && bj_put limesdr_stopchannel "$B" \
+    && bj_put limesdr_forward "$B" || return 1
+  make dvb && bj_put limesdr_dvb "$B" || return 1
   build_remember limesdr_toolbox "$s" $bins
 }
 
@@ -310,7 +322,7 @@ job_leandvb()
   unzip -q leansdr.zip && mv leansdr-master leansdr && rm leansdr.zip || return 1
   s=$(src_sum "$S/leansdr/src")
   build_skip leandvb "$s" "$B/leandvb" && return 0
-  cd leansdr/src/apps && make native && cp leandvb "$B/" || return 1
+  cd leansdr/src/apps && make native && bj_put leandvb "$B" || return 1
   build_remember leandvb "$s" "$B/leandvb"
 }
 
@@ -326,7 +338,7 @@ job_avc2ts()
   else
     mv -f avc2ts.cpp.new avc2ts.cpp
   fi
-  make && cp avc2ts "$B/"
+  make && bj_put avc2ts "$B"
 }
 
 # Client du HamTV Merger (depot ARISS-UK, telecharge)
@@ -363,7 +375,7 @@ job_sdrplay()
   fi
   s=$(src_sum "$S/meteorview")
   if ! build_skip meteorview "$s" "$B/meteorview"; then
-    if cd "$S/meteorview" && make && cp meteorview "$B/"; then
+    if cd "$S/meteorview" && make && bj_put meteorview "$B"; then
       build_remember meteorview "$s" "$B/meteorview"
     else
       touch "$BJ_HOME/rpidatv/.post-install_actions"
@@ -372,7 +384,7 @@ job_sdrplay()
   fi
   s=$(src_sum "$S/sdrplayview")
   if ! build_skip sdrplayview "$s" "$B/sdrplayview"; then
-    if cd "$S/sdrplayview" && make && cp -p sdrplayview "$B/"; then
+    if cd "$S/sdrplayview" && make && bj_put sdrplayview "$B"; then
       build_remember sdrplayview "$s" "$B/sdrplayview"
     else
       touch "$BJ_HOME/rpidatv/.post-install_actions"
