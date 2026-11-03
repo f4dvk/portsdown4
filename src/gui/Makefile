@@ -19,6 +19,16 @@ rpidatvtouch4: rpidatvtouch4.c
 		font/dejavu_sans_30.c \
 		font/dejavu_sans_32.c \
 		font/dejavu_sans_72.c \
+		font/dejavu_sans_16.c \
+		font/dejavu_sans_bold_18.c \
+		font/dejavu_sans_bold_20.c \
+		font/dejavu_sans_bold_22.c \
+		font/dejavu_sans_bold_28.c \
+		font/dejavu_sans_cbold_16.c \
+		font/dejavu_sans_cbold_18.c \
+		font/dejavu_sans_cbold_20.c \
+		font/dejavu_sans_cbold_22.c \
+		font/dejavu_sans_cbold_28.c \
 		timing.c \
 		lmrx_utils.c \
 		ffunc.c \

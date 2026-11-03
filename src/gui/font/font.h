@@ -37,4 +37,16 @@ typedef struct {
 #include "dejavu_sans_36.h"
 #include "dejavu_sans_72.h"
 
+// Touches en relief (button3d.h) : texte gras, condense si trop large
+#include "dejavu_sans_16.h"
+#include "dejavu_sans_bold_18.h"
+#include "dejavu_sans_bold_20.h"
+#include "dejavu_sans_bold_22.h"
+#include "dejavu_sans_bold_28.h"
+#include "dejavu_sans_cbold_16.h"
+#include "dejavu_sans_cbold_18.h"
+#include "dejavu_sans_cbold_20.h"
+#include "dejavu_sans_cbold_22.h"
+#include "dejavu_sans_cbold_28.h"
+
 #endif /* __FONT_H__ */

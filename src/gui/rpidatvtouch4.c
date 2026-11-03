@@ -43,6 +43,7 @@ Rewitten by Dave, G8GKQ
 #include "font/font.h"
 #include "touch.h"
 #include "Graphics.h"
+#include "button3d.h"   // touches en relief 3D (DrawButton)
 #include "lmrx_utils.h"
 #include "ffunc.h"
 #include "timing.h"
@@ -117,6 +118,10 @@ color_t Red   = {.r = 255, .g = 0  , .b = 0  };
 color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 color_t Orange = {.r = 248, .g = 185, .b = 4  };
 color_t Rose  = {.r = 255 , .g = 105 , .b = 180};
+// Couleurs du relief 3D (button3d.h) : navigation, TX au repos, arret/redemarrage
+color_t Slate = {.r = 52 , .g = 68 , .b = 95 };
+color_t DRed  = {.r = 147, .g = 40 , .b = 31 };
+color_t Amber = {.r = 168, .g = 93 , .b = 20 };
 
 #define MAX_BUTTON 999
 int IndexButtonInArray=0;
@@ -8346,7 +8351,8 @@ void AmendButtonStatus(int ButtonIndex, int ButtonStatusIndex, char *Text, color
   Button->Status[ButtonStatusIndex].Color=*Color;
 }
 
-void DrawButton(int ButtonIndex)
+// Dessin plat d'origine : touches noires (masquees) et touches hors ecran
+static void DrawButtonFlat(int ButtonIndex)
 {
   button_t *Button=&(ButtonArray[ButtonIndex]);
   char label[255];
@@ -8418,6 +8424,74 @@ void DrawButton(int ButtonIndex)
       TextMid2(Button->x+Button->w/2, Button->y+Button->h/2, label, &font_dejavu_sans_20);
     }
   }
+}
+
+static int SameColour(color_t a, color_t b)
+{
+  return (a.r == b.r) && (a.g == b.g) && (a.b == b.b);
+}
+
+// Touche en relief 3D (button3d.h). Le texte "libelle^valeur" est ecrit sur
+// deux lignes ; dans le menu principal et pour les parametres du recepteur
+// (menu 5), la valeur s'affiche dans un afficheur en creux, de la couleur de
+// l'etat 1 de la touche (vert : normal, gris : appareil absent).
+void DrawButton(int ButtonIndex)
+{
+  button_t *Button=&(ButtonArray[ButtonIndex]);
+  color_t colour = Button->Status[Button->NoStatus].Color;
+  color_t value = Green;
+  char label[255];
+  char line1[64] = "";
+  char line2[64] = "";
+  int top = 479 - Button->y - Button->h;   // origine en haut de l'ecran
+  int mode = B3D_PLAIN;
+  int big;
+
+  // Touches noires (masquees) ou hors de l'ecran : dessin plat d'origine
+  if (SameColour(colour, Black) || (Button->w < 16) || (Button->h < 16) || (Button->x < 0)
+    || (top < 0) || (Button->x + Button->w > screenXsize) || (top + Button->h > screenYsize))
+  {
+    DrawButtonFlat(ButtonIndex);
+    return;
+  }
+
+  strcpy(label, Button->Status[Button->NoStatus].Text);
+
+  // Deux lignes separees par ^ (sauf au clavier, ou ^ est une touche)
+  const char *ptr = (CurrentMenu != 41) ? strchr(label, '^') : NULL;
+  if (ptr)
+  {
+    snprintf(line1, sizeof(line1), "%.*s", (int)(ptr - label), label);
+    snprintf(line2, sizeof(line2), "%s", ptr + 1);
+
+    // Libelle et valeur : menu principal (moitie basse d'origine de la
+    // couleur de l'etat 1) et parametres du recepteur LeanDVB
+    if ((CurrentMenu == 1) && (Button->IndexStatus > 1) && !SameColour(Button->Status[1].Color, Blue)
+      && ((Button->NoStatus == 0) || SameColour(colour, Grey)))
+    {
+      mode = B3D_VALUE;
+      value = (Button->NoStatus == 0) ? Button->Status[1].Color : Grey;
+    }
+    if (CurrentMenu == 5)
+    {
+      int pos = ButtonIndex - ButtonNumber(5, 0);
+      if (((pos == 5) || ((pos >= 10) && (pos <= 15)) || (pos == 17))
+        && ((Button->NoStatus == 0) || SameColour(colour, Grey)))
+      {
+        mode = B3D_VALUE;
+      }
+    }
+  }
+  else
+  {
+    snprintf(line1, sizeof(line1), "%s", label);
+  }
+
+  // Grande police pour une ligne seule, comme avant
+  big = (!ptr) && ((((CurrentMenu <= 9) && (CurrentMenu != 4)) || (CurrentMenu == 58)) || (CurrentMenu == 41));
+
+  b3d_button(Button->x, top, Button->w, Button->h, colour.r, colour.g, colour.b,
+             line1, line2, mode, value.r, value.g, value.b, big);
 }
 
 void SetButtonStatus(int ButtonIndex,int Status)
@@ -9065,14 +9139,15 @@ void UpdateWindow()
     clearScreen();  // Second clear screen sometimes required on return from fbi images
   }
   // Draw the backgrounds for the smaller menus
+  // (panneau gris arrondi en relief, meme place que l'ancien rectangle)
   if ((CurrentMenu >= 11) && (CurrentMenu <= 40))  // 10-button menus
   {
-    rectangle(10, 12, wscreen - 18, hscreen * 2 / 6 + 12, 127, 127, 127);
+    b3d_panel(10, 480 - 12 - (hscreen * 2 / 6 + 12), wscreen - 18, hscreen * 2 / 6 + 12);
   }
 
   if (((CurrentMenu >= 42) && (CurrentMenu <= 48)) || ((CurrentMenu >= 50) && (CurrentMenu <= 53)))  // 15-button menus
   {
-    rectangle(10, 12, wscreen - 18, hscreen * 3 / 6 + 12, 127, 127, 127);
+    b3d_panel(10, 480 - 12 - (hscreen * 3 / 6 + 12), wscreen - 18, hscreen * 3 / 6 + 12);
   }
 
   // Draw each button in turn
@@ -28055,19 +28130,19 @@ void Define_Menu1()
   //TRANSMIT RECEIVE BLANK MENU2 - Top of Menu 1
 
   button = CreateButton(1, 20);
-  AddButtonStatus(button," TX  ",&Blue);
+  AddButtonStatus(button," TX  ",&DRed);
   AddButtonStatus(button,"TX ON",&Red);
 
   button = CreateButton(1, 21);
-  AddButtonStatus(button," RX  ",&Blue);
+  AddButtonStatus(button," RX  ",&Slate);
   AddButtonStatus(button,"RX ON",&Green);
 
   button = CreateButton(1, 22);
-  AddButtonStatus(button," M2  ",&Blue);
+  AddButtonStatus(button," M2  ",&Slate);
   AddButtonStatus(button," M2  ",&Green);
 
   button = CreateButton(1, 23);
-  AddButtonStatus(button," M3  ",&Blue);
+  AddButtonStatus(button," M3  ",&Slate);
   AddButtonStatus(button," M3  ",&Green);
 }
 
@@ -28537,11 +28612,11 @@ void Define_Menu2()
   // Bottom Row, Menu 2
 
   button = CreateButton(2, 0);
-  AddButtonStatus(button, "Shutdown^ ", &Blue);
+  AddButtonStatus(button, "Shutdown^ ", &Amber);
   AddButtonStatus(button, "Shutdown^ ", &Green);
 
   button = CreateButton(2, 1);
-  AddButtonStatus(button, "Reboot^ ", &Blue);
+  AddButtonStatus(button, "Reboot^ ", &Amber);
   AddButtonStatus(button, "Reboot^ ", &Green);
 
   button = CreateButton(2, 2);
@@ -28615,11 +28690,11 @@ void Define_Menu2()
   AddButtonStatus(button, "Sarsat^Decoder", &Blue);
 
   button = CreateButton(2, 21);
-  AddButtonStatus(button," M1  ",&Blue);
+  AddButtonStatus(button," M1  ",&Slate);
   AddButtonStatus(button," M1  ",&Green);
 
   button = CreateButton(2, 23);
-  AddButtonStatus(button," M3  ",&Blue);
+  AddButtonStatus(button," M3  ",&Slate);
   AddButtonStatus(button," M3  ",&Green);
 }
 
@@ -28735,10 +28810,10 @@ void Define_Menu3()
   // Top of Menu 3
 
   button = CreateButton(3, 21);
-  AddButtonStatus(button," M1  ",&Blue);
+  AddButtonStatus(button," M1  ",&Slate);
 
   button = CreateButton(3, 22);
-  AddButtonStatus(button," M2  ",&Blue);
+  AddButtonStatus(button," M2  ",&Slate);
 }
 
 void Start_Highlights_Menu3()
@@ -28903,7 +28978,7 @@ void Define_Menu5()
   // Presets - Bottom Row, Menu 5
 
   button = CreateButton(5, 0);
-  AddButtonStatus(button, "RECEIVE", &Blue);
+  AddButtonStatus(button, "RECEIVE", &Green);
   AddButtonStatus(button, "RECEIVE", &Grey);
 
   button = CreateButton(5, 1);
@@ -29004,11 +29079,11 @@ void Define_Menu5()
   //AddButtonStatus(button," ",&Grey);
 
   button = CreateButton(5, 22);
-  AddButtonStatus(button,"EXIT",&Blue);
+  AddButtonStatus(button,"EXIT",&Slate);
   AddButtonStatus(button,"EXIT",&Green);
 
   button = CreateButton(5, 23);
-  AddButtonStatus(button,"Config",&Blue);
+  AddButtonStatus(button,"Config",&Slate);
   AddButtonStatus(button,"Config",&Green);
 }
 
