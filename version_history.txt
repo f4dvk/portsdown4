@@ -2,7 +2,7 @@
 Pluto et LibreSDR sous firmware Tezuka (MQTT), deux nouvelles sorties
 Correction menu Output : Pluto, Muntjac et Lime DVB a nouveau selectionnables
 TCAnim, SPS/PPS repetes pour les recepteurs qui arrivent en cours
-Nouveau style des touches : relief 3D, valeurs en afficheur, texte ajuste a la touche
+Nouveau style des touches et des titres : relief 3D, valeurs en afficheur, titre en bandeau
 
 202611030
 TCAnim selectionnable en sortie Pluto et LibreSDR

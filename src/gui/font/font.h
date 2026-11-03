@@ -43,11 +43,13 @@ typedef struct {
 #include "dejavu_sans_bold_18.h"
 #include "dejavu_sans_bold_20.h"
 #include "dejavu_sans_bold_22.h"
+#include "dejavu_sans_bold_24.h"
 #include "dejavu_sans_bold_28.h"
 #include "dejavu_sans_cbold_16.h"
 #include "dejavu_sans_cbold_18.h"
 #include "dejavu_sans_cbold_20.h"
 #include "dejavu_sans_cbold_22.h"
+#include "dejavu_sans_cbold_24.h"
 #include "dejavu_sans_cbold_28.h"
 
 #endif /* __FONT_H__ */

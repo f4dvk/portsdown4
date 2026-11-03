@@ -454,6 +454,50 @@ void b3d_panel(int x, int top, int w, int h)
   }
 }
 
+/*******************************************************************************
+ * Titre du menu dans un bandeau arrondi en relief, en haut de l'ecran (lignes
+ * 3 a 38 ; les touches commencent a la ligne 43). Texte gras, condense si trop
+ * long, ligne de base a la ligne 31 comme avant. Titre vide : rien.
+ *  light : fond blanc (menu principal, bandeau gris clair et texte bleu nuit),
+ *          sinon fond noir (bandeau ardoise et texte blanc)
+ ******************************************************************************/
+static const font_t *b3d_fonts_title[] = {&font_dejavu_sans_bold_24, &font_dejavu_sans_cbold_24,
+  &font_dejavu_sans_cbold_22, NULL};
+
+void b3d_title(char *title, int light)
+{
+  char s[128];
+  b3d_rgb bg = light ? (b3d_rgb){255, 255, 255} : (b3d_rgb){0, 0, 0};
+  b3d_rgb white = {255, 255, 255};
+  b3d_rgb black = {0, 0, 0};
+  b3d_rgb top = light ? b3d_hex(0xf4f7fb) : b3d_hex(0x2c3549);
+  b3d_rgb bot = light ? b3d_hex(0xd9e1ec) : b3d_hex(0x151a25);
+  float bx = 8, by = 3, bw = 784, bh = 36;
+  int i, j;
+
+  b3d_trim(s, title, sizeof(s));
+  if (s[0] == '\0')
+  {
+    return;
+  }
+
+  for (j = 0; j < 41; j++)
+  {
+    b3d_rgb row = b3d_mix(top, bot, b3d_clamp((j - by) / bh, 0, 1));
+    for (i = 0; i < 800; i++)
+    {
+      float d = b3d_sdf(i, j, bx, by, bw, bh, 10);
+      float cover = b3d_clamp(0.5f - d, 0, 1);
+      b3d_rgb c = light ? b3d_mix(row, black, 0.16f * b3d_clamp(d + 1.5f, 0, 1))
+                        : b3d_mix(row, white, 0.18f * b3d_clamp(d + 1.5f, 0, 1));
+      b3d_put(i, j, b3d_mix(bg, c, cover));
+    }
+  }
+
+  const font_t *f = b3d_fit(b3d_fonts_title, s, 770);
+  b3d_text(400, 31, s, f, light ? b3d_hex(0x15213a) : b3d_hex(0xf2f4f7), light ? 0.12f : 0.6f);
+}
+
 #pragma GCC pop_options
 
 #endif /* __BUTTON3D_H__ */

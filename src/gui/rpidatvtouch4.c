@@ -9105,13 +9105,8 @@ void ShowTitle()
     setBackColour(0, 0, 0);          // on Black
   }
 
-  const font_t *font_ptr = &font_dejavu_sans_28;
-  int txtht =  font_ptr->ascent;
-  int linepitch = (12 * txtht) / 10;
-  int linenumber = 1;
-
-  // Display Text
-  TextMid2(wscreen / 2.0, hscreen - linenumber * linepitch, MenuTitle[CurrentMenu], &font_dejavu_sans_28);
+  // Titre dans un bandeau en relief (button3d.h), a la place du texte simple
+  b3d_title(MenuTitle[CurrentMenu], CurrentMenu == 1);
 }
 
 void UpdateWindow()
