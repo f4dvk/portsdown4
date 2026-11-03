@@ -8441,8 +8441,8 @@ void DrawButton(int ButtonIndex)
   color_t colour = Button->Status[Button->NoStatus].Color;
   color_t value = Green;
   char label[255];
-  char line1[64] = "";
-  char line2[64] = "";
+  char line1[255] = "";
+  char line2[255] = "";
   int top = 479 - Button->y - Button->h;   // origine en haut de l'ecran
   int mode = B3D_PLAIN;
   int big;

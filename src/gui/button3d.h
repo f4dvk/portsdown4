@@ -127,14 +127,14 @@ static b3d_rgb b3d_grad3(const b3d_rgb pal[3], float t)
 static int b3d_palette(int r, int g, int b, b3d_rgb pal[3])
 {
   static const struct { int r, g, b; unsigned int top, mid, bot; } known[] = {
-    {0,   0,   128, 0x3d63e6, 0x1b36a8, 0x0f2170},   // Blue
-    {0,   128, 0,   0x3fd16a, 0x1a9a3f, 0x0d6427},   // Green
+    {0,   0,   128, 0x5b7cf2, 0x2d52d6, 0x1c3aa8},   // Blue
+    {0,   128, 0,   0x52dd7c, 0x22ad4b, 0x157a33},   // Green
     {255, 0,   0,   0xff6b5e, 0xe3241b, 0x9c0f0b},   // Red (TX ON)
-    {64,  64,  192, 0x7f9cff, 0x4a68e0, 0x2a44b0},   // LBlue
-    {0,   0,   64,  0x5c6f8f, 0x34445f, 0x1f2a3d},   // DBlue (Cancel)
-    {52,  68,  95,  0x5c6f8f, 0x34445f, 0x1f2a3d},   // Slate (navigation)
-    {147, 40,  31,  0xc4524b, 0x93281f, 0x5e1410},   // DRed (TX au repos)
-    {168, 93,  20,  0xd98a3a, 0xa85d14, 0x6e3a08},   // Amber (arret, redemarrage)
+    {64,  64,  192, 0x93acff, 0x5f7cec, 0x3c58c4},   // LBlue
+    {0,   0,   64,  0x8193b3, 0x52668a, 0x3a4a68},   // DBlue (Cancel)
+    {52,  68,  95,  0x8193b3, 0x52668a, 0x3a4a68},   // Slate (navigation)
+    {147, 40,  31,  0xd9655c, 0xb3372d, 0x86211a},   // DRed (TX au repos)
+    {168, 93,  20,  0xeaa050, 0xc4731f, 0x8f4f10},   // Amber (arret, redemarrage)
   };
   unsigned int i;
 
@@ -299,10 +299,21 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
     lcdpal[0] = b3d_hex(light ? 0x8d95a0 : 0x7c7c7c);
     lcdpal[1] = b3d_hex(light ? 0x9aa2ad : 0x888888);
   }
-  else
+  else if (((value_r == 127) && (value_g == 127) && (value_b == 127))
+        || ((value_r == 63) && (value_g == 63) && (value_b == 63)))
   {
-    lcdpal[0] = b3d_hex(0x1d2a1f);
-    lcdpal[1] = b3d_hex(0x2c3d2e);
+    lcdpal[0] = b3d_hex(0x7b8088);                  // appareil absent : gris
+    lcdpal[1] = b3d_hex(0x90959c);
+  }
+  else if ((value_r == 0) && (value_g == 128) && (value_b == 0))
+  {
+    lcdpal[0] = b3d_hex(0x168a3a);                  // valeur normale : vert vif
+    lcdpal[1] = b3d_hex(0x25a94f);
+  }
+  else                                              // autre etat : sa couleur
+  {
+    lcdpal[0] = b3d_mix((b3d_rgb){value_r, value_g, value_b}, black, 0.15f);
+    lcdpal[1] = b3d_mix((b3d_rgb){value_r, value_g, value_b}, white, 0.10f);
   }
 
   for (j = top; j < top + h; j++)
@@ -359,7 +370,7 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
             float v = b3d_clamp((j - ly) / lh, 0, 1);
             b3d_rgb lc = b3d_mix(lcdpal[0], lcdpal[1], v);
             float depth = -dl;                            // distance au bord
-            lc = b3d_mix(lc, black, 0.55f * b3d_clamp(1.0f - depth / 2.5f, 0, 1));
+            lc = b3d_mix(lc, black, 0.45f * b3d_clamp(1.0f - depth / 2.5f, 0, 1));
             bc = b3d_mix(bc, lc, cl);
           }
         }
@@ -384,23 +395,10 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
   {
     const font_t *fl = b3d_fit(b3d_fonts_label, l1, bw - 10);
     const font_t *fv = b3d_fit(b3d_fonts_mid, l2, lw - 8);
-    b3d_rgb label = disabled ? txt : (b3d_rgb){230, 236, 255};
-    b3d_rgb value;
-    if (disabled || ((value_r == 127) && (value_g == 127) && (value_b == 127))
-     || ((value_r == 63) && (value_g == 63) && (value_b == 63)))
-    {
-      value = (b3d_rgb){110, 118, 128};             // valeur indisponible
-    }
-    else if ((value_r == 0) && (value_g == 128) && (value_b == 0))
-    {
-      value = b3d_hex(0x7dff9a);                    // valeur normale
-    }
-    else
-    {
-      value = b3d_mix((b3d_rgb){value_r, value_g, value_b}, white, 0.35f);
-    }
+    b3d_rgb label = disabled ? txt : white;
+    b3d_rgb value = disabled ? (b3d_rgb){110, 118, 128} : white;
     b3d_text(bx + bw / 2, b3d_baseline(fl, by + (ly - by) / 2 + 1), l1, fl, label, disabled ? 0 : 0.35f);
-    b3d_text(lx + lw / 2, b3d_baseline(fv, ly + lh / 2 + 1), l2, fv, value, 0);
+    b3d_text(lx + lw / 2, b3d_baseline(fv, ly + lh / 2 + 1), l2, fv, value, disabled ? 0 : 0.40f);
     return;
   }
 
