@@ -358,14 +358,10 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
             bc = b3d_mix(bc, white, csh * (0.10f + (0.0f - 0.10f) * u));
           }
           // Lisere clair sur le pourtour
-          float edge = b3d_clamp(d + 1.5f, 0, 1);
-          if (j < by + bh * 0.5f)
+          // Lisere sombre sur la moitie basse seulement (pas de contour clair)
+          if (j >= by + bh * 0.5f)
           {
-            bc = b3d_mix(bc, white, 0.38f * edge);
-          }
-          else
-          {
-            bc = b3d_mix(bc, black, 0.30f * edge);
+            bc = b3d_mix(bc, black, 0.30f * b3d_clamp(d + 1.5f, 0, 1));
           }
         }
         else
