@@ -39,7 +39,7 @@ static const font_t *b3d_fonts_tall2[] = {&font_dejavu_sans_bold_22, &font_dejav
   &font_dejavu_sans_cbold_20, &font_dejavu_sans_cbold_18, NULL};
 static const font_t *b3d_fonts_mid[] = {&font_dejavu_sans_bold_20, &font_dejavu_sans_cbold_20,
   &font_dejavu_sans_cbold_18, &font_dejavu_sans_cbold_16, NULL};
-static const font_t *b3d_fonts_label[] = {&font_dejavu_sans_16, &font_dejavu_sans_cbold_16, NULL};
+static const font_t *b3d_fonts_label[] = {&font_dejavu_sans_bold_16, &font_dejavu_sans_cbold_16, NULL};
 
 
 static b3d_rgb b3d_hex(unsigned int v)
@@ -127,14 +127,14 @@ static b3d_rgb b3d_grad3(const b3d_rgb pal[3], float t)
 static int b3d_palette(int r, int g, int b, b3d_rgb pal[3])
 {
   static const struct { int r, g, b; unsigned int top, mid, bot; } known[] = {
-    {0,   0,   128, 0x5b7cf2, 0x2d52d6, 0x1c3aa8},   // Blue
-    {0,   128, 0,   0x52dd7c, 0x22ad4b, 0x157a33},   // Green
+    {0,   0,   128, 0x3457d8, 0x2244c2, 0x182f8f},   // Blue
+    {0,   128, 0,   0x34b85a, 0x0f7a30, 0x0a5420},   // Green
     {255, 0,   0,   0xff6b5e, 0xe3241b, 0x9c0f0b},   // Red (TX ON)
-    {64,  64,  192, 0x93acff, 0x5f7cec, 0x3c58c4},   // LBlue
-    {0,   0,   64,  0x8193b3, 0x52668a, 0x3a4a68},   // DBlue (Cancel)
-    {52,  68,  95,  0x8193b3, 0x52668a, 0x3a4a68},   // Slate (navigation)
+    {64,  64,  192, 0x7f97f0, 0x4562d8, 0x3049b0},   // LBlue
+    {0,   0,   64,  0x6a7d9e, 0x46597a, 0x2f3d57},   // DBlue (Cancel)
+    {52,  68,  95,  0x6a7d9e, 0x46597a, 0x2f3d57},   // Slate (navigation)
     {147, 40,  31,  0xd9655c, 0xb3372d, 0x86211a},   // DRed (TX au repos)
-    {168, 93,  20,  0xeaa050, 0xc4731f, 0x8f4f10},   // Amber (arret, redemarrage)
+    {168, 93,  20,  0xc97a2e, 0x95500f, 0x613205},   // Amber (arret, redemarrage)
   };
   unsigned int i;
 
@@ -307,8 +307,8 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
   }
   else if ((value_r == 0) && (value_g == 128) && (value_b == 0))
   {
-    lcdpal[0] = b3d_hex(0x168a3a);                  // valeur normale : vert vif
-    lcdpal[1] = b3d_hex(0x25a94f);
+    lcdpal[0] = b3d_hex(0x0b6826);                  // valeur normale : vert franc
+    lcdpal[1] = b3d_hex(0x118c34);
   }
   else                                              // autre etat : sa couleur
   {
@@ -350,7 +350,7 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
           if (csh > 0)
           {
             float u = b3d_clamp((j - (by + 2)) / sheen_h, 0, 1);
-            bc = b3d_mix(bc, white, csh * (0.35f + (0.03f - 0.35f) * u));
+            bc = b3d_mix(bc, white, csh * (0.16f + (0.02f - 0.16f) * u));
           }
           // Lisere clair sur le pourtour
           bc = b3d_mix(bc, white, 0.27f * b3d_clamp(d + 1.5f, 0, 1));
@@ -397,8 +397,8 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
     const font_t *fv = b3d_fit(b3d_fonts_mid, l2, lw - 8);
     b3d_rgb label = disabled ? txt : white;
     b3d_rgb value = disabled ? (b3d_rgb){110, 118, 128} : white;
-    b3d_text(bx + bw / 2, b3d_baseline(fl, by + (ly - by) / 2 + 1), l1, fl, label, disabled ? 0 : 0.35f);
-    b3d_text(lx + lw / 2, b3d_baseline(fv, ly + lh / 2 + 1), l2, fv, value, disabled ? 0 : 0.40f);
+    b3d_text(bx + bw / 2, b3d_baseline(fl, by + (ly - by) / 2 + 1), l1, fl, label, disabled ? 0 : 0.50f);
+    b3d_text(lx + lw / 2, b3d_baseline(fv, ly + lh / 2 + 1), l2, fv, value, disabled ? 0 : 0.45f);
     return;
   }
 

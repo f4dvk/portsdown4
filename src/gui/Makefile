@@ -20,6 +20,7 @@ rpidatvtouch4: rpidatvtouch4.c
 		font/dejavu_sans_32.c \
 		font/dejavu_sans_72.c \
 		font/dejavu_sans_16.c \
+		font/dejavu_sans_bold_16.c \
 		font/dejavu_sans_bold_18.c \
 		font/dejavu_sans_bold_20.c \
 		font/dejavu_sans_bold_22.c \
