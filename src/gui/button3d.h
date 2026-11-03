@@ -127,14 +127,14 @@ static b3d_rgb b3d_grad3(const b3d_rgb pal[3], float t)
 static int b3d_palette(int r, int g, int b, b3d_rgb pal[3])
 {
   static const struct { int r, g, b; unsigned int top, mid, bot; } known[] = {
-    {0,   0,   128, 0x3457d8, 0x2244c2, 0x182f8f},   // Blue
-    {0,   128, 0,   0x34b85a, 0x0f7a30, 0x0a5420},   // Green
-    {255, 0,   0,   0xff6b5e, 0xe3241b, 0x9c0f0b},   // Red (TX ON)
-    {64,  64,  192, 0x7f97f0, 0x4562d8, 0x3049b0},   // LBlue
-    {0,   0,   64,  0x6a7d9e, 0x46597a, 0x2f3d57},   // DBlue (Cancel)
-    {52,  68,  95,  0x6a7d9e, 0x46597a, 0x2f3d57},   // Slate (navigation)
-    {147, 40,  31,  0xd9655c, 0xb3372d, 0x86211a},   // DRed (TX au repos)
-    {168, 93,  20,  0xc97a2e, 0x95500f, 0x613205},   // Amber (arret, redemarrage)
+    {0,   0,   128, 0x2c4cc9, 0x1b37a6, 0x11246f},   // Blue
+    {0,   128, 0,   0x2a9e4b, 0x0c6a29, 0x07471a},   // Green
+    {255, 0,   0,   0xf2564d, 0xc81d16, 0x8a0d09},   // Red (TX ON)
+    {64,  64,  192, 0x6680e0, 0x3550c0, 0x243a90},   // LBlue
+    {0,   0,   64,  0x56688a, 0x3a4b68, 0x253247},   // DBlue (Cancel)
+    {52,  68,  95,  0x56688a, 0x3a4b68, 0x253247},   // Slate (navigation)
+    {147, 40,  31,  0xc4504a, 0x9c2820, 0x6c150f},   // DRed (TX au repos)
+    {168, 93,  20,  0xb26a24, 0x83450c, 0x552c04},   // Amber (arret, redemarrage)
   };
   unsigned int i;
 
@@ -180,13 +180,18 @@ static const font_t *b3d_fit(const font_t **list, char *s, int maxw)
 // shadow : opacite d'une ombre portee d'un pixel (0 : aucune)
 static void b3d_text(int cx, int y, char *s, const font_t *f, b3d_rgb col, float shadow)
 {
+  // Passes : contour sombre (si ombre marquee), ombre portee, puis le texte
+  static const int ox[] = {-1, 1, 0, 1, 0, 0};
+  static const int oy[] = {0, 0, -1, 1, 1, 0};
+  static const float ow[] = {0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0};
   int pass;
-  for (pass = (shadow > 0 ? 0 : 1); pass < 2; pass++)
+  int first = (shadow >= 0.3f) ? 0 : ((shadow > 0) ? 4 : 5);
+  for (pass = first; pass < 6; pass++)
   {
-    b3d_rgb c = pass ? col : (b3d_rgb){0, 0, 0};
-    float opacity = pass ? 1.0f : shadow;
-    int x = cx - (int)font_width_string(f, s) / 2;
-    int dy = pass ? 0 : 1;
+    b3d_rgb c = (pass == 5) ? col : (b3d_rgb){0, 0, 0};
+    float opacity = (pass == 5) ? 1.0f : shadow * ow[pass];
+    int x = cx - (int)font_width_string(f, s) / 2 + ox[pass];
+    int dy = oy[pass];
     char *p;
     for (p = s; *p; p++)
     {
@@ -307,8 +312,8 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
   }
   else if ((value_r == 0) && (value_g == 128) && (value_b == 0))
   {
-    lcdpal[0] = b3d_hex(0x0b6826);                  // valeur normale : vert franc
-    lcdpal[1] = b3d_hex(0x118c34);
+    lcdpal[0] = b3d_hex(0x0a5a21);                  // valeur normale : vert franc
+    lcdpal[1] = b3d_hex(0x0f7a2d);
   }
   else                                              // autre etat : sa couleur
   {
@@ -350,10 +355,18 @@ void b3d_button(int x, int top, int w, int h, int r, int g, int b,
           if (csh > 0)
           {
             float u = b3d_clamp((j - (by + 2)) / sheen_h, 0, 1);
-            bc = b3d_mix(bc, white, csh * (0.16f + (0.02f - 0.16f) * u));
+            bc = b3d_mix(bc, white, csh * (0.10f + (0.0f - 0.10f) * u));
           }
           // Lisere clair sur le pourtour
-          bc = b3d_mix(bc, white, 0.27f * b3d_clamp(d + 1.5f, 0, 1));
+          float edge = b3d_clamp(d + 1.5f, 0, 1);
+          if (j < by + bh * 0.5f)
+          {
+            bc = b3d_mix(bc, white, 0.38f * edge);
+          }
+          else
+          {
+            bc = b3d_mix(bc, black, 0.30f * edge);
+          }
         }
         else
         {
