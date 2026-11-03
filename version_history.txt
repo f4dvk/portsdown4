@@ -1,3 +1,7 @@
+202611032
+Touches : contraste renforce, sans contour clair
+Mise a jour et installation plus rapides, compilation adaptee a la memoire du Pi
+
 202611031
 Pluto et LibreSDR sous firmware Tezuka (MQTT), deux nouvelles sorties
 Correction menu Output : Pluto, Muntjac et Lime DVB a nouveau selectionnables
