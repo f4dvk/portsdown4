@@ -153,8 +153,9 @@ commande et `Ctrl+C` arrête le programme.
 
 **Mode kiosque (`--kiosk`)** : masque les boutons d'accord et de mode (utile
 pour une station laissée en réception fixe sur une fréquence/mode donnés,
-pour éviter qu'un appui accidentel sur l'écran tactile ne les change) ; seul
-un petit bouton "Exit" reste affiché, en haut à droite du bandeau d'info.
+pour éviter qu'un appui accidentel sur l'écran tactile ne les change) ;
+restent affichés les boutons Mute et AFC (en bas à gauche) et Exit (en bas
+à droite).
 ```bash
 ./scripts/radio_pluto.sh 145800000 FM --kiosk
 ```
@@ -204,7 +205,9 @@ de remplir la carte SD lors d'une réception laissée longtemps en continu.
 du Raspberry Pi (haut-parleur/casque), en plus du flux envoyé au décodeur.
 Le son se coupe automatiquement dès qu'une synchronisation SSTV est
 confirmée (pas besoin d'entendre les tonalités SSTV une fois l'image en
-cours de décodage), et revient entre deux images.
+cours de décodage), et revient entre deux images. Le bouton **Mute** (au-dessus
+d'AFC, vert quand actif) coupe l'écoute en permanence, jusqu'à un nouvel
+appui ; le décodage n'est pas affecté.
 
 Fonctionnement interne : `sstv_radio` lance en sous-processus le script
 Python correspondant au SDR choisi (`sdr/rx_*.py`, GNU Radio), qui démodule

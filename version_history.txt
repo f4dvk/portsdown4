@@ -1,3 +1,6 @@
+202611035
+Reception SSTV : bouton Mute au-dessus d'AFC pour couper ou retablir l'ecoute
+
 202611034
 Menu reception (5) : touches a nouveau d'une seule couleur, comme d'origine
 Menu SSTV (58) : RECEIVE en vert et EXIT de la meme couleur que le menu 5

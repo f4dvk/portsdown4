@@ -120,7 +120,7 @@ namespace
   volatile sig_atomic_t g_quit = 0;
   bool g_touch_present = false;
   // Mode kiosque (--kiosk) : masque les boutons d'accord/mode (reglages
-  // fixes en ligne de commande), ne garde que les boutons AFC et Exit --
+  // fixes en ligne de commande), ne garde que les boutons Mute, AFC et Exit --
   // utile sur une station laissee en reception fixe, pour eviter qu'un
   // appui accidentel sur l'ecran tactile ne change la frequence ou le mode.
   bool g_kiosk = false;
@@ -162,6 +162,12 @@ namespace
   // ne corrige plus pendant ce temps, pour ne pas perturber la synchro
   // ligne par ligne d'une image en cours de reception.
   bool g_image_in_progress = false;
+  // Ecoute en direct (sortie son du Pi, commande MUTE de common_rx.py) :
+  // coupee si l'utilisateur l'a demande (bouton Mute, g_user_mute) OU
+  // automatiquement pendant le decodage d'une image (g_auto_mute, voir
+  // c_sstv_decoder_radio). Voir update_mute().
+  bool g_user_mute = false;
+  bool g_auto_mute = false;
   std::string g_mode = "FM";
   std::string g_sdr_name;
   std::string g_sstv_mode = "-"; // mode SSTV detecte (PD120, Robot36, ...), affiche des la synchro
@@ -196,6 +202,9 @@ namespace
   // Toujours visible (kiosque ou non), a cote du bouton Exit : bascule
   // g_afc au clic (voir toggle_afc()).
   s_button g_afc_button;
+  // Toujours visible, juste au-dessus d'AFC : coupe/retablit l'ecoute (voir
+  // toggle_mute()).
+  s_button g_mute_button;
 
   void on_signal(int) { g_quit = 1; }
 
@@ -216,6 +225,7 @@ namespace
     // voulant basculer l'AFC.
     const int bottom_y = screenYsize - EDGE_MARGIN - BIG_BTN_H;
     g_afc_button = { EDGE_MARGIN, bottom_y, BIG_BTN_W, BIG_BTN_H, "AFC", 2 };
+    g_mute_button = { EDGE_MARGIN, bottom_y - EDGE_MARGIN - BIG_BTN_H, BIG_BTN_W, BIG_BTN_H, "Mute", 2 };
 
     if (g_kiosk) {
       // Pas de boutons d'accord/mode : juste Exit, en bas a droite.
@@ -407,6 +417,8 @@ namespace
     // AFC : toujours visible (kiosque ou non), colore en vert (COL_BTN_ACTIVE,
     // meme convention que les boutons de mode actifs) quand active.
     draw_button(g_afc_button, g_afc, COL_BTN_BG);
+    // Mute : vert quand l'ecoute est coupee par l'utilisateur.
+    draw_button(g_mute_button, g_user_mute, COL_BTN_BG);
     draw_button(g_quit_button, false, COL_QUIT_BG);
   }
 
@@ -598,6 +610,22 @@ namespace
     draw_header();
   }
 
+  // Envoie l'etat de l'ecoute au sous-processus : coupee si l'utilisateur
+  // l'a demande ou pendant le decodage d'une image (voir g_user_mute).
+  void update_mute()
+  {
+    send_control("MUTE %d", (g_user_mute || g_auto_mute) ? 1 : 0);
+  }
+
+  // Bascule la coupure de l'ecoute au clic sur le bouton Mute. N'affecte
+  // pas le decodage, qui recoit toujours l'audio.
+  void toggle_mute()
+  {
+    g_user_mute = !g_user_mute;
+    update_mute();
+    draw_controls();
+  }
+
   void set_mode(const std::string& mode)
   {
     g_mode = mode;
@@ -713,7 +741,10 @@ namespace
         // donnees, efface le message "Connexion..." de la zone image.
         g_sdr_connecting = false;
         fill_rect(0, IMAGE_TOP, screenXsize, screenYsize - IMAGE_TOP, COL_BG[0], COL_BG[1], COL_BG[2]);
-        draw_controls(); // AFC/Exit vivent dans la zone image, effaces juste au-dessus
+        draw_controls(); // Mute/AFC/Exit vivent dans la zone image, effaces juste au-dessus
+        // Mute appuye pendant la connexion : la commande a pu partir avant
+        // que le sous-processus n'ecoute, on la renvoie maintenant.
+        update_mute();
       }
       if (g_afc) afc_update();
     }
@@ -781,6 +812,7 @@ namespace
     // (contrairement aux boutons d'accord/mode ci-dessous), l'utilisateur
     // doit pouvoir les utiliser sur une station laissee en reception fixe.
     if (hit(g_afc_button, tx, ty)) { toggle_afc(); return; }
+    if (hit(g_mute_button, tx, ty)) { toggle_mute(); return; }
     if (ty >= SPECTRUM_Y && ty < SPECTRUM_Y + SPECTRUM_H && tx >= 0 && tx < screenXsize) {
       // Meme correspondance x -> frequence que l'affichage (shifted_bin,
       // sans le repliement de tableau) : x=0 la plus basse frequence du
@@ -952,7 +984,8 @@ namespace
         draw_header(); // redessine aussi les boutons (voir son commentaire)
         // Synchro confirmee : on coupe l'ecoute (le "bruit" SSTV n'a pas
         // besoin d'etre entendu), sans affecter le decodage qui continue.
-        send_control("MUTE 1");
+        g_auto_mute = true;
+        update_mute();
       }
 
       // A l'echelle 1:1 (cas normal, la grande majorite des modes), ceci
@@ -1040,8 +1073,10 @@ namespace
       mode_out = m_mode_name;
       if (m_replay_requested) return false;
       // Fin de cette tentative (image complete, perdue ou interrompue) :
-      // on retablit l'ecoute pour la prochaine attente de signal.
-      send_control("MUTE 0");
+      // on retablit l'ecoute pour la prochaine attente de signal (sauf si
+      // l'utilisateur l'a coupee avec le bouton Mute).
+      g_auto_mute = false;
+      update_mute();
       return kept > 0;
     }
   };
@@ -1195,7 +1230,7 @@ namespace
       "          [--fb peripherique] [--touch peripherique] [--geom LxHxBPP] [--kiosk] [--web] [--afc]\n"
       "Sans --sdr : un menu de selection tactile s'affiche (necessite --touch).\n"
       "--kiosk : masque les boutons d'accord/mode (reglages figes par la ligne de\n"
-      "          commande), ne garde que les boutons AFC et Exit.\n"
+      "          commande), ne garde que les boutons Mute, AFC et Exit.\n"
       "--web : force l'activation de la commande web Portsdown4 (port 2005),\n"
       "        meme sans portsdown_config.txt (webcontrol=enabled).\n"
       "--afc : recentre automatiquement la frequence sur le pic du spectre\n"
