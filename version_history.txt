@@ -1,3 +1,8 @@
+202611034
+Menu reception (5) : touches a nouveau d'une seule couleur, comme d'origine
+Menu SSTV (58) : RECEIVE en vert et EXIT de la meme couleur que le menu 5
+Menu Sarsat (57) : meme style que les menus de configuration (panneau gris, touches bleues)
+
 202611033
 Correction mise a jour : programmes installes par root (siggen) remplaces correctement
 

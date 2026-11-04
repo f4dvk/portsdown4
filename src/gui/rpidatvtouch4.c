@@ -8432,9 +8432,9 @@ static int SameColour(color_t a, color_t b)
 }
 
 // Touche en relief 3D (button3d.h). Le texte "libelle^valeur" est ecrit sur
-// deux lignes ; dans le menu principal et pour les parametres du recepteur
-// (menu 5), la valeur s'affiche dans un afficheur en creux, de la couleur de
-// l'etat 1 de la touche (vert : normal, gris : appareil absent).
+// deux lignes ; dans le menu principal, la valeur s'affiche dans un afficheur
+// en creux, de la couleur de l'etat 1 de la touche (vert : normal, gris :
+// appareil absent).
 void DrawButton(int ButtonIndex)
 {
   button_t *Button=&(ButtonArray[ButtonIndex]);
@@ -8464,22 +8464,13 @@ void DrawButton(int ButtonIndex)
     snprintf(line1, sizeof(line1), "%.*s", (int)(ptr - label), label);
     snprintf(line2, sizeof(line2), "%s", ptr + 1);
 
-    // Libelle et valeur : menu principal (moitie basse d'origine de la
-    // couleur de l'etat 1) et parametres du recepteur LeanDVB
+    // Libelle et valeur : menu principal seulement (moitie basse d'origine
+    // de la couleur de l'etat 1)
     if ((CurrentMenu == 1) && (Button->IndexStatus > 1) && !SameColour(Button->Status[1].Color, Blue)
       && ((Button->NoStatus == 0) || SameColour(colour, Grey)))
     {
       mode = B3D_VALUE;
       value = (Button->NoStatus == 0) ? Button->Status[1].Color : Grey;
-    }
-    if (CurrentMenu == 5)
-    {
-      int pos = ButtonIndex - ButtonNumber(5, 0);
-      if (((pos == 5) || ((pos >= 10) && (pos <= 15)) || (pos == 17))
-        && ((Button->NoStatus == 0) || SameColour(colour, Grey)))
-      {
-        mode = B3D_VALUE;
-      }
     }
   }
   else
@@ -9135,7 +9126,7 @@ void UpdateWindow()
   }
   // Draw the backgrounds for the smaller menus
   // (panneau gris arrondi en relief, meme place que l'ancien rectangle)
-  if ((CurrentMenu >= 11) && (CurrentMenu <= 40))  // 10-button menus
+  if (((CurrentMenu >= 11) && (CurrentMenu <= 40)) || (CurrentMenu == 57))  // 10-button menus
   {
     b3d_panel(10, 480 - 12 - (hscreen * 2 / 6 + 12), wscreen - 18, hscreen * 2 / 6 + 12);
   }
@@ -34676,21 +34667,21 @@ void Define_Menu57()
   strcpy(MenuTitle[57], "Sarsat Decoder (57)");
 
   button = CreateButton(57, 0);
-  AddButtonStatus(button, "Start^Decoder", &DBlue);
+  AddButtonStatus(button, "Start^Decoder", &Blue);
   AddButtonStatus(button, "Start^Decoder", &LBlue);
   //AddButtonStatus(button, "Start^Decoder", &Grey);
 
   button = CreateButton(57, 1);
-  AddButtonStatus(button, "Freq^Freq", &DBlue);
+  AddButtonStatus(button, "Freq^Freq", &Blue);
   AddButtonStatus(button, "Freq^Freq", &LBlue);
 
   button = CreateButton(57, 2);
-  AddButtonStatus(button, "Derniere^Trame", &DBlue);
+  AddButtonStatus(button, "Derniere^Trame", &Blue);
   AddButtonStatus(button, "Derniere^Trame", &LBlue);
   //AddButtonStatus(button, "Derniere^Trame", &Grey);
 
   button = CreateButton(57, 3);
-  AddButtonStatus(button, "Set^Time", &DBlue);
+  AddButtonStatus(button, "Set^Time", &Blue);
   AddButtonStatus(button, "Set^Time", &LBlue);
   //AddButtonStatus(button, "Set^Time", &Grey);
 
@@ -34699,7 +34690,7 @@ void Define_Menu57()
   AddButtonStatus(button, "Exit", &LBlue);
 
   button = CreateButton(57, 5);
-  AddButtonStatus(button, "Flash^RP2040", &DBlue);
+  AddButtonStatus(button, "Flash^RP2040", &Blue);
   AddButtonStatus(button, "Flash^RP2040", &LBlue);
   AddButtonStatus(button, "RP2040^Flashed", &Green);
   AddButtonStatus(button, "Switch^to Bootsel", &Orange);
@@ -34707,22 +34698,22 @@ void Define_Menu57()
   AddButtonStatus(button, "No^RP2040", &Grey);
 
   button = CreateButton(57, 6);
-  AddButtonStatus(button, "406.028M", &DBlue);
+  AddButtonStatus(button, "406.028M", &Blue);
   AddButtonStatus(button, "406.028M", &LBlue);
   AddButtonStatus(button, "406.028M", &Green);
 
   button = CreateButton(57, 7);
-  AddButtonStatus(button, "434.2M", &DBlue);
+  AddButtonStatus(button, "434.2M", &Blue);
   AddButtonStatus(button, "434.2M", &LBlue);
   AddButtonStatus(button, "434.2M", &Green);
 
   button = CreateButton(57, 8);
-  AddButtonStatus(button, "Set^Date", &DBlue);
+  AddButtonStatus(button, "Set^Date", &Blue);
   AddButtonStatus(button, "Set^Date", &LBlue);
   //AddButtonStatus(button, "Set^Date", &Grey);
 
   button = CreateButton(57, 9);
-  AddButtonStatus(button, "Balise^F1LVT", &DBlue);
+  AddButtonStatus(button, "Balise^F1LVT", &Blue);
   AddButtonStatus(button, "Balise^F1LVT", &LBlue);
   AddButtonStatus(button, "Balise^F1LVT", &Green);
 }
@@ -34740,7 +34731,7 @@ void Start_Highlights_Menu57()
   strcpy(Freqtext, "Freq^");
   strcat(Freqtext, ValueLow);
   strcat(Freqtext, "M");
-  AmendButtonStatus(ButtonNumber(57, 1), 0, Freqtext, &DBlue);
+  AmendButtonStatus(ButtonNumber(57, 1), 0, Freqtext, &Blue);
   AmendButtonStatus(ButtonNumber(57, 1), 1, Freqtext, &LBlue);
 
   // High:
@@ -34806,7 +34797,7 @@ void Define_Menu58()
   // Presets - Bottom Row, Menu 58
 
   button = CreateButton(58, 0);
-  AddButtonStatus(button, "RECEIVE", &Blue);
+  AddButtonStatus(button, "RECEIVE", &Green);
   AddButtonStatus(button, "RECEIVE", &Grey);
 
   //button = CreateButton(58, 1);
@@ -34907,7 +34898,7 @@ void Define_Menu58()
   //AddButtonStatus(button," ",&Grey);
 
   button = CreateButton(58, 22);
-  AddButtonStatus(button,"EXIT",&Blue);
+  AddButtonStatus(button,"EXIT",&Slate);
   AddButtonStatus(button,"EXIT",&Green);
 
   button = CreateButton(58, 23);
