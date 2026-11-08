@@ -92,3 +92,11 @@ bin/sdrplayview
 bin/rydemon
 bin/muntjacsdr_dvb
 bin/*.mjo
+
+# Decodeur multiple (compiles sur le Pi)
+src/multidec/multidec
+src/multidec/md_level
+src/multidec/md_ft8
+src/multidec/md_audio
+src/multidec/md_fmdemod
+src/multidec/__pycache__/

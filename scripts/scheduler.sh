@@ -135,6 +135,7 @@ ChooseBandViewerSDR()
 # 149  Exit from rpidatvgui requesting start of Pluto Noise Meter
 # 150  Run the Meteor Viewer
 # 151  Run the SSTV Receiver
+# 152  Run the Multi Decoder (multidec)
 # 155  Run the Langstone RX V2 RtlSdr
 # 156  Run the Langstone RX V2 Rtl HF
 # 160  Shutdown from GUI
@@ -144,6 +145,7 @@ ChooseBandViewerSDR()
 # 198  Boot to Portsdown RX Receive
 # 199  Boot to Portsdown TX
 # 200  Boot to Portsdown Sarsat Menu
+# 205  Exit from the Multi Decoder requesting start of main rpidatvgui on Menu 5 (LeanDVB RX)
 # 207  Exit from any app requesting restart of main rpidatvgui on Menu 7 (test equipment)
 # 208  Exit from any app requesting start of main rpidatvgui on Menu 8 (Receive)
 
@@ -613,6 +615,19 @@ while true; do
       sleep 2
       GUI_RETURN_CODE="129"
     ;;
+    152)                              # Multi Decoder
+      # multidec a ses propres menus (choix du decodeur, options, frequence)
+      # et rend 129 (EXIT : menu principal) ou 205 (DATV : Menu 5). Tout
+      # autre code (plantage) ramene au menu principal. Le port 2005 de la
+      # commande web doit etre libre (ffunc_hook() quitte sinon).
+      lsof -ti:2005 | xargs -r kill -9 >/dev/null 2>&1
+      /home/pi/rpidatv/bin/multidec > /tmp/MultiDecoder.log 2>&1
+      GUI_RETURN_CODE="$?"
+      if [ "$GUI_RETURN_CODE" != "205" ]; then
+        GUI_RETURN_CODE="129"
+      fi
+      sleep 1
+    ;;
     160)
       sleep 1
       sudo swapoff -a
@@ -682,6 +697,12 @@ while true; do
     ;;
     200)
       /home/pi/rpidatv/bin/rpidatvgui -b 57   # Start Portsdown Sarsat Menu
+      GUI_RETURN_CODE="$?"
+      gui_exit_check
+      sudo killall vlc >/dev/null 2>/dev/null
+    ;;
+    205)
+      /home/pi/rpidatv/bin/rpidatvgui -b 5    # Start Portsdown LeanDVB RX Menu (retour du decodeur multiple)
       GUI_RETURN_CODE="$?"
       gui_exit_check
       sudo killall vlc >/dev/null 2>/dev/null

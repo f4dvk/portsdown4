@@ -246,6 +246,11 @@ cp -f -r /home/pi/rpidatv/scripts/configs/dhcpcd.conf.prep "$PATHUBACKUP"/dhcpcd
 # Make a safe copy of the ISS Tracker config
 cp -f -r "$PATHSCRIPT"/tracker_config.txt "$PATHUBACKUP"/tracker_config.txt
 
+# Make a safe copy of the Multi Decoder settings (written by multidec)
+if [ -f "$PATHSCRIPT"/multidec_config.txt ]; then
+  cp -f "$PATHSCRIPT"/multidec_config.txt "$PATHUBACKUP"/multidec_config.txt
+fi
+
 # Make a safe copy of the user's Muntjac cal files
 cp -f -r /home/pi/rpidatv/bin/*.mjo "$PATHUBACKUP"/
 
@@ -404,10 +409,10 @@ if grep -q 'ts.tv_sec = target_us / 1000000' /home/pi/libwebsockets/lib/core-net
 fi
 
 
-if [ ! $(find /usr/bin -name ffmpeg2) ]; then
+if ! command -v ffmpeg >/dev/null; then
   sudo apt-get install -y ffmpeg
-  sudo cp /usr/bin/ffmpeg /usr/bin/ffmpeg2
 fi
+sudo rm -f /usr/bin/ffmpeg2          # copie qui ne servait qu'au serveur 3LAS (retire)
 if [ ! $(find /usr/bin -name aplay2) ]; then
   sudo cp /usr/bin/aplay /usr/bin/aplay2
 fi
@@ -636,6 +641,13 @@ source /home/pi/rpidatv/scripts/build_jobs.sh
 build_portsdown_programs
 cd /home/pi
 
+# Decodeur multiple : decodeurs externes (recompiles seulement quand leur
+# version change) et fichiers de la carte web (telecharges une seule fois)
+echo "----- Multi Decoder : external decoders and map -----"
+/home/pi/rpidatv/src/multidec/install_decoders.sh
+/home/pi/rpidatv/src/multidec/install_map.sh
+cd /home/pi
+
 DisplayUpdateMsg "Step 8 of 10\nRestoring Config\n\nXXXXXXXX--"
 
 # Restore portsdown_config.txt and portsdown_presets.txt
@@ -734,6 +746,11 @@ cp -f -r "$PATHUBACKUP"/merger_config.txt "$PATHSCRIPT"/merger_config.txt
 
 # Restore the user's original ISS Tracker config
 cp -f -r "$PATHUBACKUP"/tracker_config.txt "$PATHSCRIPT"/tracker_config.txt
+
+# Restore the user's Multi Decoder settings
+if [ -f "$PATHUBACKUP"/multidec_config.txt ]; then
+  cp -f "$PATHUBACKUP"/multidec_config.txt "$PATHSCRIPT"/multidec_config.txt
+fi
 
 # Restore the user's original Muntjac cal files
 cp -f -r "$PATHUBACKUP"/*.mjo /home/pi/rpidatv/bin/
@@ -1006,14 +1023,10 @@ if ! grep -q lnbvolts= "$PATHSCRIPT"/merger_config.txt; then
   echo "lnbvolts=off" >> "$PATHSCRIPT"/merger_config.txt
 fi
 
-# Streaming audio source: https://github.com/JoJoBond/3LAS
-
-if [ ! -d "/home/pi/rpidatv/server/node_modules" ];then
-  cd /home/pi/rpidatv/server/
-  npm install ws wrtc
-  chmod ug+x stream.sh
-  cd /home/pi
-fi
+# Son du Pi pour la page web : server/stream.sh (carte son virtuelle ->
+# md_audio, /touchscreen/audio) ; l'ancien serveur 3LAS (node) est retire
+chmod ug+x /home/pi/rpidatv/server/stream.sh
+rm -rf /home/pi/rpidatv/server/node_modules
 
 cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
 

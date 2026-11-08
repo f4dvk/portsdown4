@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portsdown Multi Decoder Map</title>
+<link rel="stylesheet" href="map/maplibre-gl.css">
+<style>
+  :root { --bg: #10141c; --panel: #171d28; --line: #2a3140; --text: #e8edf5; --dim: #9fb3d1; --accent: #7dff9a; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+               font: 14px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #app { display: flex; height: 100%; }
+  #map { flex: 1; min-width: 0; }
+  #side { width: 320px; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line); }
+  #head, .shead { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  #title, .title { font-size: 17px; font-weight: 700; }
+  #sub, .sub { color: var(--dim); margin-top: 2px; }
+  #list { overflow-y: auto; flex: 1; }
+  .row { padding: 8px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .row:hover { background: #1f2737; }
+  .row b { font-weight: 650; }
+  .row .meta { color: var(--dim); font-size: 12.5px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  .sym { display: inline-block; width: 20px; height: 20px; margin: -4px 4px -4px -3px; vertical-align: -4px; background-repeat: no-repeat; }
+  #nomap { position: absolute; left: 12px; bottom: 30px; background: #000a; padding: 6px 10px; border-radius: 6px; display: none; }
+  .maplibregl-popup-content { background: var(--panel); color: var(--text); }
+  #sensors { display: none; flex: 1; overflow: auto; }
+  body.sensors #sensors { display: block; }
+  body.sensors #map, body.sensors #side, body.sensors #nomap { display: none !important; }
+  #sensors table { border-collapse: collapse; width: 100%; }
+  #sensors th { position: sticky; top: 0; background: var(--panel); color: var(--dim); font-weight: 600; text-align: left;
+                padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  #sensors td { padding: 7px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  #sensors .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #sensors th.num { text-align: right; }
+  #sensors .val { display: inline-block; background: #1f2737; border-radius: 4px; padding: 1px 7px; margin: 1px 5px 1px 0; }
+  #sensors .none { color: var(--dim); text-align: center; padding: 30px; }
+  #rinfo { padding: 10px 14px; border-bottom: 1px solid var(--line); display: none; }
+  #rinfo .rname { font-size: 22px; font-weight: 700; }
+  #rinfo .rid { color: var(--dim); font-size: 14px; margin-left: 10px; font-weight: 400; }
+  #rinfo .rline { color: var(--dim); margin-top: 3px; }
+  #rinfo .rtext { font-size: 16px; margin-top: 6px; }
+  .ok { color: #7dff9a; } .warn { color: #ffc04d; } .bad { color: #ff6e64; }
+  #sensors tr.cur td { color: #7dff9a; }
+  #sensors tr.tune { cursor: default; }
+  .play { background: #1f2737; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 2px 9px;
+          cursor: pointer; font: inherit; }
+  .play.on { background: #2a9e4b; border-color: #2a9e4b; }
+  @media (max-width: 700px) { #app { flex-direction: column; } #side { width: auto; height: 38%; border-left: 0; border-top: 1px solid var(--line); }
+                              #sensors th, #sensors td { padding: 6px 8px; } #sensors .opt { display: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sensors">
+    <div class="shead"><div id="stitle" class="title">Multi Decoder</div><div id="ssub" class="sub"></div></div>
+    <div id="rinfo"></div>
+    <audio id="player" preload="none"></audio>
+    <table>
+      <thead id="sthead"></thead>
+      <tbody id="sbody"></tbody>
+    </table>
+  </div>
+  <div id="map"></div>
+  <div id="side">
+    <div id="head"><div id="title">Multi Decoder</div><div id="sub">Waiting for data...</div></div>
+    <div id="list"></div>
+  </div>
+</div>
+<div id="nomap">Base map not installed : positions are shown without background</div>
+<script src="map/maplibre-gl.js"></script>
+<script src="map/pmtiles.js"></script>
+<script src="map.js"></script>
+</body>
+</html>

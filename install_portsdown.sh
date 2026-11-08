@@ -146,7 +146,6 @@ apt_install "${PACKAGES[@]}"
 
 python3 -c "import ephem, requests" 2>/dev/null || pip3 install ephem requests   # For ISS tracker
 
-sudo cp /usr/bin/ffmpeg /usr/bin/ffmpeg2
 sudo cp /usr/bin/aplay /usr/bin/aplay2
 
 sudo adduser pi bluetooth
@@ -504,6 +503,13 @@ source /home/pi/rpidatv/scripts/build_jobs.sh
 build_portsdown_programs
 cd /home/pi
 
+# Decodeur multiple : decodeurs externes (recompiles seulement quand leur
+# version change) et fichiers de la carte web (telecharges une seule fois)
+echo "----- Multi Decoder : external decoders and map -----"
+/home/pi/rpidatv/src/multidec/install_decoders.sh
+/home/pi/rpidatv/src/multidec/install_map.sh
+cd /home/pi
+
 # Compile Langstone
 echo
 echo "------------------------------------------"
@@ -569,12 +575,8 @@ if !(grep global_cursor_default /boot/cmdline.txt) then
   sudo sed -i '1s,$, vt.global_cursor_default=0,' /boot/cmdline.txt
 fi
 
-# Streaming audio source: https://github.com/JoJoBond/3LAS
-
-cd /home/pi/rpidatv/server/
-npm install ws wrtc
-chmod ug+x stream.sh
-cd /home/pi
+# Son du Pi pour la page web : server/stream.sh (carte son virtuelle -> md_audio)
+chmod ug+x /home/pi/rpidatv/server/stream.sh
 
 cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
 sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules

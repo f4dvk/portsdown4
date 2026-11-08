@@ -1,3 +1,16 @@
+202611081
+Decodeur multiple : FM RDS (station, radiotexte, heure) et DAB+ (multiplex, services, ecoute sur le Pi), balayages FM
+et bande III, mise a l'heure du Pi sur l'heure RDS/DAB (Set Clock) ; seconde page de decodeurs dans le menu
+Voix numerique : YSF (C4FM), M17, NXDN96 et P25 en plus de DMR, dPMR, NXDN48 et D-STAR
+Radiosondes : decodage automatique corrige (M10/M20, DFM), ecoute avec squelch et filtre, humidite M10 approchee (~)
+Icones APRS, avions et ballon sonde a l'ecran et sur la carte web ; tableau des capteurs ISM sur la page web
+Son : touche Audio (haut-parleur coupe) ; lecteur "Pi audio" de la page /touchscreen/, qui remplace le serveur 3LAS
+
+202611071
+Decodeur multiple (Menu 5 > Multi Decoder) : POCSAG, FLEX, APRS, RTTY, radiosondes, ADS-B, capteurs ISM 433/868 MHz,
+AIS, ACARS, VDL2, Selcall/DTMF, CW, DMR/NXDN, FT8 et WSPR avec une cle RTL-SDR (voir src/multidec/README.md)
+Carte web hors ligne des positions decodees : http://<adresse du Pi>/multidec/ (fond de carte France, ~92 Mo)
+
 202611035
 Reception SSTV : bouton Mute au-dessus d'AFC pour couper ou retablir l'ecoute
 

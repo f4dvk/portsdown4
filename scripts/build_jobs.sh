@@ -277,6 +277,18 @@ job_sstv()
   build_remember sstv "$s" "$B/sstv_decode" "$B/sstv_gui" "$B/sstv_radio"
 }
 
+# Decodeur multiple : reprend le dessin de la GUI (Graphics.h, button3d.h,
+# polices, ffunc), d'ou ces fichiers dans l'empreinte
+job_multidec()
+{
+  local s
+  s=$(src_sum "$S/multidec" "$S/gui/Graphics.h" "$S/gui/button3d.h" "$S/gui/ffunc.c" "$S/gui/ffunc.h" "$S/gui/font")
+  build_skip multidec "$s" "$B/multidec" "$B/md_level" "$B/md_ft8" "$B/md_audio" "$B/md_fmdemod" && return 0
+  cd "$S/multidec" && make && bj_put multidec "$B" && bj_put md_level "$B" && bj_put md_ft8 "$B" \
+    && bj_put md_audio "$B" && bj_put md_fmdemod "$B" || return 1
+  build_remember multidec "$s" "$B/multidec" "$B/md_level" "$B/md_ft8" "$B/md_audio" "$B/md_fmdemod"
+}
+
 job_longmynd()
 {
   local s
@@ -404,6 +416,7 @@ build_portsdown_programs()
   pj_add leandvb          175 job_leandvb
   pj_add avc2ts           135 job_avc2ts
   pj_add sstv             95  job_sstv
+  pj_add multidec         50  job_multidec
   pj_add gui              90  job_gui
   pj_add sdrplay          60  job_sdrplay
   pj_add airspyview       55  job_airspyview

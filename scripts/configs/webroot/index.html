@@ -10,6 +10,9 @@
       background-color: black;
       cursor: pointer;
     }
+    #piaudio { margin: 6px 0; font-family: sans-serif; }
+    #pa-btn.on { background: #2a9e4b; color: #fff; }
+    #pa-st { color: #555; margin: 0 10px; }
   </style>
   <script>
 let canvas_el;
@@ -199,8 +202,83 @@ setInterval(checkOrientation, 2000);
   <canvas width="800" height="480" id="screen-canvas"></canvas>
   <!-- <button id="fullscreen-link" onclick="fft_fullscreen();">Open fullscreen</button> -->
   <button onclick="ImageDownload();">Download screenshot</button>
+  <div id="piaudio">
+    <button id="pa-btn" title="Sound of the Raspberry Pi (RTL-FM receiver, Multi Decoder...)">&#128264; Pi audio</button>
+    <span id="pa-st">off</span>
+    Volume <input id="pa-vol" type="range" min="0" max="2" step="0.05" value="1">
+  </div>
+  <script>
+// Ecoute du Pi : le son que les applications jouent sur la carte son
+// virtuelle (recepteur RTL-FM, decodeur multiple...), servi par
+// server/stream.sh (md_audio : 16 bits bruts, en-tetes X-Rate et X-Channels),
+// joue par Web Audio avec 0,25 s d'avance ; reconnexion toutes les 2 s
+(function () {
+  const btn = document.getElementById("pa-btn"), st = document.getElementById("pa-st"),
+        vol = document.getElementById("pa-vol");
+  let on = false, ctx = null, gain = null, ctl = null;
+  const say = (s) => { st.textContent = s; };
+  async function run() {
+    while (on) {
+      try {
+        ctl = new AbortController();
+        const r = await fetch("/touchscreen/audio?t=" + Date.now(), { cache: "no-store", signal: ctl.signal });
+        if (!r.ok) throw new Error(r.status);
+        const rate = +r.headers.get("X-Rate") || 48000, ch = +r.headers.get("X-Channels") || 1, fb = 2 * ch;
+        const rd = r.body.getReader();
+        let rest = new Uint8Array(0), t = 0;
+        say("playing (" + rate + " Hz" + (ch > 1 ? " stereo" : "") + ")");
+        for (;;) {
+          const { value, done } = await rd.read();
+          if (done || !on) break;
+          let b = value;
+          if (rest.length) { const m = new Uint8Array(rest.length + b.length); m.set(rest); m.set(b, rest.length); b = m; }
+          const frames = Math.floor(b.length / fb);
+          rest = b.slice(frames * fb);
+          if (!frames) continue;
+          const dv = new DataView(b.buffer, b.byteOffset, frames * fb), ab = ctx.createBuffer(ch, frames, rate);
+          for (let c = 0; c < ch; c++) {
+            const d = ab.getChannelData(c);
+            for (let i = 0; i < frames; i++) d[i] = dv.getInt16((i * ch + c) * 2, true) / 32768;
+          }
+          const now = ctx.currentTime;
+          if (t < now + 0.03 || t > now + 1.0) t = now + 0.25;   // depart, trou, ou trop de retard
+          const src = ctx.createBufferSource();
+          src.buffer = ab;
+          src.connect(gain);
+          src.start(t);
+          t += ab.duration;
+        }
+      } catch (e) {
+        if (!on) break;
+      }
+      if (on) {
+        say("waiting for sound");
+        await new Promise((ok) => setTimeout(ok, 2000));
+      }
+    }
+  }
+  btn.onclick = function () {
+    on = !on;
+    btn.classList.toggle("on", on);
+    if (on) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      gain = ctx.createGain();
+      gain.gain.value = +vol.value;
+      gain.connect(ctx.destination);
+      say("connecting...");
+      run();
+    } else {
+      if (ctl) ctl.abort();
+      if (ctx) ctx.close();
+      ctx = null;
+      say("off");
+    }
+  };
+  vol.oninput = function () { if (gain) gain.gain.value = +vol.value; };
+})();
+  </script>
   <div>
-  <object width="300" height="190" content="text/html; charset=UTF-8859-1" data="stream/stream.html"></object><object width="350" height="200" content="text/html; charset=UTF-8859-1" data="log_run.html"></object>
+  <object width="350" height="200" content="text/html; charset=UTF-8859-1" data="log_run.html"></object>
   </div>
 </body>
 </html>

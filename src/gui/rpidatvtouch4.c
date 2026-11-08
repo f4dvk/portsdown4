@@ -24047,7 +24047,24 @@ void waituntil(int w,int h)
           Start_Highlights_Menu58();
           UpdateWindow();
           break;
-        case 21:
+        case 21:                                            // Multi Decoder
+          // Decodeur multiple : application a part (multidec), lancee par
+          // scheduler.sh (code 152). Elle a ses propres menus (choix du
+          // decodeur, options, frequence) et revient ici par le code 205.
+          if (CheckRTL() == 0)
+          {
+            cleanexit(152);
+          }
+          else
+          {
+            MsgBox4("No RtlSdr connected", "",
+                    "Please correct and try again", "Touch Screen to Continue");
+            wait_touch();
+            setBackColour(0, 0, 0);
+            clearScreen();
+            Start_Highlights_Menu5();
+            UpdateWindow();
+          }
           break;
         case 22:                                          // Back to Menu 1
           printf("MENU 1 \n");
@@ -29059,10 +29076,9 @@ void Define_Menu5()
   //AddButtonStatus(button, "SSTV", &Red);
   //AddButtonStatus(button, "SSTV", &Grey);
 
-  //button = CreateButton(5, 21);
-  //AddButtonStatus(button," ",&Blue);
-  //AddButtonStatus(button," ",&Red);
-  //AddButtonStatus(button," ",&Grey);
+  // Decodeur multiple (multidec, lance par scheduler.sh, code 152)
+  button = CreateButton(5, 21);
+  AddButtonStatus(button, "Multi^Decoder", &Blue);
 
   button = CreateButton(5, 22);
   AddButtonStatus(button,"EXIT",&Slate);
@@ -35713,6 +35729,13 @@ int main(int argc, char **argv)
     clearScreen();
     CurrentMenu = startupmenu;
     Start_Highlights_Menu57();
+  }
+  else if (startupmenu == 5)               // LeanDVB RX Menu (retour du decodeur multiple)
+  {
+    setBackColour(0, 0, 0);
+    clearScreen();
+    CurrentMenu = startupmenu;
+    Start_Highlights_Menu5();
   }
   else
   {
