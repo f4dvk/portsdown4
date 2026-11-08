@@ -85,7 +85,10 @@ int main(int argc, char **argv)
   float pi = 1, pq = 0, dc = 0, fi = 1, fq = 0, bw = 0, want;
   float hi[TAPS] = {0}, hq[TAPS] = {0};   // dernieres valeurs (filtre)
   char bwpath[160];
-  const float scale = 32767.0f * 3 / (float)M_PI;   // 0,31 rad (RS41) -> ~9800
+  // niveau proche de rtl_fm (16384/pi par radian, a 12 kHz) : souffle avec le
+  // filtre de 24 kHz ~ -9 dBFS sans ecretage (rtl_fm : ~ -11), M10 ~ -14 dBFS,
+  // RS41 ~ -21 dBFS ; 3 x 32767/pi, avant, ecretait le souffle (+9,5 dB)
+  const float scale = 16384.0f * 2 / (float)M_PI;
   for (i = 1; i < argc - 1; i++)
   {
     if (!strcmp(argv[i], "-r")) rate = atoi(argv[++i]);

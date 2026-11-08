@@ -135,7 +135,6 @@ PACKAGES=(
   lsof                              # For debugging web control issues
   python3-dev python3-pip           # For ISS tracker
   libhamlib-dev libhamlib++-dev libhamlib-utils                   # For ISS tracker
-  nodejs npm                        # streaming audio
   ffmpeg
   pi-bluetooth bluealsa
   picotool                          # Flasheur de RP2040
@@ -578,7 +577,6 @@ fi
 # Son du Pi pour la page web : server/stream.sh (carte son virtuelle -> md_audio)
 chmod ug+x /home/pi/rpidatv/server/stream.sh
 
-cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
 sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules
 
 # Configure the nginx web server

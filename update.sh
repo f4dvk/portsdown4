@@ -367,7 +367,6 @@ PACKAGES=(
   python3-dev python3-pip           # ISS tracker
   libhamlib-dev libhamlib++-dev libhamlib-utils   # ISS tracker
   pi-bluetooth bluealsa             # Bluetooth audio
-  nodejs npm                        # streaming audio
   picotool                          # Flasheur de RP2040
   gcc build-essential sox perl sendemail          # decodeur 406 (406/install.sh)
 )
@@ -1024,11 +1023,18 @@ if ! grep -q lnbvolts= "$PATHSCRIPT"/merger_config.txt; then
 fi
 
 # Son du Pi pour la page web : server/stream.sh (carte son virtuelle ->
-# md_audio, /touchscreen/audio) ; l'ancien serveur 3LAS (node) est retire
+# md_audio, /touchscreen/audio). L'ancien serveur 3LAS est retire, avec ce qui
+# ne servait qu'a lui : nodejs/npm (et leurs paquets node-*), modules et cache
+# npm, ~/.asoundrc (definitions Loopback de ffmpeg2 ; la carte son est dans
+# /etc/asound.conf)
 chmod ug+x /home/pi/rpidatv/server/stream.sh
-rm -rf /home/pi/rpidatv/server/node_modules
-
-cp /home/pi/rpidatv/scripts/configs/asoundrc /home/pi/.asoundrc
+rm -rf /home/pi/rpidatv/server/node_modules /home/pi/rpidatv/server/package-lock.json /home/pi/.npm
+if dpkg -s nodejs >/dev/null 2>&1 || dpkg -s npm >/dev/null 2>&1; then
+  sudo apt-get -y purge nodejs npm nodejs-doc libnode64 libnode-dev gyp libjs-inherits libjs-is-typedarray
+fi
+if [ -f /home/pi/.asoundrc ] && grep -q plug_Loopback_1_2 /home/pi/.asoundrc && ! grep -q "pcm.!default" /home/pi/.asoundrc; then
+  rm -f /home/pi/.asoundrc
+fi
 
 if ! grep -q snd-aloop /etc/modules; then
   sudo sed -i '$ s/$/\nsnd-aloop/' /etc/modules

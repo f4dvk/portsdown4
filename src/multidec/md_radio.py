@@ -127,9 +127,10 @@ class DabPlayer:
             p.terminate()
         for p in self.procs:
             try:
-                p.wait(3)
+                p.wait(1)                 # md_audio rend la carte virtuelle aussitot
             except subprocess.TimeoutExpired:
                 p.kill()
+                p.wait()
         self.procs = []
 
     def check(self):
@@ -144,8 +145,12 @@ class DabPlayer:
         self.stop()
         self.sid, self.t = want, time.time()
         if want:
-            ff = subprocess.Popen(["ffmpeg", "-nostdin", "-loglevel", "error", "-i",
-                                   "http://127.0.0.1:%d/mp3/%s" % (self.port, want), "-f", "s16le", "-ar", "48000",
+            # depart rapide : format impose, analyse de 2 ko seulement (sinon
+            # ffmpeg lit plusieurs secondes du flux avant de jouer : 2,2 s au
+            # premier depart, 6,4 s a la reprise d'un service ; ainsi ~1 s)
+            ff = subprocess.Popen(["ffmpeg", "-nostdin", "-loglevel", "error", "-probesize", "2048",
+                                   "-analyzeduration", "0", "-fflags", "nobuffer", "-flags", "low_delay", "-f", "mp3",
+                                   "-i", "http://127.0.0.1:%d/mp3/%s" % (self.port, want), "-f", "s16le", "-ar", "48000",
                                    "-ac", "2", "-"], stdout=subprocess.PIPE)
             au = subprocess.Popen([MD_AUDIO, "-r", "48000", "-c", "2"], stdin=ff.stdout)
             ff.stdout.close()

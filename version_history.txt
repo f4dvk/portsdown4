@@ -1,3 +1,8 @@
+202611082
+Nettoyage de l'ancien serveur audio web 3LAS : nodejs/npm (et paquets node-*), cache npm et ~/.asoundrc retires
+DAB+ : demarrage et changement de service plus rapides (~1,5 s), son de nouveau sur la page web apres un changement
+Radiosondes : niveau d'ecoute proche du recepteur RTL-FM (souffle sans ecretage)
+
 202611081
 Decodeur multiple : FM RDS (station, radiotexte, heure) et DAB+ (multiplex, services, ecoute sur le Pi), balayages FM
 et bande III, mise a l'heure du Pi sur l'heure RDS/DAB (Set Clock) ; seconde page de decodeurs dans le menu

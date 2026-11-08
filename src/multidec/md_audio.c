@@ -14,6 +14,12 @@
 // Flux web : reponse HTTP sans fin, echantillons bruts, en-tetes X-Rate et
 // X-Channels. La source n'attend jamais le reseau : un auditeur trop lent est
 // deconnecte (sa page se reconnecte d'elle-meme).
+//
+// Sorties (aplay, aplay2) relancees chaque seconde si elles s'arretent : au
+// changement de service DAB, l'aplay2 precedent tient encore un instant la
+// carte virtuelle ("occupee"), le nouveau la reprend des qu'elle est libre.
+// A l'arret (SIGTERM, fin de stdin), les aplay sont coupes sans vider leur
+// tampon : la carte est rendue tout de suite au lecteur suivant.
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -27,6 +33,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -112,15 +119,101 @@ static void send_all(const unsigned char *b, size_t n)
   }
 }
 
+// Sortie vers un aplay : processus fils, tube, relance chaque seconde
+typedef struct {
+  char *argv[16];
+  pid_t pid;
+  int fd;
+  time_t retry;
+} output;
+
+static void out_init(output *o, const char *prog, int rate, int ch, const char *dev)
+{
+  static char rs[16], cs[16];
+  int n = 0;
+  snprintf(rs, sizeof rs, "%d", rate);
+  snprintf(cs, sizeof cs, "%d", ch);
+  o->argv[n++] = (char *)prog;
+  o->argv[n++] = "-q"; o->argv[n++] = "-t"; o->argv[n++] = "raw";
+  o->argv[n++] = "-r"; o->argv[n++] = rs; o->argv[n++] = "-f"; o->argv[n++] = "S16_LE";
+  o->argv[n++] = "-c"; o->argv[n++] = cs;
+  if (dev) { o->argv[n++] = "-D"; o->argv[n++] = (char *)dev; }
+  o->argv[n] = NULL;
+  o->pid = -1;
+  o->fd = -1;
+  o->retry = 0;
+}
+
+// Arret immediat (SIGKILL) avant de fermer le tube : sur fin de flux ou
+// SIGTERM, aplay vide d'abord son tampon (snd_pcm_drain : essai, 0,5 a plus de
+// 3 s, haut-parleur comme carte virtuelle) et le lecteur suivant attend ou
+// trouve la carte occupee. Sans risque pour dmix : ALSA prend son verrou
+// partage avec SEM_UNDO, libere par le noyau a la mort du processus.
+static void out_stop(output *o)
+{
+  if (o->pid > 0) kill(o->pid, SIGKILL);
+  if (o->fd >= 0) close(o->fd);
+  if (o->pid > 0) waitpid(o->pid, NULL, 0);
+  o->fd = -1;
+  o->pid = -1;
+}
+
+static void out_start(output *o)
+{
+  int p[2];
+  o->retry = time(NULL) + 1;
+  if (pipe(p)) return;
+  o->pid = fork();
+  if (o->pid == 0)
+  {
+    int fd = open("/dev/null", O_WRONLY);
+    dup2(p[0], 0);
+    if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }
+    close(p[0]);
+    close(p[1]);
+    execvp(o->argv[0], o->argv);
+    _exit(127);
+  }
+  close(p[0]);
+  if (o->pid < 0) { close(p[1]); return; }
+  o->fd = p[1];
+}
+
+// Trames entieres ; sortie morte (aplay arrete, carte occupee) : relancee
+static void out_write(output *o, const unsigned char *b, size_t n)
+{
+  size_t w = 0;
+  if ((o->fd < 0) && (time(NULL) >= o->retry)) out_start(o);
+  while ((o->fd >= 0) && (w < n))
+  {
+    ssize_t k = write(o->fd, b + w, n - w);
+    if (k <= 0)
+    {
+      out_stop(o);
+      o->retry = time(NULL) + 1;
+      return;
+    }
+    w += k;
+  }
+}
+
+static volatile sig_atomic_t quit;
+
+static void on_term(int sig)
+{
+  (void)sig;
+  quit = 1;
+}
+
 int main(int argc, char **argv)
 {
   static unsigned char buf[16384], zero[16384];
   char mute[160];
-  int rate = 48000, ch = 1, i, ls = -1, ap = -1, lp = -1, web = 0, spk = 1, loop = 1;
+  int rate = 48000, ch = 1, i, ls = -1, web = 0, spk = 1, loop = 1;
   size_t keep = 0, frame;
   time_t lastbind = 0;
-  char cmd[128];
-  FILE *app = NULL, *lpp = NULL;
+  output hp, lb;
+  struct sigaction sa;
   for (i = 1; i < argc - 1; i++)
   {
     if (!strcmp(argv[i], "-r")) rate = atoi(argv[++i]);
@@ -136,23 +229,17 @@ int main(int argc, char **argv)
   frame = 2 * ch;
   snprintf(mute, sizeof mute, "%s/mute", getenv("MD_SHM") ? getenv("MD_SHM") : "/dev/shm/multidec");
   signal(SIGPIPE, SIG_IGN);
-  if (spk)
-  {
-    snprintf(cmd, sizeof cmd, "aplay -q -t raw -r %d -f S16_LE -c %d 2>/dev/null", rate, ch);
-    app = popen(cmd, "w");
-    if (app) ap = fileno(app);
-  }
-  if (loop)
-  {
-    snprintf(cmd, sizeof cmd, "aplay2 -q -t raw -r %d -f S16_LE -c %d -D plughw:Loopback,0,2 2>/dev/null", rate, ch);
-    lpp = popen(cmd, "w");
-    if (lpp) lp = fileno(lpp);
-  }
+  memset(&sa, 0, sizeof sa);
+  sa.sa_handler = on_term;                 // sans SA_RESTART : poll() rend la main
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+  out_init(&hp, "aplay", rate, ch, NULL);                      // haut-parleur (carte par defaut)
+  out_init(&lb, "aplay2", rate, ch, "plughw:Loopback,0,2");    // carte virtuelle (page web)
   if (web)
   {
     ls = try_listen();
   }
-  for (;;)
+  while (!quit)
   {
     struct pollfd pf[2];
     int n = 1;
@@ -181,31 +268,20 @@ int main(int argc, char **argv)
     if (pf[0].revents & (POLLIN | POLLHUP))
     {
       ssize_t r;
+      size_t tot, whole;
       if (keep >= frame) keep = 0;         // jamais : reste d'une trame incomplete
       r = read(0, buf + keep, sizeof buf - frame);
-      size_t tot, whole, w = 0;
       if (r <= 0)
       {
         break;
       }
-      const unsigned char *hp = access(mute, F_OK) ? buf + keep : zero;   // coupe : silence
-      while ((ap >= 0) && (w < (size_t)r))   // haut-parleur ; sans lui, le web continue
-      {
-        ssize_t k = write(ap, hp + w, r - w);
-        if (k <= 0) { ap = -1; break; }
-        w += k;
-      }
-      for (w = 0; (lp >= 0) && (w < (size_t)r);)   // carte virtuelle (page web)
-      {
-        ssize_t k = write(lp, buf + keep + w, r - w);
-        if (k <= 0) { lp = -1; break; }
-        w += k;
-      }
       tot = keep + r;
       whole = tot - tot % frame;
-      if (whole && nclients)
+      if (whole)
       {
-        send_all(buf, whole);
+        if (spk) out_write(&hp, access(mute, F_OK) ? buf : zero, whole);   // coupe : silence
+        if (loop) out_write(&lb, buf, whole);
+        if (nclients) send_all(buf, whole);
       }
       keep = tot - whole;
       memmove(buf, buf + whole, keep);
@@ -215,13 +291,7 @@ int main(int argc, char **argv)
   {
     drop(0);
   }
-  if (app)
-  {
-    pclose(app);
-  }
-  if (lpp)
-  {
-    pclose(lpp);
-  }
+  out_stop(&hp);
+  out_stop(&lb);
   return 0;
 }
