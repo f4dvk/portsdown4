@@ -1,3 +1,6 @@
+202611091
+ADS-B : la vue List affiche les avions recus (apparition, puis indicatif), au lieu de "Waiting for signals..."
+
 202611082
 Nettoyage de l'ancien serveur audio web 3LAS : nodejs/npm (et paquets node-*), cache npm et ~/.asoundrc retires
 DAB+ : demarrage et changement de service plus rapides (~1,5 s), son de nouveau sur la page web apres un changement

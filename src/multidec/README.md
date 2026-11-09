@@ -16,7 +16,7 @@ menus ; **DATV** ramène au Menu 5, **EXIT** au menu principal.
 | APRS | direwolf 1.8.1 (1200 / 9600 bauds) | 144,800 MHz | messages, stations + radar |
 | RTTY | minimodem 0.24 | 434,250 MHz | texte continu |
 | Radiosonde | décodeurs rs1729 (RS41, M10/M20, DFM, RS92, LMS6, iMet, Meisei…) | 403,000 MHz, balayage 400-406 MHz | suivi de sonde |
-| ADS-B | readsb 3.16 | 1090 MHz | tableau + radar |
+| ADS-B | readsb 3.16 | 1090 MHz | tableau + radar, liste des avions (apparition, indicatif) |
 | ISM 433/868 | rtl_433 25.12 | 433,92 / 868,30 / 868,95 (wM-Bus) / 315 MHz | capteurs |
 | AIS | AIS-catcher 0.70 | 161,975 + 162,025 MHz | navires + radar |
 | ACARS | acarsdec 4.7 | 131,525 / 131,725 / 131,825 MHz | messages |

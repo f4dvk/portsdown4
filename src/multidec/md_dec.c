@@ -484,7 +484,11 @@ static void poll_adsb(const md_decoder *d)
       if (json_str(p, "flight", flight, sizeof flight))
       {
         trim(flight);
-        snprintf(o->name, sizeof o->name, "%s", flight);
+        if (flight[0] && strcmp(flight, o->name))  // indicatif recu (ou change) : nouveau message
+        {
+          snprintf(o->name, sizeof o->name, "%s", flight);
+          isnew = true;
+        }
       }
       if (isfinite(v = num(p, "alt_baro"))) o->alt = v * 0.3048;
       if (isfinite(v = num(p, "gs"))) o->spd = v;
@@ -492,11 +496,28 @@ static void poll_adsb(const md_decoder *d)
       if (isfinite(v = num(p, "rssi"))) o->snr = v;
       if (isfinite(v = num(p, "baro_rate"))) o->vz = v * 0.00508;
       obj_pos(o, num(p, "lat"), num(p, "lon"));
+      // vue List : un message a l'apparition de l'avion, un autre a l'arrivee
+      // de son indicatif (comme l'AIS) ; aircraft.json n'a pas de messages
       if (isnew)
       {
-        char head[100];
-        snprintf(head, sizeof head, "New aircraft %s", hex);
-        log_line(d, head, o->name);
+        char head[100], body[200], one[40];
+        snprintf(head, sizeof head, "ICAO %s", hex);
+        snprintf(body, sizeof body, "%s", o->name[0] ? o->name : "(callsign not yet received)");
+        if (isfinite(o->alt))
+        {
+          snprintf(one, sizeof one, "  %.0f ft", o->alt / 0.3048);
+          strcat(body, one);
+        }
+        if (isfinite(o->spd)) { snprintf(one, sizeof one, "  %.0f kt", o->spd); strcat(body, one); }
+        if (isfinite(o->crs)) { snprintf(one, sizeof one, "  hdg %03.0f", o->crs); strcat(body, one); }
+        if (o->pos && isfinite(g_slat))
+        {
+          double km, az;
+          dist_az(o->lat, o->lon, &km, &az);
+          snprintf(one, sizeof one, "  %.0f km", km);
+          strcat(body, one);
+        }
+        add(d, C_WHITE, head, body);
       }
       g_dirty = true;
     }
