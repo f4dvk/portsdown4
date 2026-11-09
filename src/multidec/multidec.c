@@ -635,7 +635,36 @@ static void export_state(void)
   {
     fprintf(f, "%s[%.5f,%.5f,%.0f]", i ? "," : "", g_track[i].lat, g_track[i].lon, g_track[i].alt);
   }
-  fprintf(f, "]}}\n");
+  fprintf(f, "]}");
+  // vue de la page web : "list" (messages, comme l'ecran : POCSAG, ACARS...),
+  // "stream" (texte continu : CW, RTTY), sinon la carte ou les tableaux
+  {
+    static const char *vn[] = {"list", "objects", "sonde", "stream", "sensor", "radio"};
+    fprintf(f, ",\"view\":\"%s\",\"status\":", vn[dec->view]);
+    jstr(f, g_status);
+    fprintf(f, ",\"messages\":[");
+    for (k = 0; k < g_nmsg && k < 60; k++)
+    {
+      md_msg *m = &g_msg[(g_msghead - 1 - k + MSG_MAX * 2) % MSG_MAX];
+      fprintf(f, "%s{\"t\":%ld,\"head\":", k ? "," : "", (long)m->t);
+      jstr(f, m->head);
+      fprintf(f, ",\"body\":");
+      jstr(f, m->body);
+      fprintf(f, "}");
+    }
+    fprintf(f, "]");
+    if (dec->view == V_STREAM)
+    {
+      fprintf(f, ",\"stream\":[");
+      for (k = 0; k < g_stream_lines; k++)
+      {
+        fprintf(f, "%s", k ? "," : "");
+        jstr(f, g_stream[k]);
+      }
+      fprintf(f, "]");
+    }
+  }
+  fprintf(f, "}\n");
   fclose(f);
   rename(MD_SHM "/state.json.tmp", MD_SHM "/state.json");
 }

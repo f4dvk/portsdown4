@@ -127,6 +127,7 @@ map.addControl(new maplibregl.NavigationControl(), "top-left");
 map.addControl(new maplibregl.ScaleControl({ unit: "metric" }));
 
 // fleche (avions, navires, objets en mouvement) : image SDF coloree par type
+let mapReady = false;                    // les tableaux (messages, capteurs, radio) n'attendent pas la carte
 map.on("load", () => {
   const s = 32, c = document.createElement("canvas");
   c.width = c.height = s;
@@ -146,8 +147,7 @@ map.on("load", () => {
   Promise.all([symSheets, sondeIcon]).then(([im, sonde]) => {
     if (sonde) map.addImage("balloon", sonde, { pixelRatio: 2 });
     sheets = im;
-    refresh();
-    setInterval(refresh, 2000);
+    mapReady = true;
   });
 });
 
@@ -208,6 +208,32 @@ function sensorTable(st) {
     '</td><td class="num opt">' + (s.rssi !== undefined ? s.rssi.toFixed(1) : "") + '</td><td class="num">' + age(s.age) +
     '</td><td class="num opt">' + s.count + "</td></tr>").join("") :
     '<tr><td colspan="6" class="none">No ' + what + ' received yet</td></tr>';
+}
+
+// Messages (POCSAG, FLEX, ACARS, Selcall, voix numerique...) : la liste de
+// l'ecran, du plus recent au plus ancien
+function messageTable(st) {
+  const ms = st.messages || [];
+  document.getElementById("stitle").textContent = "Multi Decoder : " + st.title;
+  document.getElementById("ssub").textContent = (st.running ? "Receiving on " + st.freq + " MHz" : "Receiver stopped") +
+    " · " + ms.length + " message" + (ms.length === 1 ? "" : "s") + (st.status ? " · " + st.status : "");
+  setHead("<th>Time</th><th>Header</th><th>Message</th>");
+  document.getElementById("sbody").innerHTML = ms.length ? ms.map((m) => {
+    const d = new Date(m.t * 1000), hh = String(d.getHours()).padStart(2, "0"), mm = String(d.getMinutes()).padStart(2, "0"),
+      ss = String(d.getSeconds()).padStart(2, "0");
+    return '<tr><td class="num">' + hh + ":" + mm + ":" + ss + "</td><td><b>" + esc(m.head) + "</b></td><td>" + esc(m.body) + "</td></tr>";
+  }).join("") : '<tr><td colspan="3" class="none">' + (st.running ? "Waiting for signals..." : "Receiver not running") + "</td></tr>";
+}
+
+// Texte continu (CW, RTTY) : les dernieres lignes de l'ecran
+function streamView(st) {
+  const lines = (st.stream || []).filter((l, i, a) => l || i < a.length - 1);
+  document.getElementById("stitle").textContent = "Multi Decoder : " + st.title;
+  document.getElementById("ssub").textContent = (st.running ? "Receiving on " + st.freq + " MHz" : "Receiver stopped") +
+    (st.status ? " · " + st.status : "");
+  setHead("<th>Text</th>");
+  document.getElementById("sbody").innerHTML = lines.length ? lines.map((l) => '<tr><td class="mono">' + esc(l) + "</td></tr>").join("") :
+    '<tr><td class="none">' + (st.running ? "Waiting for a signal..." : "Receiver not running") + "</td></tr>";
 }
 
 function setHead(html) {
@@ -289,7 +315,8 @@ async function refresh() {
   }
   // capteurs ISM 433/868 et radio (RDS, DAB+) : pas de position, un tableau a
   // la place de la carte
-  const ism = (st.decoder === "ism") || (st.decoder === "remotes"), table = ism || !!st.radio;
+  const ism = (st.decoder === "ism") || (st.decoder === "remotes");
+  const list = st.view === "list", stream = st.view === "stream", table = ism || list || stream || !!st.radio;
   if (table !== document.body.classList.contains("sensors")) {
     document.body.classList.toggle("sensors", table);
     if (!table) map.resize();            // la carte etait masquee
@@ -304,6 +331,15 @@ async function refresh() {
     sensorTable(st);
     return;
   }
+  if (list) {
+    messageTable(st);
+    return;
+  }
+  if (stream) {
+    streamView(st);
+    return;
+  }
+  if (!mapReady) return;                 // carte (et icones) pas encore chargees
   const objs = st.objects || [], station = st.station;
   const feats = [], trails = [];
   for (const o of objs) {
@@ -354,3 +390,8 @@ async function refresh() {
     map.flyTo({ center: [o.lon, o.lat], zoom: Math.max(map.getZoom(), 9) });
   }));
 }
+
+// rafraichissement toutes les 2 s, des le chargement de la page (la carte et ses
+// icones peuvent venir plus tard, ou manquer : fond de carte non installe)
+refresh();
+setInterval(refresh, 2000);

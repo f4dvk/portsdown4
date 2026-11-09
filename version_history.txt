@@ -1,3 +1,12 @@
+202611093
+POCSAG : nouveau decodeur md_pocsag (portage de HTMOD : DPLL, BCH 2 bits, choix texte/numerique au contenu) a la place de
+multimon-ng ; decode les trames faibles, marque les messages a mots non corriges ("2 bad words")
+CW : nouveau decodeur md_cw (tonalite suivie 300-1500 Hz, vitesse estimee 4-60 mots/min, seuil adaptatif), etat tonalite /
+vitesse / S/N dans le bandeau ; option Pitch a la place de Tone
+Ecoute (option Audio, touche Audio pour couper le haut-parleur) pour POCSAG, FLEX, Selcall/DTMF et CW
+Page web : liste des messages (POCSAG, FLEX, ACARS, Selcall, voix numerique) et texte continu (CW, RTTY) a la place de la
+carte ; la page demarre meme sans fond de carte installe
+
 202611092
 Decodeur Remotes : telecommandes de portails, garages, volets, cles de voiture, sonnettes (rtl_433 : KeeLoq, Security+,
 Somfy, Nice, Megacode... + codes fixes CAME, Nice FLO, Holtek comme le Flipper Zero), tableau a l'ecran et sur le web

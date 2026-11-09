@@ -31,19 +31,28 @@ if [ "$MD_HF" == "direct" ] && [ "$(echo "$F < 24" | bc)" == "1" ]; then RTLFM="
 # Audio FM bande etroite a 22050 Hz pour multimon-ng
 fm22()
 {
-  rtl_fm -M fm -f "${F}M" -s 22050 $RTLFM - | $B/md_level -r 22050 -m fm
+  if [ "$MD_OPT_audio" == "on" ]; then
+    # ecoute (option Audio du decodeur, touche Audio pour couper le haut-parleur) :
+    # le meme son FM part vers md_audio (haut-parleur, page web) et le decodeur
+    rtl_fm -M fm -f "${F}M" -s 22050 $RTLFM - | $B/md_level -r 22050 -m fm | tee >($B/md_audio -r 22050 -c 1 >/dev/null 2>&1)
+  else
+    rtl_fm -M fm -f "${F}M" -s 22050 $RTLFM - | $B/md_level -r 22050 -m fm
+  fi
 }
 
 case "$MD_DEC" in
 
 pocsag)
+  # md_pocsag (portage du decodeur de HTMOD) a la place de multimon-ng : sur un
+  # signal faible il decode la ou multimon-ng ne sort que des adresses, et il
+  # choisit texte / numerique au contenu (reseaux SDIS : texte en fonction 0)
   case "$MD_OPT_rate" in
-    512|1200|2400) DEM="-a POCSAG$MD_OPT_rate" ;;
-    *) DEM="-a POCSAG512 -a POCSAG1200 -a POCSAG2400" ;;
+    512|1200|2400) BAUDS="-b $MD_OPT_rate" ;;
+    *) BAUDS="-b 512,1200,2400" ;;
   esac
   TYPE=""
   if [ "$MD_OPT_type" == "alpha" ] || [ "$MD_OPT_type" == "numeric" ]; then TYPE="-f $MD_OPT_type"; fi
-  fm22 | multimon-ng -t raw -c $DEM -e --json -C "${MD_OPT_charset:-US}" $TYPE -
+  fm22 | $B/md_pocsag -r 22050 $BAUDS -C "${MD_OPT_charset:-US}" $TYPE
   ;;
 
 flex)
@@ -65,9 +74,15 @@ selcall)
 
 cw)
   # BLU : la porteuse est decalee de la tonalite choisie (700 Hz par defaut)
+  # md_cw suit la tonalite (300-1500 Hz) et la vitesse de lui-meme ; la
+  # tonalite choisie ne fixe que la place de la porteuse dans l'audio
   TONE=${MD_OPT_tone:-700}
   FT=$(echo "scale=6; $F - $TONE / 1000000" | bc)
-  rtl_fm -M usb -f "${FT}M" -s 22050 $RTLFM - | $B/md_level -r 22050 | multimon-ng -t raw -c -a MORSE_CW -
+  if [ "$MD_OPT_audio" == "on" ]; then
+    rtl_fm -M usb -f "${FT}M" -s 22050 $RTLFM - | $B/md_level -r 22050 | tee >($B/md_audio -r 22050 -c 1 >/dev/null 2>&1) | $B/md_cw -r 22050
+  else
+    rtl_fm -M usb -f "${FT}M" -s 22050 $RTLFM - | $B/md_level -r 22050 | $B/md_cw -r 22050
+  fi
   ;;
 
 aprs)

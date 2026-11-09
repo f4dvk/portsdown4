@@ -283,10 +283,10 @@ job_multidec()
 {
   local s
   s=$(src_sum "$S/multidec" "$S/gui/Graphics.h" "$S/gui/button3d.h" "$S/gui/ffunc.c" "$S/gui/ffunc.h" "$S/gui/font")
-  build_skip multidec "$s" "$B/multidec" "$B/md_level" "$B/md_ft8" "$B/md_audio" "$B/md_fmdemod" && return 0
+  build_skip multidec "$s" "$B/multidec" "$B/md_level" "$B/md_ft8" "$B/md_audio" "$B/md_fmdemod" "$B/md_pocsag" "$B/md_cw" && return 0
   cd "$S/multidec" && make && bj_put multidec "$B" && bj_put md_level "$B" && bj_put md_ft8 "$B" \
-    && bj_put md_audio "$B" && bj_put md_fmdemod "$B" || return 1
-  build_remember multidec "$s" "$B/multidec" "$B/md_level" "$B/md_ft8" "$B/md_audio" "$B/md_fmdemod"
+    && bj_put md_audio "$B" && bj_put md_fmdemod "$B" && bj_put md_pocsag "$B" && bj_put md_cw "$B" || return 1
+  build_remember multidec "$s" "$B/multidec" "$B/md_level" "$B/md_ft8" "$B/md_audio" "$B/md_fmdemod" "$B/md_pocsag" "$B/md_cw"
 }
 
 job_longmynd()

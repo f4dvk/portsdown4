@@ -18,9 +18,11 @@ const md_decoder DECODERS[] = {
   {"pocsag", "POCSAG", "POCSAG", "439.9875", false, V_LIST, P_MULTIMON, O_NONE, true, true,
    {{"rate", "Rate", {"all", "512", "1200", "2400"}, {"All"}, "all"},
     {"charset", "Charset", {"US", "FR", "DE", "SE", "SI"}, {NULL}, "US"},
-    {"type", "Type", {"auto", "alpha", "numeric"}, {"Auto", "Alpha", "Numeric"}, "auto"}, NOOPT}, {{NULL}}},
+    {"type", "Type", {"auto", "alpha", "numeric"}, {"Auto", "Alpha", "Numeric"}, "auto"},
+    {"audio", "Audio", {"off", "on"}, {"OFF", "ON"}, "off"}}, {{NULL}}},
   {"flex", "FLEX", "FLEX", "169.6500", false, V_LIST, P_MULTIMON, O_NONE, true, true,
-   {{"variant", "Decoder", {"FLEX_NEXT", "FLEX"}, {"Next", "Classic"}, "FLEX_NEXT"}, NOOPT, NOOPT, NOOPT}, {{NULL}}},
+   {{"variant", "Decoder", {"FLEX_NEXT", "FLEX"}, {"Next", "Classic"}, "FLEX_NEXT"},
+    {"audio", "Audio", {"off", "on"}, {"OFF", "ON"}, "off"}, NOOPT, NOOPT}, {{NULL}}},
   {"aprs", "APRS", "APRS", "144.800", false, V_OBJ, P_APRS, O_APRS, true, true,
    {{"baud", "Baud", {"1200", "9600"}, {NULL}, "1200"}, NOOPT, NOOPT, NOOPT}, {{NULL}}},
   {"rtty", "RTTY", "RTTY", "434.250", false, V_STREAM, P_MINIMODEM, O_NONE, true, false,
@@ -47,10 +49,10 @@ const md_decoder DECODERS[] = {
    {NOOPT, NOOPT, NOOPT, NOOPT}, {{NULL}}},
   {"selcall", "Selcall^DTMF", "Selcall/DTMF", "145.500", false, V_LIST, P_SELCALL, O_NONE, true, true,
    {{"modes", "Tones", {"zvei1", "zvei2", "zvei3", "ccir", "eea"}, {"DTMF+ZVEI1", "DTMF+ZVEI2", "DTMF+ZVEI3", "DTMF+CCIR", "DTMF+EEA"}, "zvei1"},
-    NOOPT, NOOPT, NOOPT}, {{NULL}}},
+    {"audio", "Audio", {"off", "on"}, {"OFF", "ON"}, "off"}, NOOPT, NOOPT}, {{NULL}}},
   {"cw", "CW", "CW", "144.050", false, V_STREAM, P_CW, O_NONE, true, false,
-   {{"tone", "Tone", {"500", "600", "700", "800"}, {"500 Hz", "600 Hz", "700 Hz", "800 Hz"}, "700"},
-    NOOPT, NOOPT, NOOPT}, {{NULL}}},
+   {{"tone", "Pitch", {"500", "600", "700", "800"}, {"500 Hz", "600 Hz", "700 Hz", "800 Hz"}, "700"},
+    {"audio", "Audio", {"off", "on"}, {"OFF", "ON"}, "off"}, NOOPT, NOOPT}, {{NULL}}},
   // deux rangees de modes sur la meme cle : 5 touches par rangee
   {"dmr", "Digital^Voice", "Digital Voice", "439.400", false, V_LIST, P_DSD, O_NONE, false, false,
    {{"mode", "Mode", {"auto", "dmr", "dpmr", "nxdn48", "dstar"}, {"Auto", "DMR", "dPMR", "NXDN48", "D-STAR"}, "auto"},
@@ -292,8 +294,13 @@ static void parse_multimon(const md_decoder *d, char *ln)
       strip_tags(body);
       if (!body[0]) snprintf(body, sizeof body, "(tone only)");
       clean(body);
-      snprintf(head, sizeof head, "%s   RIC %07.0f   F%.0f   %s", name, isfinite(a) ? a : 0,
-               isfinite(f) ? f : 0, type);
+      {
+        double bad = num(ln, "bad");       // md_pocsag : mots que le BCH n'a pas pu corriger
+        char warn[32] = "";
+        if (isfinite(bad) && (bad > 0)) snprintf(warn, sizeof warn, "   %.0f bad word%s", bad, bad > 1 ? "s" : "");
+        snprintf(head, sizeof head, "%s   RIC %07.0f   F%.0f   %s%s", name, isfinite(a) ? a : 0,
+                 isfinite(f) ? f : 0, type, warn);
+      }
       add(d, C_WHITE, head, body);
       return;
     }
@@ -1250,6 +1257,13 @@ void parse_bytes(const md_decoder *d, const char *buf, int n)
       }
       st[stn] = 0;
       stn = -1;
+      if (d->parser == P_CW)               // md_cw : "### Tone 700 Hz   22 WPM   S/N 18 dB"
+      {
+        snprintf(g_status, sizeof g_status, "%s", st);
+        trim(g_status);
+        g_dirty = true;
+        continue;
+      }
       if (strstr(st, "NOCARRIER"))
       {
         snprintf(g_status, sizeof g_status, "No carrier");
@@ -1266,7 +1280,7 @@ void parse_bytes(const md_decoder *d, const char *buf, int n)
       g_dirty = true;
       continue;
     }
-    if ((d->parser == P_MINIMODEM) && (c == '#'))
+    if (((d->parser == P_MINIMODEM) || (d->parser == P_CW)) && (c == '#'))
     {
       if (++hashes == 3)
       {

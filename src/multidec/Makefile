@@ -13,7 +13,7 @@ FONTS = $(GUI)/font/font.c $(GUI)/font/dejavu_sans_16.c $(GUI)/font/dejavu_sans_
 	$(GUI)/font/dejavu_sans_cbold_22.c $(GUI)/font/dejavu_sans_cbold_24.c $(GUI)/font/dejavu_sans_cbold_28.c
 SRC = multidec.c md_draw.c md_touch.c md_util.c md_dec.c md_aprs_sym.c md_sonde_icon.c
 
-all: multidec md_level md_ft8 md_audio md_fmdemod
+all: multidec md_level md_ft8 md_audio md_fmdemod md_pocsag md_cw
 
 multidec: $(SRC) md.h $(GUI)/Graphics.h $(GUI)/button3d.h $(GUI)/ffunc.c
 	gcc $(CFLAGS) -o multidec $(SRC) $(GUI)/ffunc.c $(FONTS) -lpthread -lm -lfcgi -ldl -rdynamic
@@ -30,5 +30,11 @@ md_audio: md_audio.c
 md_fmdemod: md_fmdemod.c
 	gcc -O2 -Wall -o md_fmdemod md_fmdemod.c -lm
 
+md_pocsag: md_pocsag.c
+	gcc -O2 -Wall -o md_pocsag md_pocsag.c -lm
+
+md_cw: md_cw.c
+	gcc -O2 -Wall -o md_cw md_cw.c -lm
+
 clean:
-	rm -f multidec md_level md_ft8 md_audio md_fmdemod
+	rm -f multidec md_level md_ft8 md_audio md_fmdemod md_pocsag md_cw

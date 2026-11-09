@@ -11,7 +11,7 @@ menus ; **DATV** ramène au Menu 5, **EXIT** au menu principal.
 
 | Touche | Outil | Fréquence par défaut | Vue |
 |---|---|---|---|
-| POCSAG | multimon-ng 1.6.2 | 439,9875 MHz (DAPNET) | messages ; le texte envoyé avec la fonction 0 (SDIS, e*Message), rendu en chiffres par multimon-ng, est re-décodé en clair (« Alpha (F0) ») |
+| POCSAG | md_pocsag (portage en C du décodeur de HTMOD : DPLL, BCH 2 bits, choix texte/numérique au contenu) | 439,9875 MHz (DAPNET) | messages ; décode les trames faibles que multimon-ng manque, et le texte envoyé avec la fonction 0 (SDIS, e*Message) |
 | FLEX | multimon-ng | 169,650 MHz | messages |
 | APRS | direwolf 1.8.1 (1200 / 9600 bauds) | 144,800 MHz | messages, stations + radar |
 | RTTY | minimodem 0.24 | 434,250 MHz | texte continu |
@@ -22,7 +22,7 @@ menus ; **DATV** ramène au Menu 5, **EXIT** au menu principal.
 | ACARS | acarsdec 4.7 | 131,525 / 131,725 / 131,825 MHz | messages |
 | VDL2 | dumpvdl2 2.7 (libacars 2.2) | 136,725 à 136,975 MHz | messages, avions + radar |
 | Selcall DTMF | multimon-ng (DTMF + ZVEI1, 2, 3, CCIR ou EEA) | 145,500 MHz | messages |
-| CW | multimon-ng (tonalité 500 à 800 Hz) | 144,050 MHz | texte continu |
+| CW | md_cw (tonalité suivie de 300 à 1500 Hz, vitesse estimée de 4 à 60 mots/min, seuil adaptatif) | 144,050 MHz | texte continu, tonalité / vitesse / S/N en état |
 | Digital Voice | dsd-fme (auto, DMR, dPMR, NXDN48/96, D-STAR, YSF C4FM, M17, P25 ; voix sur la sortie audio) | 439,400 MHz | messages |
 | FT8 | ft8_lib 2.0 (FT8 / FT4) | 14,074 MHz | messages, stations + carte |
 | WSPR | rtlsdr-wsprd 0.5.7 (envoi à WSPRnet désactivé par défaut) | 14,0956 MHz | messages, stations + carte |
@@ -116,7 +116,10 @@ autour de la station. Pour
 les capteurs ISM 433/868 et les télécommandes (Remotes), sans position, la
 page affiche à la place de la carte un tableau (modèle, identifiant ou code,
 valeurs ou bouton, RSSI, âge, nombre de réceptions). Remotes ne fait que
-recevoir : rien n'est rejoué. En FM RDS et DAB+ : la station ou le multiplex, l'heure reçue
+recevoir : rien n'est rejoué. Les décodeurs à messages (POCSAG, FLEX, ACARS,
+Selcall, voix numérique) donnent la liste de l'écran (heure, en-tête,
+message), et CW / RTTY leur texte continu avec l'état du décodeur (tonalité,
+vitesse, S/N). En FM RDS et DAB+ : la station ou le multiplex, l'heure reçue
 et l'écart de l'horloge du Pi, les stations ou les services ; en DAB+, ▶
 fait écouter un service dans le navigateur (flux MP3 de welle-cli, port 7979).
 Aucune ressource Internet n'est utilisée : le fond de carte OpenStreetMap
@@ -142,7 +145,7 @@ Autre zone ou autre détail :
 ```
 rpidatvgui (Menu 5) --152--> scheduler.sh --> multidec --129/205--> rpidatvgui
 multidec --> run_decoder.sh <décodeur> (groupe de processus à part)
-             rtl_fm | md_level | multimon-ng ...   (sortie lue par multidec)
+             rtl_fm | md_level | md_pocsag ...    (sortie lue par multidec)
 multidec --> /dev/shm/multidec/state.json --> nginx --> carte web
 ```
 
@@ -192,6 +195,8 @@ WSPR (auto-test de rtlsdr_wsprd).
 
 Sur l'air (antenne au-dessus de 300 MHz) : ADS-B (25 avions, ~17 000
 messages/min), capteur 433 MHz Acurite-606TX, AIS (station côtière et
-navire), VDL2, APRS (F4DVK-7).
+navire), VDL2, APRS (F4DVK-7), POCSAG 512 bauds (réseau SDIS 173,7 MHz,
+texte en fonction 0 : sur un enregistrement de 12 min à 1 dB au-dessus du
+souffle, md_pocsag décode 7 messages corrects, multimon-ng aucun).
 
 Non essayés sur l'air : radiosondes, ACARS, DMR/NXDN, FT8/WSPR en HF, CW.
