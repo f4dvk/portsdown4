@@ -1,3 +1,8 @@
+202611092
+Decodeur Remotes : telecommandes de portails, garages, volets, cles de voiture, sonnettes (rtl_433 : KeeLoq, Security+,
+Somfy, Nice, Megacode... + codes fixes CAME, Nice FLO, Holtek comme le Flipper Zero), tableau a l'ecran et sur le web
+POCSAG : le texte envoye avec la fonction 0 (SDIS, e*Message), rendu en chiffres, est re-decode en clair ("Alpha (F0)")
+
 202611091
 ADS-B : la vue List affiche les avions recus (apparition, puis indicatif), au lieu de "Waiting for signals..."
 

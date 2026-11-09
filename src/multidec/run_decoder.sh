@@ -200,6 +200,27 @@ ism)
   exec $LB rtl_433 $FOPT -p $PPM $G -F json -M level -M time:iso
   ;;
 
+remotes)
+  # Telecommandes : portails, garages, volets, cles de voiture, sonnettes.
+  # Protocoles de rtl_433 25.12 (numeros de cette version, voir rtl_433 -R help),
+  # codes tournants compris (KeeLoq, Security+, Somfy...), et en decodeurs
+  # "flex" les codes fixes que lit le Flipper Zero, avec les durees de son
+  # firmware : CAME (320/640 us), Nice FLO (700/1400), Holtek HT12 (430/870) ;
+  # Princeton / EV1527 est natif (30). invert=1 : meme sens de bits que le
+  # Flipper (impulsion longue = 1). Reception seulement.
+  R="-R 1 -R 4 -R 14 -R 15 -R 24 -R 30 -R 46 -R 48 -R 51 -R 61 -R 62 -R 64 -R 93 -R 101 -R 115 -R 116 -R 128"
+  R="$R -R 131 -R 164 -R 167 -R 169 -R 178 -R 187 -R 189 -R 191 -R 199 -R 207 -R 211 -R 218 -R 227 -R 286"
+  if [ "$MD_OPT_set" == "alarm" ]; then      # + detecteurs d'alarme (ouverture, mouvement, claviers)
+    R="$R -R 23 -R 29 -R 68 -R 70 -R 87 -R 99 -R 100 -R 102 -R 148 -R 192 -R 204 -R 209 -R 210 -R 258 -R 266"
+  fi
+  X="-X n=CAME,m=OOK_PWM,s=320,l=640,r=2500,t=100,bits>=12,bits<=25,invert=1"
+  X="$X -X n=Nice-FLO,m=OOK_PWM,s=700,l=1400,r=5000,t=200,bits>=12,bits<=13,invert=1"
+  X="$X -X n=Holtek-HT12,m=OOK_PWM,s=430,l=870,r=3000,t=100,bits>=12,bits<=13,invert=1"
+  G=""
+  if [ "$GAIN" != "auto" ]; then G="-g $GAIN"; fi
+  exec $LB rtl_433 -f ${F}M -p $PPM $G $R $X -F json -M level -M time:iso
+  ;;
+
 ais)
   G=""
   if [ "$GAIN" != "auto" ]; then G="-gr TUNER $GAIN"; fi

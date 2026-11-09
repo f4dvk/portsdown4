@@ -66,6 +66,12 @@ const md_decoder DECODERS[] = {
    {{"audio", "Audio", {"off", "on"}, {"OFF", "ON"}, "off"}, NOOPT, NOOPT, NOOPT}, {{NULL}}},
   {"dab", "DAB+", "DAB+", "201.072", false, V_RADIO, P_DAB, O_SERVICE, false, false,
    {NOOPT, NOOPT, NOOPT, NOOPT}, {{NULL}}},
+  // telecommandes (portails, garages, volets, cles de voiture, sonnettes) : les
+  // protocoles de rtl_433 et, en decodeurs "flex", les codes fixes du Flipper
+  // Zero ; meme tableau que les capteurs ISM
+  {"remotes", "Remotes", "Remotes", "433.920", false, V_SENSOR, P_RTL433, O_SENSOR, false, false,
+   {{"freq", "Band", {"433.920", "868.350", "315.000", "390.000"}, {"433.92", "868.35", "315.00", "390.00"}, "433.920"},
+    {"set", "Set", {"remotes", "alarm"}, {"Remotes", "+ alarm sensors"}, "remotes"}, NOOPT, NOOPT}, {{NULL}}},
 };
 const int NDECODERS = sizeof DECODERS / sizeof DECODERS[0];
 
@@ -212,6 +218,44 @@ static bool is_call(const char *s)
 static char dtmf_seq[64];
 static time_t dtmf_last;
 
+// Message POCSAG "numerique" (fonction 0) qui est en realite du texte :
+// certains reseaux (SDIS sur 173,7 MHz, e*Message...) envoient l'alpha-
+// numerique avec la fonction 0, et multimon-ng le rend en chiffres
+// ("147.3U.  02539[47..."). Ces chiffres sont les quartets du message tels
+// quels (table de multimon-ng) : on les reassemble en mots de 7 bits (poids
+// faible en tete) et on garde le texte s'il est nettement plus vraisemblable,
+// avec les notes de multimon-ng (numerique : U -10, [ ] -5, espace . - -2 ;
+// texte : lettres +1, ponctuation -2, caracteres de commande -5).
+static bool numeric_to_alpha(const char *num, char *out, int size)
+{
+  static const char *conv = "084 2.6]195-3U7[";
+  unsigned acc = 0;
+  int nbits = 0, i, k = 0, sn = 0, sa = 0, zeros = 0;
+  for (i = 0; num[i]; i++)
+  {
+    const char *q = strchr(conv, num[i]);
+    if (!q) return false;
+    acc = (acc << 4) | (unsigned)(q - conv);
+    nbits += 4;
+    sn += (num[i] == 'U') ? -10 : ((num[i] == '[') || (num[i] == ']')) ? -5 :
+          ((num[i] == ' ') || (num[i] == '.') || (num[i] == '-')) ? -2 : (i < 10 ? 5 : 0);
+    while (nbits >= 7)
+    {
+      unsigned v = (acc >> (nbits - 7)) & 0x7f, c = 0;
+      int b;
+      nbits -= 7;
+      for (b = 0; b < 7; b++) if (v & (1u << b)) c |= 1u << (6 - b);
+      if (c == 0) { zeros++; continue; }       // bourrage en fin de message
+      sa += ((c < 32) || (c == 127)) ? -5 :
+            (((c > 32) && (c < 48)) || ((c > 57) && (c < 65)) || ((c > 90) && (c < 97)) || ((c > 122) && (c < 127))) ? -2 : 1;
+      if (k < size - 1) out[k++] = ((c >= 32) && (c < 127)) ? (char)c : ' ';
+    }
+  }
+  out[k] = 0;
+  trim(out);
+  return (k >= 4) && (sa >= 20) && (sa > sn) && (zeros <= 2);
+}
+
 static void parse_multimon(const md_decoder *d, char *ln)
 {
   char head[100], body[600], name[32] = "", v[600];
@@ -235,7 +279,16 @@ static void parse_multimon(const md_decoder *d, char *ln)
       const char *type = "Tone";
       body[0] = 0;
       if (json_str(ln, "alpha", body, sizeof body)) type = "Alpha";
-      else if (json_str(ln, "numeric", body, sizeof body)) type = "Numeric";
+      else if (json_str(ln, "numeric", body, sizeof body))
+      {
+        char txt[600];
+        type = "Numeric";
+        if (strcmp(conf_get(ckey(d, "type"), "auto"), "numeric") && numeric_to_alpha(body, txt, sizeof txt))
+        {
+          snprintf(body, sizeof body, "%s", txt);
+          type = "Alpha (F0)";                 // texte envoye avec la fonction 0
+        }
+      }
       strip_tags(body);
       if (!body[0]) snprintf(body, sizeof body, "(tone only)");
       clean(body);
@@ -530,8 +583,8 @@ static void poll_adsb(const md_decoder *d)
 static void parse_rtl433(const md_decoder *d, char *ln)
 {
   static const char *skip[] = {"time", "model", "id", "channel", "mod", "freq", "freq1", "freq2", "rssi",
-                               "snr", "noise", "mic", "protocol", "subtype", NULL};
-  char model[48] = "", id[24] = "", ch[12] = "", key[160], head[100], body[600] = "", info[96] = "";
+                               "snr", "noise", "mic", "protocol", "subtype", "codes", "rows", "count", "num_rows", NULL};
+  char model[48] = "", id[24] = "", ch[12] = "", key[160], head[100], body[600] = "", info[96] = "", bits[16] = "";
   const char *p;
   md_obj *o;
   double v;
@@ -540,6 +593,20 @@ static void parse_rtl433(const md_decoder *d, char *ln)
     return;
   }
   json_str(ln, "id", id, sizeof id);
+  if (!id[0])                                  // decodeur flex (telecommande a code fixe) : le code est l'identite
+  {
+    const char *c = json_find(ln, "codes", NULL);   // "codes":["{24}1a2b3c", ...]
+    if (c && (*c == '['))
+    {
+      const char *q = strchr(c, '"');
+      const char *b = q ? strchr(q, '}') : NULL, *e = q ? strchr(q + 1, '"') : NULL;
+      if (q && b && e && (q[1] == '{') && (b < e))
+      {
+        snprintf(bits, sizeof bits, "%.*s bits", (int)(b - q - 2), q + 2);
+        snprintf(id, sizeof id, "%.*s", (int)(e - b - 1), b + 1);
+      }
+    }
+  }
   json_str(ln, "channel", ch, sizeof ch);
   snprintf(key, sizeof key, "%s %s%s%s", model, id, ch[0] ? "/" : "", ch);
   o = obj_get(O_SENSOR, key);
@@ -576,6 +643,7 @@ static void parse_rtl433(const md_decoder *d, char *ln)
   // resume en clair d'abord (temperature, humidite, pile), puis le reste
   {
     char sum[96] = "", one[40];
+    if (bits[0]) { snprintf(one, sizeof one, "%s  ", bits); strcat(sum, one); }
     if (isfinite(o->temp)) { snprintf(one, sizeof one, "%.1f C  ", o->temp); strcat(sum, one); }
     if (isfinite(o->hum)) { snprintf(one, sizeof one, "%.0f %%  ", o->hum); strcat(sum, one); }
     if (isfinite(o->batt)) strcat(sum, o->batt > 0 ? "batt OK  " : "batt LOW  ");
@@ -596,7 +664,7 @@ static void parse_rtl433(const md_decoder *d, char *ln)
   }
   snprintf(head, sizeof head, "%s   id %s%s%s   %.1f dB", model, id, ch[0] ? "  ch " : "", ch,
            isfinite(o->snr) ? o->snr : 0.0);
-  add(d, C_WHITE, head, body[0] ? body : "-");
+  add(d, C_WHITE, head, body[0] ? body : (bits[0] ? bits : "-"));
 }
 
 // ---------------------------------------------------------------- AIS (AIS-catcher, JSON)

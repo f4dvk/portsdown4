@@ -1182,8 +1182,9 @@ static void draw_sensors(void)
 {
   int idx[OBJ_MAX], n = sorted_objs(idx, OBJ_MAX), i, y = 120;
   char s[120];
-  draw_text(10, 96, F_C16, C_HEAD, 0, "Sensor");
-  draw_text(240, 96, F_C16, C_HEAD, 0, "Values");
+  bool rem = !strcmp(dec->key, "remotes");
+  draw_text(10, 96, F_C16, C_HEAD, 0, rem ? "Remote" : "Sensor");
+  draw_text(240, 96, F_C16, C_HEAD, 0, rem ? "Button, code" : "Values");
   draw_text(600, 96, F_C16, C_HEAD, 2, "Age");
   draw_text(640, 96, F_C16, C_HEAD, 2, "Nb");
   for (i = 0; i < n && y < 470; i++, y += 30)

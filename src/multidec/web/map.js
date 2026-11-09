@@ -194,18 +194,20 @@ function age(s) { return s < 60 ? s + " s" : (s < 3600 ? Math.round(s / 60) + " 
 // valeurs (separees par deux espaces dans "info") en pastilles
 function sensorTable(st) {
   const ss = (st.sensors || []).slice().sort((a, b) => a.age - b.age);
-  const sub = (st.running ? "Receiving on " + st.freq + " MHz" : "Receiver stopped") + " · " + ss.length + " sensor" +
+  const rem = st.decoder === "remotes", what = rem ? "remote" : "sensor";
+  const sub = (st.running ? "Receiving on " + st.freq + " MHz" : "Receiver stopped") + " · " + ss.length + " " + what +
     (ss.length === 1 ? "" : "s");
   document.getElementById("stitle").textContent = "Multi Decoder : " + st.title;
   document.getElementById("ssub").textContent = sub;
-  setHead('<th>Sensor</th><th>ID</th><th>Values</th><th class="num opt">RSSI dB</th><th class="num">Age</th>' +
+  setHead("<th>" + (rem ? "Remote" : "Sensor") + "</th><th>" + (rem ? "Code" : "ID") + "</th><th>" +
+          (rem ? "Button, counter" : "Values") + '</th><th class="num opt">RSSI dB</th><th class="num">Age</th>' +
           '<th class="num opt">Count</th>');
   document.getElementById("sbody").innerHTML = ss.length ? ss.map((s) =>
     "<tr><td><b>" + esc(s.model) + "</b></td><td>" + esc(s.id) + "</td><td>" +
     String(s.info || "").split(/\s{2,}/).filter(Boolean).map((v) => '<span class="val">' + esc(v) + "</span>").join("") +
     '</td><td class="num opt">' + (s.rssi !== undefined ? s.rssi.toFixed(1) : "") + '</td><td class="num">' + age(s.age) +
     '</td><td class="num opt">' + s.count + "</td></tr>").join("") :
-    '<tr><td colspan="6" class="none">No sensor received yet</td></tr>';
+    '<tr><td colspan="6" class="none">No ' + what + ' received yet</td></tr>';
 }
 
 function setHead(html) {
@@ -287,7 +289,7 @@ async function refresh() {
   }
   // capteurs ISM 433/868 et radio (RDS, DAB+) : pas de position, un tableau a
   // la place de la carte
-  const ism = st.decoder === "ism", table = ism || !!st.radio;
+  const ism = (st.decoder === "ism") || (st.decoder === "remotes"), table = ism || !!st.radio;
   if (table !== document.body.classList.contains("sensors")) {
     document.body.classList.toggle("sensors", table);
     if (!table) map.resize();            // la carte etait masquee

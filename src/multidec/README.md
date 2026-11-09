@@ -11,7 +11,7 @@ menus ; **DATV** ramène au Menu 5, **EXIT** au menu principal.
 
 | Touche | Outil | Fréquence par défaut | Vue |
 |---|---|---|---|
-| POCSAG | multimon-ng 1.6.2 | 439,9875 MHz (DAPNET) | messages |
+| POCSAG | multimon-ng 1.6.2 | 439,9875 MHz (DAPNET) | messages ; le texte envoyé avec la fonction 0 (SDIS, e*Message), rendu en chiffres par multimon-ng, est re-décodé en clair (« Alpha (F0) ») |
 | FLEX | multimon-ng | 169,650 MHz | messages |
 | APRS | direwolf 1.8.1 (1200 / 9600 bauds) | 144,800 MHz | messages, stations + radar |
 | RTTY | minimodem 0.24 | 434,250 MHz | texte continu |
@@ -28,6 +28,7 @@ menus ; **DATV** ramène au Menu 5, **EXIT** au menu principal.
 | WSPR | rtlsdr-wsprd 0.5.7 (envoi à WSPRnet désactivé par défaut) | 14,0956 MHz | messages, stations + carte |
 | FM RDS | redsea 1.3.1 (écoute FM en option) | 106,7 MHz, balayage 87,5-108 MHz | station, radiotexte, heure + stations |
 | DAB+ | welle-cli (welle.io 2.7) | 201,072 MHz (8D), balayage de la bande III | multiplex, heure + services |
+| Remotes | rtl_433 (KeeLoq, Security+, Somfy, Nice, Megacode, clés de voiture, sonnettes… + codes fixes CAME, Nice FLO, Holtek, Princeton comme le Flipper Zero) | 433,92 / 868,35 / 315 / 390 MHz | télécommandes (code, bouton, compteur) |
 
 Pour le HF (RTTY, CW, FT8, WSPR) : RTL-SDR Blog V4 (reconnue par la librtlsdr
 de Portsdown), ou échantillonnage direct (Config → HF input → Direct Q).
@@ -112,9 +113,10 @@ radiosonde toutes les 30 s).
 stations APRS (icônes APRS, sur la carte et dans la liste), FT8 et WSPR,
 radiosonde (ballon, parachute et sonde) et sa trajectoire, cercles de distance
 autour de la station. Pour
-les capteurs ISM 433/868, sans position, la page affiche à la place de la
-carte un tableau (modèle, identifiant, valeurs, RSSI, âge, nombre de
-réceptions). En FM RDS et DAB+ : la station ou le multiplex, l'heure reçue
+les capteurs ISM 433/868 et les télécommandes (Remotes), sans position, la
+page affiche à la place de la carte un tableau (modèle, identifiant ou code,
+valeurs ou bouton, RSSI, âge, nombre de réceptions). Remotes ne fait que
+recevoir : rien n'est rejoué. En FM RDS et DAB+ : la station ou le multiplex, l'heure reçue
 et l'écart de l'horloge du Pi, les stations ou les services ; en DAB+, ▶
 fait écouter un service dans le navigateur (flux MP3 de welle-cli, port 7979).
 Aucune ressource Internet n'est utilisée : le fond de carte OpenStreetMap
