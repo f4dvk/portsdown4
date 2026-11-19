@@ -1,3 +1,6 @@
+202611190
+Amelioration SSTV (filtre)
+
 202611093
 POCSAG : nouveau decodeur md_pocsag (portage de HTMOD : DPLL, BCH 2 bits, choix texte/numerique au contenu) a la place de
 multimon-ng ; decode les trames faibles, marque les messages a mots non corriges ("2 bad words")

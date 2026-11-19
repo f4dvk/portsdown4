@@ -39,9 +39,15 @@ void c_sstv_decoder ::sample_to_pixel(uint16_t& x, uint16_t& y, uint8_t& colour,
   // martin and scottie colour order is g-b-r, map to r-g-b
   const uint8_t colourmap[4] = {1, 2, 0, 4};
 
+  // Calage horizontal (F4DVK, 2026-11-18). Les « delais de detection »
+  // d'origine placaient l'image 3 a 8 points trop a droite : la colonne de
+  // gauche montrait le top de synchro et son palier (liseré magenta ou vert),
+  // et le bord droit manquait. Valeurs mesurees sur des mires calculees
+  // (Sarsat_RD-55/tests/sstv_tx, bords des barres de couleur a mi-hauteur),
+  // a la cadence de ce recepteur (15 kHz) ; elles tiennent aussi compte du
+  // palier apres le top, que le calcul ci-dessous ne retranche pas.
   if (decode_mode == martin_m1 || decode_mode == martin_m2) {
-    // approximate delay of sync detection
-    image_sample += m_scale * m_Fs * 2.0 / 1000.0;
+    image_sample += m_scale * m_Fs * 0.61 / 1000.0;
 
     image_sample -= modes[decode_mode].samples_per_hsync;
     if (image_sample < 0) {
@@ -59,6 +65,7 @@ void c_sstv_decoder ::sample_to_pixel(uint16_t& x, uint16_t& y, uint8_t& colour,
     x = image_sample / modes[decode_mode].samples_per_pixel;
 
   } else if (decode_mode == robot36) {
+    image_sample -= m_scale * m_Fs * 1.30 / 1000.0;
     image_sample -= modes[decode_mode].samples_per_hsync;
     if (image_sample < 0) {
       // return colour 4 for non-displayable pixels (e.g. during hsync)
@@ -159,8 +166,7 @@ void c_sstv_decoder ::sample_to_pixel(uint16_t& x, uint16_t& y, uint8_t& colour,
 
   else if (decode_mode == scottie_s1 || decode_mode == scottie_s2 || decode_mode == scottie_dx) {
 
-    // approximate delay of sync detection
-    image_sample += m_scale * m_Fs * 1.0 / 1000.0;
+    image_sample -= m_scale * m_Fs * 0.29 / 1000.0;
 
     // with scottie, sync id mid-line between blue and red.
     // subtract the red period to sync to next full line
@@ -204,8 +210,7 @@ void c_sstv_decoder ::sample_to_pixel(uint16_t& x, uint16_t& y, uint8_t& colour,
            decode_mode == pd_180) {
     static const uint8_t colourmap2[5] = {0, 1, 2, 3, 4};
 
-    // approximate delay of sync detection
-    image_sample += m_scale * m_Fs * 1.0 / 1000.0;
+    image_sample -= m_scale * m_Fs * 0.85 / 1000.0;
 
     image_sample -= modes[decode_mode].samples_per_hsync;
     if (image_sample < 0) {
@@ -300,7 +305,7 @@ c_sstv_decoder ::c_sstv_decoder(float Fs)
     const uint16_t width = 320;
     const float hsync_pulse_ms = 4.862;
     const float colour_gap_ms = 0.572;
-    const float colour_time_ms = 146.342;
+    const float colour_time_ms = 146.432;   // et non 146.342 : les trois couleurs se decalaient l'une de l'autre
     modes[martin_m1].width = width;
     modes[martin_m1].samples_per_line =
         scale * Fs * ((colour_time_ms * 3) + (colour_gap_ms * 4) + hsync_pulse_ms) / 1000.0;

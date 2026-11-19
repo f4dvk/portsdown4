@@ -18,7 +18,7 @@ Chaine de traitement :
     -> filtre + decimation (freq_xlating_fir_filter_ccc)         -> 32 kHz IQ
          |-> demod USB (filtre bande complexe + partie reelle)  --\
          |-> demod LSB (filtre bande complexe + partie reelle)  ---> selector -> resampleur 15 kHz -> stdout (PCM 16 bits)
-         |-> demod FM  (quadrature_demod_cf)                    --/
+         |-> demod FM  (nbfm_rx, puis passe-haut 300 Hz)        --/
          |-> spectre local (logpwrfft) -> UDP (port spectre)
 
 L'audio demodule est aussi envoye vers la sortie son du Raspberry Pi (ecoute
@@ -150,6 +150,15 @@ class RxTopBlock(gr.top_block):
         # etroit comme le SSTV ISS.
         self.fm_demod = analog.nbfm_rx(audio_rate=IF_RATE, quad_rate=IF_RATE,
                                         tau=75e-6, max_dev=5e3)
+        # Passe-haut derriere le discriminateur (F4DVK, 2026-11-18). Un
+        # recepteur qui n'est pas exactement sur la porteuse sort un audio
+        # FM decale d'une composante continue, proportionnelle a l'ecart ; le
+        # decodeur SSTV y est tres sensible : 200 Hz d'ecart (moins que la
+        # zone morte de l'AFC) suffisent a strier toute l'image de fines
+        # barres verticales, 1500 Hz a ne plus rien decoder. Tout ce qui sert
+        # au decodeur est au-dessus de 600 Hz (voir la bande USB plus haut).
+        fm_hp_taps = firdes.high_pass(1, IF_RATE, 300, 200, firdes.WIN_HAMMING, 6.76)
+        self.fm_highpass = gr_filter.fir_filter_fff(1, fm_hp_taps)
         self.fm_agc = analog.agc2_ff(0.1, 0.01, 0.6, 1.0)
 
         # -- selection du mode actif (meme bloc que Langstone : grc_blks2.selector) --
@@ -199,7 +208,7 @@ class RxTopBlock(gr.top_block):
         self.connect(self.xlate, self.lsb_filter, self.lsb_to_real, self.lsb_agc)
         self.connect((self.lsb_agc, 0), (self.selector, 1))
 
-        self.connect(self.xlate, self.fm_demod, self.fm_agc)
+        self.connect(self.xlate, self.fm_demod, self.fm_highpass, self.fm_agc)
         self.connect((self.fm_agc, 0), (self.selector, 2))
 
         self.connect(self.selector, self.resampler, self.to_short, self.audio_out)
