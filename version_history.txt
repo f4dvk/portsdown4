@@ -1,3 +1,7 @@
+202611220
+SSTV View : planche de miniatures et vue plein ecran reconstruites meme si ImageMagick ne trouve pas la police FreeSans
+(convert tente avec puis sans la police) ; message clair et log /home/pi/tmp/sstv_gallery.log au lieu de "loading failed"
+
 202611190
 Amelioration SSTV (filtre)
 
