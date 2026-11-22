@@ -18918,7 +18918,15 @@ void do_SSTVView()
         TextMid2(wscreen / 2, hscreen / 2, "Loading SSTV images...", &font_dejavu_sans_32);
         UpdateWeb();
 
-        snprintf(cmd, sizeof(cmd), "convert -size 800x480 xc:black -font FreeSans");
+        system("mkdir -p /home/pi/tmp");
+
+        // Corps de la commande (vignettes + libelles), sans le prefixe
+        // "convert ... -font ..." : il est essaye avec FreeSans puis sans,
+        // car certaines images Buster n'ont pas cette police enregistree
+        // dans ImageMagick et "convert" echoue alors entierement -> pas de
+        // JPG -> fbi affiche "loading failed" sur un ecran noir.
+        char body[4096];
+        body[0] = '\0';
         for (i = 0; i < n; i++)
         {
           SSTVImageDate(Files[i], label, sizeof(label), false);
@@ -18928,7 +18936,7 @@ void do_SSTVView()
                    " -fill white -pointsize 16 -annotate +0+2 \"%s\" \\)"
                    " -gravity NorthWest -geometry +%d+%d -composite",
                    Files[i], label, (i % 5) * SSTV_CELL_W + 4, SSTV_ROW0_Y + (i / 5) * SSTV_ROW_PITCH);
-          strncat(cmd, part, sizeof(cmd) - strlen(cmd) - 1);
+          strncat(body, part, sizeof(body) - strlen(body) - 1);
         }
         snprintf(part, sizeof(part),
                  " -gravity NorthWest -fill white -pointsize 26 -annotate +12+6 \"SSTV Received Images (%d)\""
@@ -18936,8 +18944,29 @@ void do_SSTVView()
                  " -fill \"rgb(0,0,128)\" -draw \"rectangle 640,400 780,460\""
                  " -fill white -pointsize 30 -annotate +681+412 \"Exit\""
                  " -quality 90 " SSTV_GALLERY_JPG, n);
-        strncat(cmd, part, sizeof(cmd) - strlen(cmd) - 1);
-        system(cmd);
+        strncat(body, part, sizeof(body) - strlen(body) - 1);
+
+        const char *fontopt[2] = { " -font FreeSans", "" };
+        char gcmd[8192];
+        bool galleryOk = false;
+        for (int f = 0; (f < 2) && !galleryOk; f++)
+        {
+          struct stat gst;
+          unlink(SSTV_GALLERY_JPG);
+          snprintf(gcmd, sizeof(gcmd),
+                   "convert -size 800x480 xc:black%s%s 2>/home/pi/tmp/sstv_gallery.log",
+                   fontopt[f], body);
+          system(gcmd);
+          galleryOk = (stat(SSTV_GALLERY_JPG, &gst) == 0) && (gst.st_size > 0);
+        }
+
+        if (!galleryOk)
+        {
+          MsgBox4("SSTV gallery build failed", "ImageMagick convert error",
+                  "See /home/pi/tmp/sstv_gallery.log", "Touch Screen to Continue");
+          wait_touch();
+          break;
+        }
         GalleryBuilt = true;
       }
 
@@ -18966,18 +18995,28 @@ void do_SSTVView()
     else                        // Plein ecran
     {
       SSTVImageDate(Files[Selected], label, sizeof(label), true);
-      snprintf(cmd, sizeof(cmd),
-               "convert -size 800x480 xc:black -font FreeSans"
-               " \\( %s -resize 800x408 \\) -gravity North -geometry +0+34 -composite"
-               " -gravity NorthWest -fill white -pointsize 22 -annotate +12+4 \"SSTV  %d/%d   %s\""
-               " -fill \"rgb(0,0,64)\" -draw \"rectangle 0,444 799,479\""
-               " -fill white -pointsize 22 -gravity SouthWest -annotate +16+6 \"< Previous\""
-               " -gravity South -annotate +0+6 \"Back to list\""
-               " -gravity SouthEast -annotate +16+6 \"Next >\""
-               " -fill grey40 -draw \"line 266,446 266,477\" -draw \"line 533,446 533,477\""
-               " -quality 90 " SSTV_VIEW_JPG,
-               Files[Selected], Selected + 1, n, label);
-      system(cmd);
+      {
+        char vbody[2048];
+        snprintf(vbody, sizeof(vbody),
+                 " \\( %s -resize 800x408 \\) -gravity North -geometry +0+34 -composite"
+                 " -gravity NorthWest -fill white -pointsize 22 -annotate +12+4 \"SSTV  %d/%d   %s\""
+                 " -fill \"rgb(0,0,64)\" -draw \"rectangle 0,444 799,479\""
+                 " -fill white -pointsize 22 -gravity SouthWest -annotate +16+6 \"< Previous\""
+                 " -gravity South -annotate +0+6 \"Back to list\""
+                 " -gravity SouthEast -annotate +16+6 \"Next >\""
+                 " -fill grey40 -draw \"line 266,446 266,477\" -draw \"line 533,446 533,477\""
+                 " -quality 90 " SSTV_VIEW_JPG,
+                 Files[Selected], Selected + 1, n, label);
+        const char *fontopt[2] = { " -font FreeSans", "" };
+        struct stat vst;
+        for (int f = 0; f < 2; f++)
+        {
+          unlink(SSTV_VIEW_JPG);
+          snprintf(cmd, sizeof(cmd), "convert -size 800x480 xc:black%s%s", fontopt[f], vbody);
+          system(cmd);
+          if ((stat(SSTV_VIEW_JPG, &vst) == 0) && (vst.st_size > 0)) break;
+        }
+      }
 
       SSTVShowImage(SSTV_VIEW_JPG);
       SSTVWaitTouch(&tx, &ty);
